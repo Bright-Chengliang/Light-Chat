@@ -1,0 +1,16 @@
+.data/
+.logs/
+.run/
+.secrets/
+.playwright-cli/
+output/
+node_modules/
+tmp/
+.QuickSSH/
+light-chat*.log
+*.local
+android/.gradle/
+android/.idea/
+android/local.properties
+android/**/build/
+android/*.iml

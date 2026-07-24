@@ -1,0 +1,62 @@
+plugins {
+    id 'com.android.application'
+}
+
+def serviceUrl = providers.gradleProperty('LIGHT_CHAT_BASE_URL')
+        .orElse('https://chat.example.com/')
+        .get()
+def serviceUri = new URI(serviceUrl)
+if (serviceUri.scheme != 'https' || !serviceUri.host || serviceUri.userInfo != null || (serviceUri.port != -1 && serviceUri.port != 443)) {
+    throw new GradleException('LIGHT_CHAT_BASE_URL 必须是无用户信息、标准 HTTPS 端口的绝对地址')
+}
+
+android {
+    namespace 'top.brightcl.lightchat'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'top.brightcl.lightchat'
+        minSdk 29
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+
+        buildConfigField 'String', 'BASE_URL', '"' + serviceUrl + '"'
+        buildConfigField 'String', 'TRUSTED_HOST', '"' + serviceUri.host.toLowerCase(Locale.ROOT) + '"'
+        testInstrumentationRunner 'android.test.InstrumentationTestRunner'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds true
+        warningsAsErrors false
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}

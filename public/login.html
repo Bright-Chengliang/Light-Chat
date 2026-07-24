@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f6f2">
+  <meta name="description" content="Light-Chat 安全登录">
+  <title>登录 · Light-Chat</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css?v=20260719-long-nav1">
+  <script src="/login.js?v=20260719-remember2" defer></script>
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-story" aria-labelledby="loginBrandTitle">
+      <div class="login-brand">
+        <span class="brand-seal" aria-hidden="true">⚡</span>
+        <span>Light-Chat</span>
+      </div>
+      <p class="eyebrow">Private AI workspace</p>
+      <h1 id="loginBrandTitle">便捷、快速、美观</h1>
+      <p>面向私人使用的多模型工作台，支持历史消息编辑、快速分支、模型切换与多版本重新生成。访问凭据由服务端安全保管，对话历史保存在<span class="keep-together">当前浏览器</span>。</p>
+      <ul class="trust-list" aria-label="安全说明">
+        <li><span>01</span> 独立账户与权限隔离</li>
+        <li><span>02</span> 历史编辑、快速分支与多版本回答</li>
+        <li><span>03</span> 对话、生图模型与多媒体快速切换</li>
+      </ul>
+    </section>
+
+    <section class="login-card" aria-labelledby="loginTitle">
+      <div class="login-card-heading">
+        <span class="login-mobile-seal brand-seal" aria-hidden="true">⚡</span>
+        <p class="eyebrow">Welcome back</p>
+        <h2 id="loginTitle">进入工作台</h2>
+        <p>请输入管理员用户名和密码。</p>
+      </div>
+      <form id="loginForm" autocomplete="off" novalidate>
+        <label>
+          <span>用户名</span>
+          <input id="usernameInput" name="light_chat_account" autocomplete="off" maxlength="64" required autofocus>
+        </label>
+        <label>
+          <span>密码</span>
+          <input id="passwordInput" name="light_chat_credential" type="password" autocomplete="off" maxlength="128" required>
+        </label>
+        <label class="remember-login-option">
+          <input id="rememberLoginInput" type="checkbox">
+          <span><strong>记住此站点</strong><small>安全保持登录 30 天，重启后无需再次输入密码</small></span>
+        </label>
+        <p class="form-status" id="loginStatus" role="alert">安全会话准备中…</p>
+        <button class="primary-button login-submit" id="loginButton" type="submit" disabled>
+          <span>登录</span><span aria-hidden="true">→</span>
+        </button>
+      </form>
+      <p class="login-footnote"><span aria-hidden="true">●</span> 仅通过加密隧道或本机回环访问</p>
+    </section>
+  </main>
+</body>
+</html>

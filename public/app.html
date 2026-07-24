@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f6f2">
+  <meta name="description" content="Light-Chat 私有多模型对话工作台">
+  <title>Light-Chat</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/vendor/katex/katex.min.css?v=0.18.0">
+  <link rel="stylesheet" href="/styles.css?v=20260724-workflows3">
+  <script src="/vendor/katex/katex.min.js?v=0.18.0" defer></script>
+  <script src="/vendor/katex/auto-render.min.js?v=0.18.0" defer></script>
+  <script src="/app.js?v=20260724-workflows5" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="sidebar-backdrop" id="sidebarBackdrop" hidden></div>
+    <aside class="sidebar" id="sidebar" aria-label="对话导航">
+      <div class="sidebar-top">
+        <a class="brand" href="/app" aria-label="Light-Chat 首页">
+          <span class="brand-seal" aria-hidden="true">⚡</span>
+          <span class="brand-name">Light-Chat</span>
+          <span class="brand-badge">LOCAL</span>
+        </a>
+        <button class="icon-button sidebar-close" id="sidebarCloseButton" type="button" aria-label="关闭侧栏">×</button>
+      </div>
+      <button class="new-chat-button" id="newConversationButton" type="button" title="使用收藏中的首个模型和默认助手新建全局会话">
+        <span aria-hidden="true">＋</span><strong>新对话</strong><kbd>Ctrl K</kbd>
+      </button>
+      <div class="sidebar-drawer-shell" id="sidebarDrawerShell">
+        <nav class="sidebar-drawer-panel sidebar-drawer-root" id="sidebarDrawerRoot" aria-label="侧栏栏目">
+          <button class="sidebar-drawer-entry" id="openFavoritesDrawer" type="button" data-sidebar-drawer="favorites"><span class="drawer-entry-icon" aria-hidden="true">☆</span><span><strong>收藏模型</strong><small>常用对话与生图模型</small></span><b aria-hidden="true">›</b></button>
+          <button class="sidebar-drawer-entry" id="openFavoriteConversationsDrawer" type="button" data-sidebar-drawer="favorite-conversations"><span class="drawer-entry-icon" aria-hidden="true">✦</span><span><strong>收藏对话</strong><small>常用会话与手动排序</small></span><b aria-hidden="true">›</b></button>
+          <button class="sidebar-drawer-entry" id="openTranslator" type="button"><span class="drawer-entry-icon" aria-hidden="true">文</span><span><strong>快速翻译</strong><small>双栏文本翻译工作台</small></span><b aria-hidden="true">›</b></button>
+          <button class="sidebar-drawer-entry" id="openRolesDrawer" type="button" data-sidebar-drawer="roles"><span class="drawer-entry-icon" aria-hidden="true">◎</span><span><strong>自定义角色</strong><small>专家提示词与角色对话</small></span><b aria-hidden="true">›</b></button>
+          <button class="sidebar-drawer-entry" id="openRecentFilesDrawer" type="button" data-sidebar-drawer="recent-files"><span class="drawer-entry-icon" aria-hidden="true">▧</span><span><strong>最近文件</strong><small>快速浏览上传与生成文件</small></span><b aria-hidden="true">›</b></button>
+          <button class="sidebar-drawer-entry" id="openWorkflowsDrawer" type="button" data-sidebar-drawer="workflows"><span class="drawer-entry-icon" aria-hidden="true">⛓</span><span><strong>打包工作流</strong><small>一键运行固定创作流程</small></span><b aria-hidden="true">›</b></button>
+          <button class="sidebar-drawer-entry" id="openHistoryDrawer" type="button" data-sidebar-drawer="history"><span class="drawer-entry-icon" aria-hidden="true">◷</span><span><strong>最近对话</strong><small>浏览、整理和恢复历史记录</small></span><b aria-hidden="true">›</b></button>
+        </nav>
+        <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="favorites" hidden>
+          <div class="sidebar-section-heading"><button class="section-toggle" id="sidebarFavoritesToggle" type="button" aria-expanded="true" aria-controls="sidebarFavorites"><span>收藏模型</span><span class="section-chevron" aria-hidden="true"></span></button><button id="manageFavoritesButton" type="button">管理</button></div>
+          <nav class="sidebar-favorites" id="sidebarFavorites" aria-label="收藏模型组"></nav>
+        </section>
+        <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="favorite-conversations" hidden>
+          <div class="sidebar-section-heading"><button class="section-toggle" id="favoriteConversationsToggle" type="button" aria-expanded="true" aria-controls="favoriteConversations"><span>收藏对话</span><span class="section-chevron" aria-hidden="true"></span></button></div>
+          <nav class="favorite-conversation-list" id="favoriteConversations" aria-label="收藏对话，可拖动排序"></nav>
+        </section>
+        <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="roles" hidden>
+          <div class="sidebar-section-heading"><button class="section-toggle" id="sidebarRolesToggle" type="button" aria-expanded="true" aria-controls="sidebarRoles"><span>自定义角色</span><span class="section-chevron" aria-hidden="true"></span></button><button id="manageRolesButton" type="button">管理</button></div>
+          <nav class="sidebar-roles" id="sidebarRoles" aria-label="自定义角色"></nav>
+          <div class="sidebar-roles-resizer" id="sidebarRolesResizer" role="separator" aria-label="调整角色列表高度" aria-orientation="horizontal" aria-valuemin="64" aria-valuemax="360" aria-valuenow="220" tabindex="0" title="上下拖动调整角色列表高度；双击恢复默认高度"></div>
+        </section>
+        <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="history" hidden>
+          <div class="sidebar-section-heading"><button class="section-toggle" id="historyToggle" type="button" aria-expanded="true" aria-controls="historyList"><span>最近对话</span><span class="section-chevron" aria-hidden="true"></span></button><span class="history-heading-actions"><button id="addHistoryFolderButton" type="button" title="创建对话文件夹">＋ 文件夹</button><button id="clearHistoryButton" type="button">清空</button></span></div>
+          <nav class="history-list" id="historyList" aria-label="本机对话历史"></nav>
+        </section>
+        <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="recent-files" hidden>
+          <div class="sidebar-section-heading"><button class="section-toggle" id="recentFilesToggle" type="button" aria-expanded="true" aria-controls="recentFilesList"><span>最近文件</span><span class="section-chevron" aria-hidden="true"></span></button><button id="refreshRecentFilesButton" type="button">刷新</button></div>
+          <nav class="recent-files-list" id="recentFilesList" aria-label="最近上传和生成的文件"></nav>
+        </section>
+        <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="workflows" hidden>
+          <div class="sidebar-section-heading"><button class="section-toggle" type="button"><span>打包工作流</span><span class="section-chevron" aria-hidden="true"></span></button></div>
+          <nav class="workflow-list" id="workflowList" aria-label="打包工作流"></nav>
+        </section>
+      </div>
+      <div class="sidebar-account">
+        <small class="account-privacy">历史仅保存在本机 · 模型连接由服务端安全管理</small>
+        <button id="accountButton" type="button"><span class="account-avatar" id="accountAvatar">A</span><span class="account-summary"><span class="account-name-row"><strong id="accountName">管理员</strong><em id="accountRoleBadge">管理员</em></span><span class="account-meta-row"><small id="accountUid">UID 00000</small><small class="account-credits" id="accountCredits">积分 ∞</small></span></span></button>
+        <button class="icon-button" id="logoutButton" type="button" aria-label="退出登录" title="退出登录">↪</button>
+      </div>
+    </aside>
+
+    <div class="sidebar-resizer" id="sidebarResizer" role="separator" aria-label="调整侧栏宽度" aria-orientation="vertical" aria-valuemin="240" aria-valuemax="520" aria-valuenow="280" tabindex="0" title="左右拖动调整侧栏宽度；双击恢复默认宽度"></div>
+
+    <main class="main-panel">
+      <header class="conversation-header">
+        <div class="header-left">
+          <button class="icon-button menu-button" id="menuButton" type="button" aria-label="打开侧栏"><span></span><span></span><span></span></button>
+          <div class="conversation-heading"><div class="conversation-title-row"><h1 id="conversationTitle">新对话</h1><button class="conversation-title-edit" id="editConversationTitleButton" type="button" aria-label="修改当前对话标题" title="修改当前对话标题">✏️</button></div><p id="connectionStatus">正在连接本机模型服务…</p></div>
+        </div>
+        <div class="header-role-picker" id="headerRolePicker">
+          <button class="current-role-card" id="currentRoleCard" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="headerRoleMenu" title="查看或切换当前角色卡">
+            <span class="current-role-label">当前角色卡</span>
+            <strong id="currentRoleName">默认助手</strong>
+            <small id="currentRoleMeta">未注入系统提示词</small>
+          </button>
+          <div class="header-role-menu" id="headerRoleMenu" role="menu" aria-label="切换当前对话角色卡" hidden></div>
+        </div>
+        <div class="header-actions">
+          <div class="header-model-picker" id="headerModelPicker">
+            <button class="model-button" id="modelButton" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="headerModelMenu"><span class="model-dot"></span><span id="modelButtonText">选择模型</span><span class="model-chevron" aria-hidden="true"></span></button>
+            <div class="header-model-menu" id="headerModelMenu" role="menu" aria-label="收藏模型快捷选择" hidden></div>
+          </div>
+          <button class="icon-button" id="settingsButton" type="button" aria-label="设置" title="设置">⚙</button>
+        </div>
+      </header>
+
+      <section class="translator-workspace" id="translatorWorkspace" hidden aria-label="快速翻译">
+        <div class="translator-toolbar">
+          <button class="translator-history-button" id="translateHistoryButton" type="button" aria-expanded="false" aria-controls="translateHistoryPanel" title="翻译历史" aria-label="翻译历史">◷</button>
+          <label class="translator-language"><span class="sr-only">源语言</span><select id="translateSourceLanguage" aria-label="源语言"><option value="auto">自动检测</option><option value="zh-CN">简体中文</option><option value="en">英语</option><option value="ja">日语</option><option value="ko">韩语</option><option value="fr">法语</option><option value="de">德语</option><option value="es">西班牙语</option></select></label>
+          <button class="translator-swap" id="translateSwapButton" type="button" title="交换语言" aria-label="交换源语言和目标语言">⇄</button>
+          <label class="translator-language"><span class="sr-only">目标语言</span><select id="translateTargetLanguage" aria-label="目标语言"><option value="zh-CN">简体中文</option><option value="en">英语</option><option value="ja">日语</option><option value="ko">韩语</option><option value="fr">法语</option><option value="de">德语</option><option value="es">西班牙语</option></select></label>
+          <button class="translator-submit" id="translateButton" type="button"><span aria-hidden="true">➤</span> 翻译</button>
+          <span class="translator-toolbar-spacer"></span>
+          <span class="translator-current-model" id="translatorCurrentModel" aria-live="polite">当前模型：未选择</span>
+          <button class="translator-model-button" id="translateModelButton" type="button" title="配置翻译模型" aria-label="配置翻译模型">⚙</button>
+        </div>
+        <section class="translator-history-panel" id="translateHistoryPanel" hidden aria-label="翻译历史"></section>
+        <div class="translator-panels">
+          <section class="translator-panel source">
+            <header><strong>原文</strong><button id="translateClearButton" type="button" title="清空原文" aria-label="清空原文">×</button></header>
+            <textarea id="translateInput" placeholder="输入或粘贴需要翻译的文本…" aria-label="待翻译文本"></textarea>
+            <footer><span id="translateInputCount">0</span><span id="translateModelLabel">使用当前对话模型</span></footer>
+          </section>
+          <section class="translator-panel result">
+            <header><strong>译文</strong><button id="translateCopyButton" type="button" title="复制译文" aria-label="复制译文" disabled>📋</button></header>
+            <div class="translator-output" id="translateOutput" aria-live="polite"><p>翻译结果将在这里显示。</p></div>
+            <footer><span id="translateStatus" role="status">选择语言后开始翻译</span></footer>
+          </section>
+        </div>
+      </section>
+
+      <section class="conversation-scroll" id="conversationScroll" aria-label="AI 对话">
+        <div class="conversation-column">
+          <div class="message-list" id="messageList" aria-live="polite"></div>
+          <div class="empty-state" id="emptyState">
+            <p class="empty-kicker">从一个想法开始</p>
+            <h2>今天想和 AI 聊些什么？</h2>
+          </div>
+          <div class="typing-row" id="typingIndicator" hidden><span class="assistant-avatar" aria-hidden="true">⚡</span><div><i></i><i></i><i></i><em>模型正在回应</em></div></div>
+        </div>
+      </section>
+
+      <div class="composer-dock">
+        <div class="composer-column">
+          <div class="quick-model-pickers" id="quickModelPicker" aria-label="收藏模型快速选择">
+            <details class="quick-model-picker" id="quickChatPicker" data-quick-mode="chat">
+              <summary><span>对话模型</span><strong id="quickChatCurrent">选择对话模型</strong><span class="quick-model-chevron" aria-hidden="true"></span></summary>
+              <div class="quick-model-list" id="quickChatModels" aria-label="收藏对话模型列表"></div>
+            </details>
+            <details class="quick-model-picker" id="quickImagePicker" data-quick-mode="image">
+              <summary><span>生图模型</span><strong id="quickImageCurrent">选择生图模型</strong><span class="quick-model-chevron" aria-hidden="true"></span></summary>
+              <div class="quick-model-list" id="quickImageModels" aria-label="收藏生图模型列表"></div>
+            </details>
+          </div>
+          <section class="workflow-composer-banner" id="workflowComposerBanner" hidden aria-live="polite">
+            <div><span>打包工作流</span><strong id="workflowComposerName"></strong><small>输入需求后发送；可用上方“生图模型”和尺寸选择调整输出。</small></div>
+            <button class="secondary-button" id="exitWorkflowButton" type="button">退出工作流</button>
+          </section>
+          <div class="attachment-strip" id="attachmentStrip" hidden></div>
+          <section class="message-queue" id="messageQueue" hidden aria-label="待发送消息队列"></section>
+          <form class="composer" id="chatForm" novalidate>
+            <label class="sr-only" for="messageInput">输入消息</label>
+            <textarea id="messageInput" rows="1" placeholder="给 Light-Chat 发消息……"></textarea>
+            <div class="composer-toolbar">
+              <div class="composer-tools">
+                <label class="tool-button attach-button" title="上传图片或文档"><input id="fileInput" type="file" accept=".png,.jpg,.jpeg,.webp,.txt,.md,.pdf,.doc,.docx,.ppt,.pptx,image/png,image/jpeg,image/webp,text/plain,text/markdown,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" multiple><span aria-hidden="true">＋</span> 文件</label>
+                <button class="tool-button current-model-new-chat" id="currentModelNewConversationButton" type="button" title="使用当前模型新建对话"><span aria-hidden="true">＋</span><span>新对话</span></button>
+                <button class="mode-button" id="modeButton" type="button"><span id="modeIcon">◇</span><span id="modeText">对话</span></button>
+                <button class="role-button" id="roleButton" type="button" title="选择自定义角色"><span aria-hidden="true">◎</span><span id="roleButtonText">默认助手</span></button>
+                <button class="stream-button active" id="streamButton" type="button" aria-pressed="true" title="切换流式或非流式响应"><span aria-hidden="true">≈</span><span id="streamText">流式</span></button>
+                <label class="image-size-control" id="imageSizeControl" hidden><span class="sr-only">生图尺寸</span><select id="imageSizeSelect" aria-label="生图尺寸"><option value="1024x1024">方形 1:1</option><option value="1536x1024">横向 3:2</option><option value="1536x1152">横向 4:3</option><option value="1792x1024">宽屏 16:9</option><option value="1152x1536">竖向 3:4</option><option value="1024x1536">竖向 2:3</option><option value="1024x1792">竖向 9:16</option></select></label>
+              </div>
+              <div class="send-tools"><span class="character-count" id="messageCount">0/262144 token</span><button class="queue-send-button" id="queueSendButton" type="button" aria-label="加入发送队列" title="加入发送队列" hidden>＋</button><button class="send-button" id="sendButton" type="button" aria-label="发送消息" title="发送消息"><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></svg><svg class="send-cancel-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg></button></div>
+            </div>
+          </form>
+          <div class="composer-meta"><span id="formStatus" role="alert">Enter 发送 · Shift + Enter 换行</span><span>AI 可能会犯错，请核对重要信息</span></div>
+        </div>
+      </div>
+  </main>
+</div>
+<aside class="error-notice" id="errorNotice" hidden role="alert" aria-live="assertive"><span aria-hidden="true">⚠️</span><p id="errorNoticeText"></p><button id="dismissErrorNotice" type="button" aria-label="关闭错误提示">×</button></aside>
+
+  <dialog class="app-dialog model-dialog" id="modelDialog" aria-labelledby="modelDialogTitle">
+    <div class="dialog-shell">
+      <header><div><p class="eyebrow">Model library</p><h2 id="modelDialogTitle">选择模型</h2><p>从当前可用模型中选择，并明确对话或生图模式。</p></div><button class="icon-button dialog-close" data-close-dialog="modelDialog" type="button" aria-label="关闭">×</button></header>
+      <div class="model-controls"><input id="modelSearchInput" type="search" placeholder="搜索模型…" aria-label="搜索模型"><label><span>模式</span><select id="modelModeSelect"><option value="chat">对话</option><option value="image">生图</option></select></label></div>
+      <div class="model-list" id="modelList"></div>
+      <footer><button class="secondary-button" id="openSettingsFromModel" type="button">管理收藏组</button><button class="primary-button" data-close-dialog="modelDialog" type="button">完成</button></footer>
+    </div>
+  </dialog>
+
+  <dialog class="app-dialog settings-dialog" id="settingsDialog" aria-labelledby="settingsDialogTitle">
+    <div class="dialog-shell wide-dialog">
+      <header><div><p class="eyebrow">Preferences</p><h2 id="settingsDialogTitle">偏好设置</h2><p>调整对话显示宽度、收藏组与每个模型的上下文上限。</p></div><button class="icon-button dialog-close" data-close-dialog="settingsDialog" type="button" aria-label="关闭">×</button></header>
+      <fieldset class="reading-mode-settings">
+        <legend>对话显示宽度</legend>
+        <label><input type="radio" name="readingMode" value="fluid"><span><strong>动态宽屏</strong><small>随窗口在舒适范围内自动扩展，充分利用两侧空间</small></span></label>
+        <label><input type="radio" name="readingMode" value="classic"><span><strong>经典窄栏</strong><small>保持当前紧凑阅读宽度，适合专注阅读</small></span></label>
+      </fieldset>
+      <div class="settings-status"><span class="status-dot online"></span><span>模型服务已安全连接</span><button id="refreshModelsButton" type="button">刷新模型</button></div>
+      <div class="groups-editor" id="groupsEditor"></div>
+      <button class="add-group-button" id="addGroupButton" type="button">＋ 添加收藏组</button>
+      <p class="dialog-message" id="settingsStatus" role="alert"></p>
+      <footer><button class="secondary-button" data-close-dialog="settingsDialog" type="button">取消</button><button class="primary-button" id="saveSettingsButton" type="button">保存设置</button></footer>
+    </div>
+  </dialog>
+
+  <dialog class="app-dialog rename-dialog" id="renameConversationDialog" aria-labelledby="renameConversationDialogTitle">
+    <form class="dialog-shell rename-dialog-shell" id="renameConversationForm">
+      <header><div><p class="eyebrow">Conversation title</p><h2 id="renameConversationDialogTitle">重命名对话</h2><p>标题会同步用于侧栏、角色关联对话和导出文件名。</p></div><button class="icon-button dialog-close" data-close-dialog="renameConversationDialog" type="button" aria-label="关闭">×</button></header>
+      <label class="rename-dialog-field" for="renameConversationInput"><span>对话标题</span><input id="renameConversationInput" maxlength="80" autocomplete="off" required></label>
+      <p class="dialog-message" id="renameConversationStatus" role="alert"></p>
+      <footer><button class="secondary-button" data-close-dialog="renameConversationDialog" type="button">取消</button><button class="primary-button" type="submit">保存标题</button></footer>
+    </form>
+  </dialog>
+
+  <dialog class="app-dialog account-dialog" id="accountDialog" aria-labelledby="accountDialogTitle">
+    <div class="dialog-shell account-center-shell">
+      <header class="account-center-header"><div class="account-center-heading"><span class="account-center-mark" aria-hidden="true">账</span><div><p class="eyebrow">Account center</p><h2 id="accountDialogTitle">账户中心</h2><p>查看额度与用量，维护账户安全和模型权限。</p></div></div><button class="icon-button dialog-close" data-close-dialog="accountDialog" type="button" aria-label="关闭">×</button></header>
+      <nav class="account-tabs" id="accountTabs" aria-label="账户中心功能区">
+        <button type="button" data-account-panel="quota" class="active"><span aria-hidden="true">◈</span>额度概览</button>
+        <button type="button" data-account-panel="security"><span aria-hidden="true">◇</span>账户与安全</button>
+        <button type="button" data-account-panel="users" data-admin-only hidden><span aria-hidden="true">♙</span>用户管理</button>
+        <button type="button" data-account-panel="groups" data-admin-only hidden><span aria-hidden="true">▦</span>模型权限分组</button>
+      </nav>
+      <div class="account-panels">
+        <section class="account-panel" data-account-panel-content="quota">
+          <div class="quota-overview">
+            <article class="quota-hero">
+              <div class="quota-hero-heading"><span>当前可用积分</span><em>账户正常</em></div>
+              <strong id="quotaBalance">∞</strong>
+              <div class="quota-identity"><span class="quota-identity-avatar" aria-hidden="true">A</span><small id="quotaIdentity">管理员 · UID 00000</small></div>
+            </article>
+            <div class="quota-stats">
+              <article class="quota-stat quota-stat-total"><span class="quota-stat-icon" aria-hidden="true">Σ</span><div><span>累计消耗</span><strong id="quotaUsed">0</strong><small>积分</small></div></article>
+              <article class="quota-stat"><span class="quota-stat-icon" aria-hidden="true">聊</span><div><span>对话调用</span><strong id="quotaChatCalls">0</strong><small>次 · 每次 1 积分</small></div></article>
+              <article class="quota-stat"><span class="quota-stat-icon" aria-hidden="true">图</span><div><span>生图调用</span><strong id="quotaImageCalls">0</strong><small>次 · GPT-Image 5 · Gemini Flash 1 积分</small></div></article>
+            </div>
+          </div>
+          <aside class="account-note"><span class="account-note-icon" aria-hidden="true">✓</span><span><strong>请求结算规则</strong><small>成功响应或主动取消会扣分；上游失败、服务端超时不扣分。</small></span></aside>
+        </section>
+        <section class="account-panel" data-account-panel-content="security" hidden>
+          <form id="accountForm">
+            <div class="account-fields">
+              <label><span>当前用户名</span><input id="currentUsernameInput" autocomplete="username" required></label>
+              <label><span>当前密码</span><input id="currentPasswordInput" type="password" autocomplete="current-password" required></label>
+              <div class="field-divider"><span>修改为（可只填一项）</span></div>
+              <label><span>新用户名</span><input id="newUsernameInput" autocomplete="off" maxlength="64" placeholder="保持不变可留空"></label>
+              <label><span>新密码</span><input id="newPasswordInput" type="password" autocomplete="new-password" maxlength="128" placeholder="至少 10 位；保持不变可留空"></label>
+            </div>
+            <div class="account-panel-actions"><button class="primary-button" id="saveAccountButton" type="submit">保存账户</button></div>
+          </form>
+        </section>
+        <section class="account-panel" data-account-panel-content="users" hidden>
+          <div class="account-section-heading"><div><strong>系统用户</strong><span id="adminUserCount">0 位用户</span></div></div>
+          <form class="create-user-form" id="createUserForm"><input id="createUsernameInput" maxlength="64" placeholder="新用户名" required><input id="createPasswordInput" type="password" maxlength="128" placeholder="初始密码（至少 10 位）" required><input id="createCreditsInput" type="number" min="0" max="1000000000000" step="1" value="0" aria-label="初始积分"><button class="primary-button" type="submit">＋ 创建用户</button></form>
+          <div class="admin-users-list" id="adminUsersList"></div>
+        </section>
+        <section class="account-panel" data-account-panel-content="groups" hidden>
+          <div class="account-section-heading"><div><strong>可用模型分组</strong><span>组权限与用户额外模型取并集</span></div><button id="addModelAccessGroupButton" type="button">＋ 新建分组</button></div>
+          <div class="model-access-groups" id="modelAccessGroupsEditor"></div>
+          <div class="account-panel-actions"><button class="primary-button" id="saveModelAccessGroupsButton" type="button">保存模型分组</button></div>
+        </section>
+      </div>
+      <p class="dialog-message" id="accountStatus" role="alert"></p>
+    </div>
+  </dialog>
+
+  <dialog class="app-dialog roles-dialog" id="rolesDialog" aria-labelledby="rolesDialogTitle">
+    <div class="dialog-shell wide-dialog">
+      <header><div><p class="eyebrow">Custom experts</p><h2 id="rolesDialogTitle">自定义角色</h2><p>用文件夹整理专家角色；数组顺序就是侧栏顺序。系统提示词只由服务器在聊天时注入。</p></div><button class="icon-button dialog-close" data-close-dialog="rolesDialog" type="button" aria-label="关闭">×</button></header>
+      <div class="roles-editor" id="rolesEditor"></div>
+      <button class="add-group-button" id="addRoleFolderButton" type="button">＋ 添加角色文件夹</button>
+      <p class="dialog-message" id="rolesStatus" role="alert"></p>
+      <footer><button class="secondary-button" data-close-dialog="rolesDialog" type="button">取消</button><button class="primary-button" id="saveRolesButton" type="button">保存角色</button></footer>
+    </div>
+  </dialog>
+
+  <dialog class="app-dialog role-transfer-dialog" id="roleTransferDialog" aria-labelledby="roleTransferDialogTitle">
+    <div class="dialog-shell role-transfer-dialog-shell">
+      <header><div><p class="eyebrow">Organize expert</p><h2 id="roleTransferDialogTitle">移动角色</h2><p id="roleTransferDescription">选择目标文件夹。</p></div><button class="icon-button dialog-close" data-close-dialog="roleTransferDialog" type="button" aria-label="关闭">×</button></header>
+      <label class="role-transfer-field"><span>目标文件夹</span><select id="roleTransferFolderSelect" aria-label="目标角色文件夹"></select></label>
+      <p class="dialog-message" id="roleTransferStatus" role="alert"></p>
+      <footer><button class="secondary-button" data-close-dialog="roleTransferDialog" type="button">取消</button><button class="primary-button" id="confirmRoleTransferButton" type="button">确认移动</button></footer>
+    </div>
+  </dialog>
+
+
+  <dialog class="image-lightbox" id="imageLightbox" aria-label="图片放大预览">
+    <div class="image-lightbox-shell">
+      <header><span id="imageLightboxCaption">图片预览</span><span><a id="imageLightboxDownload" href="#" download title="下载图片" aria-label="下载图片">⬇️</a><button class="icon-button" data-close-dialog="imageLightbox" type="button" aria-label="关闭图片预览">×</button></span></header>
+      <div class="image-lightbox-stage" id="imageLightboxStage"><button class="image-lightbox-nav previous" id="imageLightboxPrevious" type="button" aria-label="上一张图片" title="上一张图片">‹</button><img id="imageLightboxImage" alt=""><div class="image-lightbox-loading" id="imageLightboxLoading" role="status" aria-live="polite" hidden><span class="image-lightbox-spinner" aria-hidden="true"></span><strong id="imageLightboxLoadStatus">正在加载图片…</strong></div><button class="image-lightbox-nav next" id="imageLightboxNext" type="button" aria-label="下一张图片" title="下一张图片">›</button></div>
+    </div>
+  </dialog>
+
+  <dialog class="app-dialog upscale-dialog" id="upscaleDialog" aria-labelledby="upscaleDialogTitle">
+    <div class="dialog-shell">
+      <header><div><p class="eyebrow">Local image upscaler</p><h2 id="upscaleDialogTitle">图片超分</h2><p>细节增强会使用本机 Real‑ESRGAN；文字保真仅使用高质量 Lanczos，适合排版与细线。</p></div><button class="icon-button" data-close-dialog="upscaleDialog" type="button" aria-label="关闭">×</button></header>
+      <div class="upscale-options">
+        <label><span>超分模式</span><select id="upscaleMode"><option value="detail">细节增强</option><option value="text-safe">文字保真</option></select></label>
+        <label><span>输出宽度</span><input id="upscaleWidth" type="number" min="512" max="7680" step="1" value="3840"></label>
+        <label><span>输出高度</span><input id="upscaleHeight" type="number" min="512" max="7680" step="1" value="2560"></label>
+      </div>
+      <p class="dialog-message" id="upscaleStatus" role="alert"></p>
+      <footer><button class="secondary-button" data-close-dialog="upscaleDialog" type="button">取消</button><button class="primary-button" id="startUpscaleButton" type="button">开始超分</button></footer>
+    </div>
+  </dialog>
+
+  <div class="context-menu" id="historyContextMenu" hidden role="menu" aria-label="对话操作" aria-orientation="vertical">
+    <button id="renameConversation" type="button" role="menuitem" tabindex="-1">✏️ 重命名对话</button>
+    <button id="toggleFavoriteConversation" type="button" role="menuitem" tabindex="-1">✦ 收藏对话</button>
+    <button id="jumpToRoleFromConversation" type="button" role="menuitem" tabindex="-1">🧭 跳转角色卡</button>
+    <button id="jumpToSourceConversation" type="button" role="menuitem" tabindex="-1" hidden>↩️ 跳转到原会话</button>
+    <button id="exportConversationTxt" type="button" role="menuitem" tabindex="-1">📄 导出 TXT</button>
+    <button id="exportConversationMarkdownText" type="button" role="menuitem" tabindex="-1">📝 导出 Markdown</button>
+    <button id="exportConversationMarkdown" type="button" role="menuitem" tabindex="-1">🗜️ 导出 Markdown ZIP</button>
+    <div class="context-menu-separator" role="separator"></div>
+    <button id="deleteConversation" class="danger-menu-item" type="button" role="menuitem" tabindex="-1">🗑️ 删除对话</button>
+  </div>
+  <div class="context-menu" id="roleFolderContextMenu" hidden role="menu" aria-label="角色文件夹操作" aria-orientation="vertical">
+    <button id="addRoleToFolder" type="button" role="menuitem" tabindex="-1">＋ 新增角色</button>
+    <div class="context-menu-separator" role="separator"></div>
+    <button id="deleteRoleFolder" class="danger-menu-item" type="button" role="menuitem" tabindex="-1">🗑️ 删除文件夹</button>
+  </div>
+  <div class="context-menu" id="roleContextMenu" hidden role="menu" aria-label="角色操作" aria-orientation="vertical">
+    <button id="toggleRoleConversations" class="role-conversations-menu-item" type="button" role="menuitem" tabindex="-1" aria-expanded="false">
+      <span class="role-conversations-menu-icon" aria-hidden="true"></span>
+      <span id="toggleRoleConversationsLabel" class="role-conversations-menu-label">展开关联对话</span>
+      <span id="toggleRoleConversationsCount" class="role-conversations-menu-count" hidden></span>
+    </button>
+    <button id="editRole" type="button" role="menuitem" tabindex="-1">✏️ 编辑角色</button>
+    <div class="context-menu-separator" role="separator"></div>
+    <button id="duplicateRole" type="button" role="menuitem" tabindex="-1">⧉ 原地复制角色</button>
+    <button id="copyRoleToFolder" type="button" role="menuitem" tabindex="-1">📋 复制到其他文件夹</button>
+    <button id="moveRoleToFolder" type="button" role="menuitem" tabindex="-1">↗ 移动到其他文件夹</button>
+    <div class="context-menu-separator" role="separator"></div>
+    <button id="deleteRole" class="danger-menu-item" type="button" role="menuitem" tabindex="-1">🗑️ 删除角色</button>
+  </div>
+  <div class="context-menu" id="favoriteContextMenu" hidden role="menu" aria-label="收藏模型操作" aria-orientation="vertical">
+    <button id="editFavorite" type="button" role="menuitem" tabindex="-1">⚙️ 修改模型配置</button>
+    <div class="context-menu-separator" role="separator"></div>
+    <button id="deleteFavorite" class="danger-menu-item" type="button" role="menuitem" tabindex="-1">🗑️ 从收藏组删除</button>
+  </div>
+  <div class="context-menu variant-model-menu" id="variantModelMenu" hidden role="menu" aria-label="切换收藏模型生成新回答" aria-orientation="vertical"></div>
+  <div class="global-drop-overlay" id="globalDropOverlay" hidden aria-hidden="true"><div><strong>松开以上传附件</strong><span>支持图片、文本、Markdown、PDF、Word 与 PowerPoint</span></div></div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="paper">#F7F6F2</color>
+    <color name="surface_soft">#EFede7</color>
+    <color name="brand_accent">#A64B37</color>
+    <color name="brand_accent_soft">#F1DDD7</color>
+    <color name="text_primary">#2F2E2A</color>
+    <color name="text_soft">#68645D</color>
+</resources>

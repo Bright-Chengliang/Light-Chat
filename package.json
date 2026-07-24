@@ -1,0 +1,15 @@
+{
+  "name": "light-chat",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test",
+    "check": "node --check server.mjs && node --check lib/app.mjs && node --check lib/local-upscaler.mjs && node --check lib/newapi-client.mjs && node --check lib/pdf-text-extractor.mjs && node --check lib/role-store.mjs && node --check lib/media-store.mjs && node --check lib/security.mjs && node --check public/login.js && node --check public/app.js && python -c \"from pathlib import Path; import pdfplumber; compile(Path(r'scripts/pdf-to-text.py').read_text(encoding='utf-8'), 'scripts/pdf-to-text.py', 'exec')\"",
+    "verify": "npm run check && npm test"
+  }
+}
