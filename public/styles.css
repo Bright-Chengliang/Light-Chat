@@ -746,9 +746,9 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 .global-drop-overlay[hidden] { display: none; }
 .global-drop-overlay > div { padding: 28px; display: grid; gap: 8px; text-align: center; background: rgba(255,255,255,.88); border-radius: 16px; box-shadow: var(--shadow-soft); }
 .global-drop-overlay strong { font-size: 1rem; }.global-drop-overlay span { color: var(--text-soft); font-size: .66rem; }
-.image-lightbox { width: min(96vw, 1180px); max-width: none; max-height: 94dvh; padding: 0; overflow: hidden; background: rgba(31,30,27,.96); border: 1px solid rgba(255,255,255,.14); border-radius: 18px; box-shadow: 0 24px 90px rgba(0,0,0,.34); }
+.image-lightbox { width: min(96vw, 1180px); max-width: none; max-height: 94dvh; padding: 0; overflow: visible; background: rgba(31,30,27,.96); border: 1px solid rgba(255,255,255,.14); border-radius: 18px; box-shadow: 0 24px 90px rgba(0,0,0,.34); }
 .image-lightbox::backdrop { background: rgba(20,19,17,.76); backdrop-filter: blur(7px); }
-.image-lightbox-shell { height: min(92dvh, 920px); display: grid; grid-template-rows: 58px minmax(0, 1fr); }
+.image-lightbox-shell { height: min(92dvh, 920px); display: grid; grid-template-rows: 58px minmax(0, 1fr); overflow: hidden; border-radius: inherit; }
 .image-lightbox header { min-width: 0; padding: 0 12px 0 18px; display: flex; align-items: center; gap: 16px; overflow: hidden; color: #f7f4ec; background: rgba(255,255,255,.05); border-bottom: 1px solid rgba(255,255,255,.1); }
 .image-lightbox header > span:first-child { min-width: 0; flex: 1 1 auto; display: block; overflow: hidden; font-size: .72rem; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .image-lightbox header > span:last-child { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; white-space: nowrap; }

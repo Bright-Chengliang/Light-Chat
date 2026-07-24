@@ -30,12 +30,12 @@ const elements = {
   addModelAccessGroup: $('#addModelAccessGroupButton'), saveModelAccessGroups: $('#saveModelAccessGroupsButton'), modelAccessGroupsEditor: $('#modelAccessGroupsEditor'), workflowEditor: $('#workflowEditor'), addWorkflow: $('#addWorkflowButton'), saveWorkflows: $('#saveWorkflowsButton'),
   rolesDialog: $('#rolesDialog'), rolesEditor: $('#rolesEditor'), addRoleFolder: $('#addRoleFolderButton'), saveRoles: $('#saveRolesButton'), rolesStatus: $('#rolesStatus'),
   roleTransferDialog: $('#roleTransferDialog'), roleTransferTitle: $('#roleTransferDialogTitle'), roleTransferDescription: $('#roleTransferDescription'), roleTransferFolder: $('#roleTransferFolderSelect'), roleTransferStatus: $('#roleTransferStatus'), confirmRoleTransfer: $('#confirmRoleTransferButton'),
-  imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'),
+  imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'), imageLightboxContextMenu: $('#imageLightboxContextMenu'), jumpToLightboxFileMessage: $('#jumpToLightboxFileMessage'), toggleLightboxFavoriteMediaButton: $('#toggleLightboxFavoriteMediaButton'), downloadLightboxFileButton: $('#downloadLightboxFileButton'),
   upscaleDialog: $('#upscaleDialog'), upscaleMode: $('#upscaleMode'), upscaleWidth: $('#upscaleWidth'), upscaleHeight: $('#upscaleHeight'), upscaleStatus: $('#upscaleStatus'), startUpscaleButton: $('#startUpscaleButton'),
   historyContextMenu: $('#historyContextMenu'), renameConversation: $('#renameConversation'), toggleFavoriteConversation: $('#toggleFavoriteConversation'), jumpToRoleFromConversation: $('#jumpToRoleFromConversation'), jumpToSourceConversation: $('#jumpToSourceConversation'), exportTxt: $('#exportConversationTxt'), exportMarkdownText: $('#exportConversationMarkdownText'), exportMarkdown: $('#exportConversationMarkdown'), deleteConversation: $('#deleteConversation'),
   roleFolderContextMenu: $('#roleFolderContextMenu'), addRoleToFolder: $('#addRoleToFolder'), deleteRoleFolder: $('#deleteRoleFolder'),
   roleContextMenu: $('#roleContextMenu'), toggleRoleConversations: $('#toggleRoleConversations'), toggleRoleConversationsLabel: $('#toggleRoleConversationsLabel'), toggleRoleConversationsCount: $('#toggleRoleConversationsCount'), editRole: $('#editRole'), duplicateRole: $('#duplicateRole'), copyRoleToFolder: $('#copyRoleToFolder'), moveRoleToFolder: $('#moveRoleToFolder'), deleteRole: $('#deleteRole'),
-  favoriteContextMenu: $('#favoriteContextMenu'), editFavorite: $('#editFavorite'), deleteFavorite: $('#deleteFavorite'), recentFileContextMenu: $('#recentFileContextMenu'), jumpToRecentFileMessage: $('#jumpToRecentFileMessage'), toggleFavoriteMediaButton: $('#toggleFavoriteMediaButton'),
+  favoriteContextMenu: $('#favoriteContextMenu'), editFavorite: $('#editFavorite'), deleteFavorite: $('#deleteFavorite'), recentFileContextMenu: $('#recentFileContextMenu'), jumpToRecentFileMessage: $('#jumpToRecentFileMessage'), toggleFavoriteMediaButton: $('#toggleFavoriteMediaButton'), downloadRecentFileButton: $('#downloadRecentFileButton'),
   variantModelMenu: $('#variantModelMenu'), globalDropOverlay: $('#globalDropOverlay'), globalDropTitle: $('#globalDropOverlay strong'),
   translatorWorkspace: $('#translatorWorkspace'), translateHistoryButton: $('#translateHistoryButton'), translateHistoryPanel: $('#translateHistoryPanel'), translateSourceLanguage: $('#translateSourceLanguage'), translateTargetLanguage: $('#translateTargetLanguage'), translateSwapButton: $('#translateSwapButton'), translateButton: $('#translateButton'), translateModelButton: $('#translateModelButton'), translatorCurrentModel: $('#translatorCurrentModel'), translateInput: $('#translateInput'), translateInputCount: $('#translateInputCount'), translateClearButton: $('#translateClearButton'), translateCopyButton: $('#translateCopyButton'), translateOutput: $('#translateOutput'), translateStatus: $('#translateStatus'), translateModelLabel: $('#translateModelLabel'),
 };
@@ -869,7 +869,8 @@ function renderRecentFiles() {
 }
 
 function isFavoriteMedia(itemId) { return state.preferences.favoriteMediaIds.includes(itemId); }
-function mediaItemById(itemId) { return [...state.recentFiles, ...state.favoriteMedia].find((item) => item.id === itemId) || null; }
+function currentLightboxItem() { return lightboxImages[lightboxImageIndex]?.item || null; }
+function mediaItemById(itemId) { return [...state.recentFiles, ...state.favoriteMedia].find((item) => item.id === itemId) || (currentLightboxItem()?.id === itemId ? currentLightboxItem() : null); }
 
 function attachmentTreeIncludesId(items, fileId) {
   const pending = Array.isArray(items) ? [...items] : [];
@@ -912,12 +913,22 @@ function highlightRecentFileMessage(messageId) {
 
 function jumpToRecentFileMessage() {
   const location = recentFileMessageLocation(state.contextRecentFileId);
-  closeContextMenu(elements.recentFileContextMenu, { restoreFocus: false });
+  closeAllContextMenus();
   if (!location) { setStatus('本机没有该文件对应的会话记录', 'error'); return; }
+  if (elements.imageLightbox.open) elements.imageLightbox.close();
   activateConversation(location.conversation.id, { closeSidebar: true });
   requestAnimationFrame(() => {
     if (!highlightRecentFileMessage(location.message.id)) setStatus('未能定位该文件对应的消息', 'error');
   });
+}
+
+function downloadRecentFileFromContext() {
+  const item = mediaItemById(state.contextRecentFileId);
+  closeAllContextMenus({ restoreFocus: true });
+  if (!item?.url) { setStatus('文件不存在或已过期，无法下载', 'error'); return; }
+  const download = document.createElement('a');
+  download.href = item.url; download.download = item.isImage ? imageDownloadName(item) : recentFileName(item);
+  download.hidden = true; document.body.append(download); download.click(); download.remove();
 }
 
 function renderFavoriteMedia() {
@@ -1252,7 +1263,7 @@ function deleteHistoryFolder(folderId) {
 }
 
 function contextMenus() {
-  return [elements.historyContextMenu, elements.roleFolderContextMenu, elements.roleContextMenu, elements.favoriteContextMenu, elements.recentFileContextMenu, elements.variantModelMenu];
+  return [elements.historyContextMenu, elements.roleFolderContextMenu, elements.roleContextMenu, elements.favoriteContextMenu, elements.recentFileContextMenu, elements.imageLightboxContextMenu, elements.variantModelMenu];
 }
 
 function contextMenuItems(menu, { includeDisabled = false } = {}) {
@@ -1266,7 +1277,7 @@ function resetContextMenuState(menu) {
   if (menu === elements.favoriteContextMenu) {
     state.contextFavoriteGroupId = ''; state.contextFavoriteModelId = ''; state.contextFavoriteMode = '';
   }
-  if (menu === elements.recentFileContextMenu) state.contextRecentFileId = '';
+  if ([elements.recentFileContextMenu, elements.imageLightboxContextMenu].includes(menu)) state.contextRecentFileId = '';
   if (menu === elements.variantModelMenu) {
     state.contextAssistantMessageId = ''; menu.replaceChildren();
   }
@@ -1353,17 +1364,19 @@ function updateContextMenuAvailability(menu) {
     elements.editFavorite.disabled = busy;
     elements.deleteFavorite.disabled = busy;
   }
-  if (menu === elements.recentFileContextMenu) {
+  if ([elements.recentFileContextMenu, elements.imageLightboxContextMenu].includes(menu)) {
     const item = mediaItemById(state.contextRecentFileId);
     const location = recentFileMessageLocation(state.contextRecentFileId);
-    elements.jumpToRecentFileMessage.disabled = !location;
-    elements.jumpToRecentFileMessage.title = location ? `跳转到“${location.conversation.title}”中的对应消息` : '本机没有该文件对应的会话记录';
+    const jumpButtons = [elements.jumpToRecentFileMessage, elements.jumpToLightboxFileMessage];
+    jumpButtons.forEach((button) => { button.disabled = !location; button.title = location ? `跳转到“${location.conversation.title}”中的对应消息` : '本机没有该文件对应的会话记录'; });
     const favorite = item && isFavoriteMedia(item.id);
-    elements.toggleFavoriteMediaButton.textContent = favorite ? '♡ 取消收藏图片' : '♥ 收藏到图片';
-    elements.toggleFavoriteMediaButton.disabled = !item || preferenceWritesInFlight > 0;
+    const favoriteButtons = [elements.toggleFavoriteMediaButton, elements.toggleLightboxFavoriteMediaButton];
+    favoriteButtons.forEach((button) => { button.textContent = favorite ? '♡ 取消收藏图片' : '♥ 收藏到图片'; button.disabled = !item || preferenceWritesInFlight > 0; });
+    const downloadButtons = [elements.downloadRecentFileButton, elements.downloadLightboxFileButton];
+    downloadButtons.forEach((button) => { button.disabled = !item?.url; button.title = item?.url ? `下载“${recentFileName(item)}”` : '文件不存在或已过期'; });
   }
   menu.setAttribute('aria-busy', String(
-    ([elements.favoriteContextMenu, elements.recentFileContextMenu].includes(menu) && (preferenceContextMutationInFlight || preferenceWritesInFlight > 0))
+    ([elements.favoriteContextMenu, elements.recentFileContextMenu, elements.imageLightboxContextMenu].includes(menu) && (preferenceContextMutationInFlight || preferenceWritesInFlight > 0))
     || ([elements.roleFolderContextMenu, elements.roleContextMenu].includes(menu) && roleContextMutationInFlight)
     || (menu === elements.historyContextMenu && markdownZipExportInFlight)
   ));
@@ -1430,9 +1443,15 @@ function openHistoryContextMenu(conversationId, x, y, trigger) {
   positionContextMenu(elements.historyContextMenu, x, y, trigger);
 }
 
-function openRecentFileContextMenu(fileId, x, y, trigger) {
+function openRecentFileContextMenu(fileId, x, y, trigger, menu = elements.recentFileContextMenu) {
   if (!mediaItemById(fileId)) return;
-  closeHeaderModelMenu(); closeAllContextMenus(); state.contextRecentFileId = fileId; positionContextMenu(elements.recentFileContextMenu, x, y, trigger);
+  closeHeaderModelMenu(); closeAllContextMenus(); state.contextRecentFileId = fileId; positionContextMenu(menu, x, y, trigger);
+}
+
+function openLightboxRecentFileContextMenu(x, y, trigger) {
+  const item = currentLightboxItem();
+  if (!item?.id) return;
+  openRecentFileContextMenu(item.id, x, y, trigger, elements.imageLightboxContextMenu);
 }
 
 function closeHistoryContextMenu(options) { closeContextMenu(elements.historyContextMenu, options); }
@@ -5014,15 +5033,19 @@ function bindEvents() {
   elements.editFavorite.addEventListener('click', editFavoriteFromContext);
   elements.deleteFavorite.addEventListener('click', deleteFavoriteFromContext);
   elements.jumpToRecentFileMessage.addEventListener('click', jumpToRecentFileMessage);
-  elements.toggleFavoriteMediaButton.addEventListener('click', () => { const id = state.contextRecentFileId; closeContextMenu(elements.recentFileContextMenu, { restoreFocus: true }); if (id) void toggleFavoriteMedia(id); });
+  elements.jumpToLightboxFileMessage.addEventListener('click', jumpToRecentFileMessage);
+  for (const button of [elements.toggleFavoriteMediaButton, elements.toggleLightboxFavoriteMediaButton]) button.addEventListener('click', () => { const id = state.contextRecentFileId; closeAllContextMenus({ restoreFocus: true }); if (id) void toggleFavoriteMedia(id); });
+  elements.downloadRecentFileButton.addEventListener('click', downloadRecentFileFromContext);
+  elements.downloadLightboxFileButton.addEventListener('click', downloadRecentFileFromContext);
   for (const menu of contextMenus()) menu.addEventListener('keydown', handleContextMenuKeydown);
   elements.imageLightbox.addEventListener('click', (event) => { if (event.target === elements.imageLightbox) elements.imageLightbox.close(); });
   elements.imageLightbox.addEventListener('keydown', (event) => { if (event.key === 'ArrowLeft') { event.preventDefault(); switchImageLightbox(-1); } if (event.key === 'ArrowRight') { event.preventDefault(); switchImageLightbox(1); } });
+  bindContextMenuTrigger(elements.imageLightboxImage, 'imageLightboxContextMenu', openLightboxRecentFileContextMenu);
   elements.imageLightboxStage.addEventListener('mousemove', revealImageLightboxControls);
   elements.imageLightboxStage.addEventListener('touchstart', revealImageLightboxControls, { passive: true });
   elements.imageLightboxPrevious.addEventListener('click', () => switchImageLightbox(-1));
   elements.imageLightboxNext.addEventListener('click', () => switchImageLightbox(1));
-  elements.imageLightbox.addEventListener('close', () => { if (lightboxControlsTimer) clearTimeout(lightboxControlsTimer); if (lightboxLoadFeedbackTimer) clearTimeout(lightboxLoadFeedbackTimer); lightboxControlsTimer = 0; lightboxLoadFeedbackTimer = 0; lightboxImageRequestId += 1; lightboxImages = []; lightboxImageIndex = 0; elements.imageLightboxLoading.hidden = true; elements.imageLightboxImage.classList.remove('is-loading'); elements.imageLightbox.classList.remove('controls-visible', 'has-image-navigation'); elements.imageLightboxImage.removeAttribute('src'); });
+  elements.imageLightbox.addEventListener('close', () => { closeContextMenu(elements.imageLightboxContextMenu); if (lightboxControlsTimer) clearTimeout(lightboxControlsTimer); if (lightboxLoadFeedbackTimer) clearTimeout(lightboxLoadFeedbackTimer); lightboxControlsTimer = 0; lightboxLoadFeedbackTimer = 0; lightboxImageRequestId += 1; lightboxImages = []; lightboxImageIndex = 0; elements.imageLightboxLoading.hidden = true; elements.imageLightboxImage.classList.remove('is-loading'); elements.imageLightbox.classList.remove('controls-visible', 'has-image-navigation'); elements.imageLightboxImage.removeAttribute('src'); });
   document.addEventListener('click', (event) => {
     if (!elements.headerModelMenu.hidden && !elements.headerModelPicker.contains(event.target)) closeHeaderModelMenu();
     if (!elements.headerRoleMenu.hidden && !elements.headerRolePicker.contains(event.target)) closeHeaderRoleMenu();

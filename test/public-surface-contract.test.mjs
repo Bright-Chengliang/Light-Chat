@@ -418,6 +418,16 @@ test('lightbox navigates every image and upscale variant with keyboard and trans
   assert.match(publicSource, /\.image-lightbox-loading\[data-kind="complete"\]/);
 });
 
+test('lightbox image context actions match recent-file actions and include download', () => {
+  assert.match(publicSource, /id="imageLightboxContextMenu"/);
+  assert.match(publicSource, /id="jumpToLightboxFileMessage"/);
+  assert.match(publicSource, /id="toggleLightboxFavoriteMediaButton"/);
+  assert.match(publicSource, /id="downloadLightboxFileButton"/);
+  assert.match(publicSource, /function openLightboxRecentFileContextMenu\(x, y, trigger\)/);
+  assert.match(publicSource, /bindContextMenuTrigger\(elements\.imageLightboxImage, 'imageLightboxContextMenu', openLightboxRecentFileContextMenu\)/);
+  assert.match(publicSource, /function downloadRecentFileFromContext\(\)/);
+});
+
 test('quick translation provides a protected two-panel workspace with local history and model selection', () => {
   assert.match(publicSource, /id="openTranslator"/);
   assert.match(publicSource, /id="translatorWorkspace"/);
