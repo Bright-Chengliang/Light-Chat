@@ -8,10 +8,10 @@
   <title>Light-Chat</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/vendor/katex/katex.min.css?v=0.18.0">
-  <link rel="stylesheet" href="/styles.css?v=20260724-workflows4">
+  <link rel="stylesheet" href="/styles.css?v=20260724-image-size-menu2">
   <script src="/vendor/katex/katex.min.js?v=0.18.0" defer></script>
   <script src="/vendor/katex/auto-render.min.js?v=0.18.0" defer></script>
-  <script src="/app.js?v=20260724-workflow-history1" defer></script>
+  <script src="/app.js?v=20260724-workflow-reuse2" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -216,6 +216,7 @@
         <button type="button" data-account-panel="security"><span aria-hidden="true">◇</span>账户与安全</button>
         <button type="button" data-account-panel="users" data-admin-only hidden><span aria-hidden="true">♙</span>用户管理</button>
         <button type="button" data-account-panel="groups" data-admin-only hidden><span aria-hidden="true">▦</span>模型权限分组</button>
+        <button type="button" data-account-panel="workflows" data-admin-only hidden><span aria-hidden="true">⛓</span>工作流管理</button>
       </nav>
       <div class="account-panels">
         <section class="account-panel" data-account-panel-content="quota">
@@ -254,6 +255,11 @@
           <div class="account-section-heading"><div><strong>可用模型分组</strong><span>组权限与用户额外模型取并集</span></div><button id="addModelAccessGroupButton" type="button">＋ 新建分组</button></div>
           <div class="model-access-groups" id="modelAccessGroupsEditor"></div>
           <div class="account-panel-actions"><button class="primary-button" id="saveModelAccessGroupsButton" type="button">保存模型分组</button></div>
+        </section>
+        <section class="account-panel" data-account-panel-content="workflows" hidden>
+          <div class="account-section-heading"><div><strong>打包工作流</strong><span>角色卡、临时提示词和生图节点均只在服务器执行</span></div><button id="addWorkflowButton" type="button">＋ 新建工作流</button></div>
+          <div class="workflow-editor" id="workflowEditor"></div>
+          <div class="account-panel-actions"><button class="primary-button" id="saveWorkflowsButton" type="button">保存工作流</button></div>
         </section>
       </div>
       <p class="dialog-message" id="accountStatus" role="alert"></p>

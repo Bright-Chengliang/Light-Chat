@@ -27,7 +27,7 @@ const elements = {
   currentPassword: $('#currentPasswordInput'), newUsername: $('#newUsernameInput'), newPassword: $('#newPasswordInput'),
   accountStatus: $('#accountStatus'), accountTabs: $('#accountTabs'), quotaBalance: $('#quotaBalance'), quotaIdentity: $('#quotaIdentity'), quotaUsed: $('#quotaUsed'), quotaChatCalls: $('#quotaChatCalls'), quotaImageCalls: $('#quotaImageCalls'),
   createUserForm: $('#createUserForm'), createUsername: $('#createUsernameInput'), createPassword: $('#createPasswordInput'), createCredits: $('#createCreditsInput'), adminUserCount: $('#adminUserCount'), adminUsersList: $('#adminUsersList'),
-  addModelAccessGroup: $('#addModelAccessGroupButton'), saveModelAccessGroups: $('#saveModelAccessGroupsButton'), modelAccessGroupsEditor: $('#modelAccessGroupsEditor'),
+  addModelAccessGroup: $('#addModelAccessGroupButton'), saveModelAccessGroups: $('#saveModelAccessGroupsButton'), modelAccessGroupsEditor: $('#modelAccessGroupsEditor'), workflowEditor: $('#workflowEditor'), addWorkflow: $('#addWorkflowButton'), saveWorkflows: $('#saveWorkflowsButton'),
   rolesDialog: $('#rolesDialog'), rolesEditor: $('#rolesEditor'), addRoleFolder: $('#addRoleFolderButton'), saveRoles: $('#saveRolesButton'), rolesStatus: $('#rolesStatus'),
   roleTransferDialog: $('#roleTransferDialog'), roleTransferTitle: $('#roleTransferDialogTitle'), roleTransferDescription: $('#roleTransferDescription'), roleTransferFolder: $('#roleTransferFolderSelect'), roleTransferStatus: $('#roleTransferStatus'), confirmRoleTransfer: $('#confirmRoleTransferButton'),
   imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'),
@@ -93,7 +93,7 @@ const state = {
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
   historyFolders: [], openHistoryFolders: new Set(), historySearch: '',
   contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextAssistantMessageId: '', renamingConversationId: '',
-  pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingMessageId: '', pendingRoleTransfer: null,
+  pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingWorkflows: [], editingMessageId: '', pendingRoleTransfer: null,
   followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationOutput: '', recentFiles: [], recentFilesLoading: false, workflows: [], workflowRunning: false, selectedWorkflow: null,
 };
 let globalFileDragDepth = 0;
@@ -644,6 +644,12 @@ function sidebarDrawerBase(view) {
 function findWorkflowById(workflowId) { return state.workflows.find((workflow) => workflow.id === workflowId) || null; }
 function validWorkflowId(workflowId) { return findWorkflowById(workflowId)?.id || ''; }
 function workflowConversations(workflowId) { return state.conversations.filter((conversation) => conversation.workflowId === workflowId).sort((a, b) => b.updatedAt - a.updatedAt); }
+function isReusableWorkflowConversation(conversation, workflowId) {
+  return conversation?.workflowId === workflowId
+    && conversation.messages.length === 0
+    && !isConversationBusy(conversation.id);
+}
+function latestReusableWorkflowConversation(workflowId) { return workflowConversations(workflowId).find((conversation) => isReusableWorkflowConversation(conversation, workflowId)) || null; }
 
 function renderWorkflows() {
   elements.workflowList.replaceChildren();
@@ -695,7 +701,7 @@ function renderWorkflowComposer() {
   elements.fileInput.closest('.attach-button')?.classList.toggle('disabled', Boolean(workflow));
 }
 
-function activateWorkflow(workflow) {
+function activateWorkflow(workflow, { forceNew = false } = {}) {
   if (state.workflowRunning) return;
   const imageModel = workflowImageModel(workflow);
   if (!imageModel) { setStatus('没有可用于工作流的生图模型，请先在模型库中添加可用模型', 'error'); return; }
@@ -704,15 +710,18 @@ function activateWorkflow(workflow) {
   state.selectedWorkflow = workflow;
   const model = state.models.find((item) => item.id === imageModel);
   if (model?.imageOptions?.sizes?.includes(workflow.defaultSize)) elements.imageSize.value = workflow.defaultSize;
-  createConversation({ roleId: '', workflowId: workflow.id, close: false });
+  const reusable = forceNew ? null : latestReusableWorkflowConversation(workflow.id);
+  if (reusable) {
+    state.currentId = reusable.id; state.editingMessageId = ''; reusable.updatedAt = Date.now(); resumeOutputFollow(); saveConversations(); renderConversation();
+  } else createConversation({ roleId: '', workflowId: workflow.id, close: false });
   openSidebarDrawer(`workflow:${workflow.id}`); openSidebar();
   renderWorkflowComposer(); renderWorkflows(); autoResize();
-  setStatus(`已新建“${workflow.name}”工作流会话。可在这里查看该工作流的历史绘画记录。`, 'success');
+  setStatus(reusable ? `已打开“${workflow.name}”最近未使用的工作流会话。` : `已新建“${workflow.name}”工作流会话。可在这里查看该工作流的历史绘画记录。`, 'success');
   requestAnimationFrame(() => elements.input.focus());
 }
 
 function createWorkflowConversationButton(workflow) {
-  const button = document.createElement('button'); button.type = 'button'; button.className = 'role-conversation-new'; button.textContent = '＋ 新建工作流会话'; button.title = `使用“${workflow.name}”新建绘画会话`; button.addEventListener('click', () => activateWorkflow(workflow)); return button;
+  const button = document.createElement('button'); button.type = 'button'; button.className = 'role-conversation-new'; button.textContent = '＋ 新建工作流会话'; button.title = `使用“${workflow.name}”新建绘画会话`; button.addEventListener('click', () => activateWorkflow(workflow, { forceNew: true })); return button;
 }
 
 function exitWorkflow({ force = false, announce = true } = {}) {
@@ -982,7 +991,7 @@ function renderHistory() {
   for (const folder of state.historyFolders) {
     const conversations = visibleConversations.filter((conversation) => conversation.folderId === folder.id);
     if (searchQuery && !conversations.length) continue;
-    const drawer = document.createElement('details'); drawer.className = 'history-folder'; drawer.dataset.folderId = folder.id; drawer.open = state.openHistoryFolders.has(folder.id) || state.sidebarDrawerStack.at(-1) === `history-folder:${folder.id}`;
+    const drawer = document.createElement('details'); drawer.className = 'history-folder'; drawer.dataset.folderId = folder.id; drawer.open = Boolean(searchQuery) || state.openHistoryFolders.has(folder.id) || state.sidebarDrawerStack.at(-1) === `history-folder:${folder.id}`;
     const summary = document.createElement('summary');
     const folderName = document.createElement('span'); folderName.textContent = folder.name;
     const count = document.createElement('small'); count.textContent = String(conversations.length); summary.append(folderName, count); drawer.append(summary);
@@ -1004,6 +1013,12 @@ function renderHistory() {
     const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '还没有本机对话。发送第一条消息后，可拖到上面的文件夹中。'; elements.history.append(empty);
   }
   renderSidebarDrawerState();
+  if (searchQuery) requestAnimationFrame(() => {
+    const target = [...$$('.history-item.search-match', elements.history)].find((item) => item.offsetParent !== null);
+    if (!target) return;
+    target.classList.add('search-focus'); target.scrollIntoView({ block: 'nearest' });
+    setTimeout(() => target.classList.remove('search-focus'), 1_400);
+  });
 }
 
 function renderFavoriteConversations() {
@@ -1072,8 +1087,10 @@ function createHistoryDropZone(folderId, conversations) {
 function createHistoryItem(conversation) {
   const busy = isConversationBusy(conversation.id);
   const row = document.createElement('div'); row.className = 'list-action-row history-item-row';
-  const button = document.createElement('button'); button.type = 'button'; button.draggable = true; button.className = `history-item${conversation.id === state.currentId ? ' active' : ''}${busy ? ' busy' : ''}`; button.title = '打开对话；可右键或使用操作菜单管理';
-  const title = document.createElement('span'); title.textContent = conversation.title;
+  const query = state.historySearch.trim();
+  const matches = query && conversation.title.toLocaleLowerCase('zh-CN').includes(query.toLocaleLowerCase('zh-CN'));
+  const button = document.createElement('button'); button.type = 'button'; button.draggable = true; button.className = `history-item${conversation.id === state.currentId ? ' active' : ''}${busy ? ' busy' : ''}${matches ? ' search-match' : ''}`; button.title = '打开对话；可右键或使用操作菜单管理';
+  const title = document.createElement('span'); appendHistoryTitleHighlight(title, conversation.title, query);
   const time = document.createElement('time'); time.textContent = busy ? '生成中…' : formatTime(conversation.updatedAt);
   button.append(title);
   button.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true }));
@@ -1084,6 +1101,22 @@ function createHistoryItem(conversation) {
   const rename = document.createElement('button'); rename.type = 'button'; rename.className = 'history-rename-button'; rename.textContent = '✏️'; rename.title = `重命名对话“${conversation.title}”`; rename.setAttribute('aria-label', `重命名对话“${conversation.title}”`); rename.addEventListener('click', (event) => { event.stopPropagation(); renameConversationById(conversation.id); });
   const editSlot = document.createElement('span'); editSlot.className = 'history-edit-slot'; editSlot.append(time, rename);
   row.append(button, editSlot); return row;
+}
+
+function appendHistoryTitleHighlight(container, title, query) {
+  const source = String(title || '');
+  const needle = String(query || '').trim();
+  if (!needle) { container.textContent = source; return; }
+  const normalizedSource = source.toLocaleLowerCase('zh-CN');
+  const normalizedNeedle = needle.toLocaleLowerCase('zh-CN');
+  let cursor = 0;
+  while (cursor < source.length) {
+    const matchAt = normalizedSource.indexOf(normalizedNeedle, cursor);
+    if (matchAt < 0) { container.append(document.createTextNode(source.slice(cursor))); break; }
+    if (matchAt > cursor) container.append(document.createTextNode(source.slice(cursor, matchAt)));
+    const mark = document.createElement('mark'); mark.textContent = source.slice(matchAt, matchAt + needle.length); container.append(mark);
+    cursor = matchAt + needle.length;
+  }
 }
 
 function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar = true, keepDrawer = false } = {}) {
@@ -4250,7 +4283,7 @@ function bindSidebarRolesResize() {
 }
 
 function switchAccountPanel(panelName) {
-  const requested = state.userRole !== 'admin' && ['users', 'groups'].includes(panelName) ? 'quota' : panelName;
+  const requested = state.userRole !== 'admin' && ['users', 'groups', 'workflows'].includes(panelName) ? 'quota' : panelName;
   for (const button of $$('[data-account-panel]', elements.accountTabs)) {
     const active = button.dataset.accountPanel === requested;
     button.classList.toggle('active', active);
@@ -4378,9 +4411,153 @@ async function loadModelAccessGroups() {
   renderModelAccessGroups();
 }
 
+function workflowModelOptions(mode) { return state.models.filter((model) => model.modes.includes(mode)); }
+function newWorkflowNodeId(prefix = 'node') { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
+
+function workflowEditorField(label, control) {
+  const field = document.createElement('label'); field.className = 'workflow-editor-field';
+  const caption = document.createElement('span'); caption.textContent = label;
+  field.append(caption, control); return field;
+}
+
+function workflowEditorSelect(options, value, ariaLabel) {
+  const select = document.createElement('select'); select.setAttribute('aria-label', ariaLabel);
+  for (const optionData of options) {
+    const option = document.createElement('option'); option.value = optionData.value; option.textContent = optionData.label; select.append(option);
+  }
+  select.value = options.some((option) => option.value === value) ? value : (options[0]?.value || '');
+  return select;
+}
+
+function ensureWorkflowOutput(node) {
+  if (!node.output || typeof node.output !== 'object') node.output = { mode: 'full' };
+  if (!['full', 'poster-chinese', 'between'].includes(node.output.mode)) node.output = { mode: 'full' };
+  return node.output;
+}
+
+function renderWorkflowOutputEditor(node, body, rerender) {
+  const output = ensureWorkflowOutput(node);
+  const select = workflowEditorSelect([
+    { value: 'full', label: '完整输出' },
+    { value: 'poster-chinese', label: '海报中文段落' },
+    { value: 'between', label: '开始/结束标记之间' },
+  ], output.mode, '输出提取方式');
+  select.addEventListener('change', () => { node.output = { mode: select.value }; rerender(); });
+  body.append(workflowEditorField('输出给下一节点', select));
+  if (output.mode !== 'between') return;
+  const start = document.createElement('input'); start.maxLength = 120; start.value = output.startMarker || ''; start.placeholder = '开始标记'; start.addEventListener('input', () => { output.startMarker = start.value; });
+  const end = document.createElement('input'); end.maxLength = 120; end.value = output.endMarker || ''; end.placeholder = '结束标记'; end.addEventListener('input', () => { output.endMarker = end.value; });
+  body.append(workflowEditorField('开始标记', start), workflowEditorField('结束标记', end));
+}
+
+function newWorkflowTextNode(type) {
+  const model = workflowModelOptions('chat')[0]?.id || '';
+  const base = { id: newWorkflowNodeId(type === 'role' ? 'role' : 'temp'), type, model, inputFrom: 'user', inputTemplate: '{{input}}', output: { mode: 'full' } };
+  return type === 'role'
+    ? { ...base, roleId: allRoles()[0]?.id || '' }
+    : { ...base, systemPrompt: '根据用户需求输出可直接交给下一节点使用的完整内容。' };
+}
+
+function newWorkflowImageNode(promptFrom) {
+  const model = workflowModelOptions('image')[0];
+  return {
+    id: newWorkflowNodeId('image'), type: 'image', model: model?.id || '', promptFrom,
+    output: { mode: 'full' }, size: model?.imageOptions?.defaultSize || '1024x1024', quality: model?.imageOptions?.defaultQuality || 'high',
+    allowUserModelOverride: true, allowUserSizeOverride: true, allowUserQualityOverride: true,
+  };
+}
+
+function newWorkflowDefinition() {
+  const textNode = newWorkflowTextNode('temporary');
+  return { id: `workflow-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, name: '新工作流', description: '先生成专业提示词，再生成图片', enabled: false, nodes: [textNode, newWorkflowImageNode(textNode.id)] };
+}
+
+function renderWorkflowTextNode(workflow, node, index, rerender) {
+  const card = document.createElement('article'); card.className = 'workflow-node-card';
+  const heading = document.createElement('header');
+  const title = document.createElement('strong'); title.textContent = `${index + 1}. ${node.type === 'role' ? '角色卡节点' : '临时提示词节点'}`;
+  const actions = document.createElement('span'); actions.className = 'workflow-node-actions';
+  const up = document.createElement('button'); up.type = 'button'; up.textContent = '↑'; up.title = '上移节点'; up.disabled = index === 0; up.addEventListener('click', () => { [workflow.nodes[index - 1], workflow.nodes[index]] = [workflow.nodes[index], workflow.nodes[index - 1]]; rerender(); });
+  const down = document.createElement('button'); down.type = 'button'; down.textContent = '↓'; down.title = '下移节点'; down.disabled = workflow.nodes[index + 1]?.type === 'image'; down.addEventListener('click', () => { [workflow.nodes[index + 1], workflow.nodes[index]] = [workflow.nodes[index], workflow.nodes[index + 1]]; rerender(); });
+  const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'danger-action'; remove.textContent = '删除'; remove.disabled = workflow.nodes.filter((candidate) => candidate.type !== 'image').length <= 1; remove.addEventListener('click', () => { workflow.nodes.splice(index, 1); rerender(); });
+  actions.append(up, down, remove); heading.append(title, actions); card.append(heading);
+  const body = document.createElement('div'); body.className = 'workflow-node-fields';
+  const type = workflowEditorSelect([{ value: 'role', label: '引用角色卡' }, { value: 'temporary', label: '临时系统提示词' }], node.type, '节点类型');
+  type.addEventListener('change', () => {
+    const replacement = newWorkflowTextNode(type.value);
+    Object.assign(node, replacement, { id: node.id, inputFrom: node.inputFrom, inputTemplate: node.inputTemplate, output: node.output });
+    rerender();
+  });
+  const chatModels = workflowModelOptions('chat').map((model) => ({ value: model.id, label: model.id }));
+  const model = workflowEditorSelect(chatModels, node.model, '文本节点模型'); model.addEventListener('change', () => { node.model = model.value; });
+  const prior = ['user', ...workflow.nodes.slice(0, index).filter((candidate) => candidate.type !== 'image').map((candidate) => candidate.id)];
+  const inputFrom = workflowEditorSelect(prior.map((value) => ({ value, label: value === 'user' ? '用户原始输入' : `节点：${value}` })), node.inputFrom, '节点输入来源'); inputFrom.addEventListener('change', () => { node.inputFrom = inputFrom.value; });
+  body.append(workflowEditorField('节点类型', type), workflowEditorField('调用模型', model), workflowEditorField('输入来源', inputFrom));
+  if (node.type === 'role') {
+    const roles = allRoles().map((role) => ({ value: role.id, label: role.name }));
+    const role = workflowEditorSelect(roles.length ? roles : [{ value: '', label: '请先创建角色卡' }], node.roleId, '引用角色卡'); role.addEventListener('change', () => { node.roleId = role.value; });
+    body.append(workflowEditorField('引用角色卡', role));
+  } else {
+    const systemPrompt = document.createElement('textarea'); systemPrompt.rows = 5; systemPrompt.maxLength = 120000; systemPrompt.value = node.systemPrompt || ''; systemPrompt.placeholder = '此节点的系统提示词仅在服务端执行。'; systemPrompt.addEventListener('input', () => { node.systemPrompt = systemPrompt.value; });
+    body.append(workflowEditorField('临时系统提示词', systemPrompt));
+  }
+  const template = document.createElement('textarea'); template.rows = 3; template.maxLength = 4000; template.value = node.inputTemplate || '{{input}}'; template.placeholder = '支持 {{input}} 和 {{userPrompt}}'; template.addEventListener('input', () => { node.inputTemplate = template.value; });
+  body.append(workflowEditorField('输入模板', template));
+  renderWorkflowOutputEditor(node, body, rerender);
+  card.append(body); return card;
+}
+
+function renderWorkflowImageNode(workflow, node, index, rerender) {
+  const card = document.createElement('article'); card.className = 'workflow-node-card image-node';
+  const heading = document.createElement('header'); const title = document.createElement('strong'); title.textContent = `${index + 1}. 最终生图节点`; heading.append(title); card.append(heading);
+  const body = document.createElement('div'); body.className = 'workflow-node-fields';
+  const imageModels = workflowModelOptions('image').map((model) => ({ value: model.id, label: model.id }));
+  const model = workflowEditorSelect(imageModels, node.model, '生图模型'); model.addEventListener('change', () => { node.model = model.value; const selected = state.models.find((candidate) => candidate.id === node.model); node.size = selected?.imageOptions?.defaultSize || '1024x1024'; node.quality = selected?.imageOptions?.defaultQuality || 'high'; rerender(); });
+  const prior = workflow.nodes.slice(0, index).filter((candidate) => candidate.type !== 'image').map((candidate) => candidate.id);
+  const promptFrom = workflowEditorSelect(prior.map((value) => ({ value, label: `节点：${value}` })), node.promptFrom, '绘图提示词来源'); promptFrom.addEventListener('change', () => { node.promptFrom = promptFrom.value; });
+  const selected = state.models.find((candidate) => candidate.id === node.model);
+  const size = workflowEditorSelect((selected?.imageOptions?.sizes || []).map((value) => ({ value, label: imageSizeLabel(value) })), node.size, '默认尺寸'); size.addEventListener('change', () => { node.size = size.value; });
+  const quality = workflowEditorSelect((selected?.imageOptions?.qualities || []).map((value) => ({ value, label: value })), node.quality, '默认质量'); quality.addEventListener('change', () => { node.quality = quality.value; });
+  body.append(workflowEditorField('生图模型', model), workflowEditorField('提示词来源', promptFrom), workflowEditorField('默认尺寸', size), workflowEditorField('默认质量', quality));
+  renderWorkflowOutputEditor(node, body, rerender);
+  for (const [key, label] of [['allowUserModelOverride', '用户可切换生图模型'], ['allowUserSizeOverride', '用户可切换尺寸'], ['allowUserQualityOverride', '用户可切换质量']]) {
+    const field = document.createElement('label'); field.className = 'workflow-editor-check'; const input = document.createElement('input'); input.type = 'checkbox'; input.checked = node[key] !== false; input.addEventListener('change', () => { node[key] = input.checked; }); field.append(input, document.createTextNode(label)); body.append(field);
+  }
+  card.append(body); return card;
+}
+
+function renderWorkflowEditor() {
+  elements.workflowEditor.replaceChildren();
+  if (!state.editingWorkflows.length) { const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '还没有工作流。创建后按顺序添加角色卡或临时提示词节点，并以生图节点结束。'; elements.workflowEditor.append(empty); return; }
+  state.editingWorkflows.forEach((workflow, workflowIndex) => {
+    const card = document.createElement('details'); card.className = 'workflow-editor-card'; card.open = workflowIndex === 0;
+    const summary = document.createElement('summary'); const title = document.createElement('strong'); title.textContent = workflow.name || '未命名工作流'; const meta = document.createElement('span'); meta.textContent = `${workflow.enabled !== false ? '已启用' : '已停用'} · ${workflow.nodes?.length || 0} 个节点`; summary.append(title, meta); card.append(summary);
+    const body = document.createElement('div'); body.className = 'workflow-editor-body';
+    const name = document.createElement('input'); name.maxLength = 60; name.value = workflow.name || ''; name.addEventListener('input', () => { workflow.name = name.value; title.textContent = name.value || '未命名工作流'; });
+    const description = document.createElement('textarea'); description.rows = 2; description.maxLength = 220; description.value = workflow.description || ''; description.addEventListener('input', () => { workflow.description = description.value; });
+    const enabled = document.createElement('input'); enabled.type = 'checkbox'; enabled.checked = workflow.enabled !== false; enabled.addEventListener('change', () => { workflow.enabled = enabled.checked; meta.textContent = `${workflow.enabled ? '已启用' : '已停用'} · ${workflow.nodes?.length || 0} 个节点`; });
+    const enabledLabel = document.createElement('label'); enabledLabel.className = 'workflow-editor-check'; enabledLabel.append(enabled, document.createTextNode('向普通用户显示并允许运行'));
+    body.append(workflowEditorField('名称', name), workflowEditorField('说明', description), enabledLabel);
+    const nodes = document.createElement('div'); nodes.className = 'workflow-node-list'; const rerender = () => renderWorkflowEditor();
+    workflow.nodes.forEach((node, index) => nodes.append(node.type === 'image' ? renderWorkflowImageNode(workflow, node, index, rerender) : renderWorkflowTextNode(workflow, node, index, rerender)));
+    const nodeActions = document.createElement('div'); nodeActions.className = 'workflow-editor-actions';
+    const addRole = document.createElement('button'); addRole.type = 'button'; addRole.textContent = '＋ 角色卡节点'; addRole.disabled = workflow.nodes.length >= 8; addRole.addEventListener('click', () => { workflow.nodes.splice(Math.max(0, workflow.nodes.length - 1), 0, newWorkflowTextNode('role')); rerender(); });
+    const addTemporary = document.createElement('button'); addTemporary.type = 'button'; addTemporary.textContent = '＋ 临时节点'; addTemporary.disabled = workflow.nodes.length >= 8; addTemporary.addEventListener('click', () => { workflow.nodes.splice(Math.max(0, workflow.nodes.length - 1), 0, newWorkflowTextNode('temporary')); rerender(); });
+    const removeWorkflow = document.createElement('button'); removeWorkflow.type = 'button'; removeWorkflow.className = 'danger-action'; removeWorkflow.textContent = '删除工作流'; removeWorkflow.addEventListener('click', () => { state.editingWorkflows.splice(workflowIndex, 1); rerender(); });
+    nodeActions.append(addRole, addTemporary, removeWorkflow); body.append(nodes, nodeActions); card.append(body); elements.workflowEditor.append(card);
+  });
+}
+
+async function loadAdminWorkflows() {
+  if (state.userRole !== 'admin') return;
+  const payload = await jsonRequest('/api/admin/workflows');
+  state.editingWorkflows = Array.isArray(payload.workflows) ? structuredClone(payload.workflows) : [];
+  renderWorkflowEditor();
+}
+
 async function loadAdminCenter() {
   if (state.userRole !== 'admin') return;
-  await Promise.all([loadAdminUsers(), loadModelAccessGroups()]);
+  await Promise.all([loadAdminUsers(), loadModelAccessGroups(), loadAdminWorkflows()]);
   renderAdminUsers();
 }
 
@@ -4726,6 +4903,18 @@ function bindEvents() {
       await loadAdminUsers(); renderModelAccessGroups();
       setDialogStatus(elements.accountStatus, '模型权限分组已保存', 'success');
     } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); } finally { elements.saveModelAccessGroups.disabled = false; }
+  });
+  elements.addWorkflow.addEventListener('click', () => {
+    if (state.editingWorkflows.length >= 24) { setDialogStatus(elements.accountStatus, '最多创建 24 个工作流', 'error'); return; }
+    state.editingWorkflows.push(newWorkflowDefinition()); renderWorkflowEditor();
+  });
+  elements.saveWorkflows.addEventListener('click', async () => {
+    elements.saveWorkflows.disabled = true; setDialogStatus(elements.accountStatus, '正在保存工作流…');
+    try {
+      const payload = await jsonRequest('/api/admin/workflows', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, workflows: state.editingWorkflows }) });
+      state.editingWorkflows = Array.isArray(payload.workflows) ? structuredClone(payload.workflows) : [];
+      await loadWorkflows(); renderWorkflowEditor(); setDialogStatus(elements.accountStatus, '工作流已保存；普通用户只会看到已启用工作流的名称和输入选项。', 'success');
+    } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); } finally { elements.saveWorkflows.disabled = false; }
   });
   elements.accountForm.addEventListener('submit', async (event) => { event.preventDefault(); setDialogStatus(elements.accountStatus, '正在验证并保存…'); try { const payload = await jsonRequest('/api/account', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: elements.currentUsername.value.trim(), currentPassword: elements.currentPassword.value, newUsername: elements.newUsername.value.trim(), newPassword: elements.newPassword.value }) }); state.user = payload.username; state.userUid = payload.uid; state.userRole = payload.role || state.userRole; state.credits = payload.credits; state.csrf = payload.csrfToken; updateAccountUi(); setDialogStatus(elements.accountStatus, '账户已更新，会话已安全轮换', 'success'); elements.currentPassword.value = ''; elements.newPassword.value = ''; } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); } });
   elements.logout.addEventListener('click', async () => { try { await jsonRequest('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } finally { location.replace('/'); } });

@@ -50,7 +50,7 @@ export async function createFakeNewApi({ imageUrlOnly = false, imageMime = 'png'
     }
     if (req.method === 'GET' && req.url === '/v1/models') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ data: [{ id: 'chat-test' }, { id: 'claude-sonnet-4-5' }, { id: 'gpt-image-2' }, { id: 'gemini-test-image' }, { id: 'gemini-3.1-flash-image' }] }));
+      res.end(JSON.stringify({ data: [{ id: 'chat-test' }, { id: 'claude-sonnet-4-5' }, { id: 'gemini-3.5-flash-low-fan' }, { id: 'gpt-image-2' }, { id: 'gemini-test-image' }, { id: 'gemini-3.1-flash-image' }] }));
       return;
     }
     if (req.method === 'POST' && req.url === '/v1/chat/completions') {

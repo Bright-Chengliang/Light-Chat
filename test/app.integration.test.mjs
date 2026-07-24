@@ -150,6 +150,57 @@ test('packaged workflow delegates gpt-image-2 generation to the shared image cli
   }
 });
 
+test('administrator-defined workflow nodes persist privately and run role plus temporary prompt stages in order', async () => {
+  const context = await fixture();
+  try {
+    const signedIn = await authenticated(context);
+    const definition = {
+      version: 1,
+      workflows: [{
+        id: 'temporary-chain', name: '临时节点链路', description: '管理员自定义的多节点生图流程', enabled: true,
+        nodes: [
+          { id: 'brief', type: 'temporary', model: 'chat-test', inputFrom: 'user', inputTemplate: '整理需求：{{input}}', systemPrompt: '把用户需求改写为简短创作简报。', output: { mode: 'full' } },
+          { id: 'architect', type: 'role', roleId: 'role-mrsmkx9c-2293', model: 'claude-sonnet-4-5', inputFrom: 'brief', inputTemplate: '依据简报生成完整绘图提示词：{{input}}', output: { mode: 'full' } },
+          { id: 'image', type: 'image', model: 'gemini-3.1-flash-image', promptFrom: 'architect', output: { mode: 'between', startMarker: '[[绘图提示词]]', endMarker: '[[结束]]' }, size: '1024x1024', quality: 'high', allowUserModelOverride: false, allowUserSizeOverride: false, allowUserQualityOverride: false },
+        ],
+      }],
+    };
+    const saved = await fetch(`${context.baseUrl}/api/admin/workflows`, {
+      method: 'PUT',
+      headers: { Cookie: signedIn.cookie, Origin: context.baseUrl, 'X-CSRF-Token': signedIn.body.csrfToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(definition),
+    });
+    assert.equal(saved.status, 200, await saved.text());
+    const internal = await fetch(`${context.baseUrl}/api/admin/workflows`, { headers: { Cookie: signedIn.cookie } });
+    const internalBody = await internal.json();
+    assert.equal(internalBody.workflows[0].nodes[0].systemPrompt, '把用户需求改写为简短创作简报。');
+    const listed = await fetch(`${context.baseUrl}/api/workflows`, { headers: { Cookie: signedIn.cookie } });
+    const publicBody = await listed.json();
+    assert.equal(publicBody.workflows.length, 1);
+    assert.equal(publicBody.workflows[0].nodes, undefined);
+    assert.equal(publicBody.workflows[0].imageModel, 'gemini-3.1-flash-image');
+
+    const result = await postJson(context, signedIn, '/api/workflows/run', {
+      workflowId: 'temporary-chain', prompt: '极地探险家少女', imageModel: 'gpt-image-2', size: '1792x1024', quality: 'low',
+    });
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.images.length, 1);
+    const chats = context.fake.requests.filter((request) => request.url === '/v1/chat/completions').map((request) => JSON.parse(request.bodyText));
+    assert.equal(chats.length, 2);
+    assert.equal(chats[0].model, 'chat-test');
+    assert.equal(chats[0].messages[0].content, '把用户需求改写为简短创作简报。');
+    assert.equal(chats[0].messages[1].content, '整理需求：极地探险家少女');
+    assert.equal(chats[1].model, 'claude-sonnet-4-5');
+    assert.equal(chats[1].messages[0].content, WORKFLOW_ROLES.folders[0].roles[0].systemPrompt);
+    assert.equal(chats[1].messages[1].content, '依据简报生成完整绘图提示词：你好，图片如下：');
+    const imageRequest = context.fake.requests.find((request) => request.url === '/v1/images/generations');
+    assert.equal(JSON.parse(imageRequest.bodyText).model, 'gemini-3.1-flash-image');
+    assert.equal(JSON.parse(imageRequest.bodyText).prompt, '你好，图片如下：'); // Missing markers fall back to the model response, never the user input.
+  } finally {
+    await context.close();
+  }
+});
+
 test('packaged workflow streams an immediate keep-alive response for remote clients', async () => {
   const context = await fixture();
   try {
@@ -234,6 +285,26 @@ test('workflow prompt processing uses only the poster Chinese prompt and keeps p
   assert.equal(persona.fallback, '');
 
   assert.deepEqual(workflowImagePromptCandidates('', 'epic-poster-v3'), { primary: '', fallback: '' });
+});
+
+test('conversation titles use Gemini Flash and normalize its concise title response', async () => {
+  const context = await fixture({ fakeOptions: { chatResponseText: '标题：极地探险家少女设定图' } });
+  try {
+    const signedIn = await authenticated(context);
+    const response = await fetch(`${context.baseUrl}/api/conversations/title`, {
+      method: 'POST',
+      headers: { Cookie: signedIn.cookie, Origin: context.baseUrl, 'X-CSRF-Token': signedIn.body.csrfToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: '银白短发、冰晶罗盘和防寒装备的极地探险家少女' }),
+    });
+    const body = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(body));
+    assert.equal(body.title, '极地探险家少女设定图');
+    assert.equal(body.model, 'gemini-3.5-flash-low-fan');
+    const request = context.fake.requests.find((item) => item.url === '/v1/chat/completions');
+    assert.equal(JSON.parse(request.bodyText).model, 'gemini-3.5-flash-low-fan');
+  } finally {
+    await context.close();
+  }
 });
 
 test('poster workflow retries once with the untouched role response when the Chinese prompt request fails', async () => {
@@ -1025,6 +1096,7 @@ test('role folders persist order and inject only server-stored system prompts', 
     const library = {
       version: 1,
       folders: [
+        ...WORKFLOW_ROLES.folders,
         { id: 'writing', name: '写作', roles: [{ id: 'editor-role', name: '编辑专家', description: '精炼表达', systemPrompt: '你是编辑专家。\n保持准确。' }] },
         { id: 'coding', name: '编程', roles: [{ id: 'review-role', name: '审查专家', description: '', systemPrompt: '只审查代码，不执行代码。' }] },
       ],

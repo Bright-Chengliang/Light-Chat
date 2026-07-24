@@ -257,7 +257,7 @@ test('the sidebar exposes server-orchestrated packaged workflows without exposin
   assert.match(publicSource, /工作流正在运行中，请稍候/);
 });
 
-test('workflow cards create isolated conversations and expose only their own drawing history', () => {
+test('workflow cards reuse their latest unused conversation and expose only their own drawing history', () => {
   assert.match(publicSource, /workflowId: validWorkflowId\(workflowId\)/);
   assert.match(publicSource, /function workflowConversations\(workflowId\)/);
   assert.match(publicSource, /conversation\.workflowId === workflowId/);
@@ -269,14 +269,46 @@ test('workflow cards create isolated conversations and expose only their own dra
   assert.match(publicSource, /id="workflowsToggle"/);
   assert.match(publicSource, /workflow-entry/);
   assert.match(publicSource, /workflow-conversation-list/);
+  assert.match(publicSource, /function isReusableWorkflowConversation\(conversation, workflowId\)/);
+  assert.match(publicSource, /function latestReusableWorkflowConversation\(workflowId\)/);
+  assert.match(publicSource, /const reusable = forceNew \? null : latestReusableWorkflowConversation\(workflow\.id\);/);
+  assert.match(publicSource, /conversation\.messages\.length === 0/);
+  assert.match(publicSource, /function activateWorkflow\(workflow, \{ forceNew = false \} = \{\}\)/);
+  assert.match(publicSource, /activateWorkflow\(workflow, \{ forceNew: true \}\)/);
+});
+
+test('administrators can configure private workflow nodes while the user surface stays orchestration-free', () => {
+  assert.match(publicSource, /data-account-panel="workflows"/);
+  assert.match(publicSource, /id="workflowEditor"/);
+  assert.match(publicSource, /function renderWorkflowEditor\(\)/);
+  assert.match(publicSource, /newWorkflowTextNode\('temporary'\)/);
+  assert.match(publicSource, /临时系统提示词/);
+  assert.match(publicSource, /jsonRequest\('\/api\/admin\/workflows'/);
+  assert.match(backendSource, /function validateWorkflowDefinitions\(/);
+  assert.match(backendSource, /\['role', 'temporary', 'image'\]/);
+  assert.match(backendSource, /function publicWorkflowList\(\)/);
+  assert.match(backendSource, /\/api\/admin\/workflows/);
+  assert.match(backendSource, /systemPrompt/);
 });
 
 test('history search input uses the sidebar visual language', () => {
   assert.match(publicSource, /id="historySearchInput"/);
   assert.match(publicSource, /elements\.historySearch\.addEventListener\('input'/);
+  assert.match(publicSource, /function appendHistoryTitleHighlight\(/);
+  assert.match(publicSource, /scrollIntoView\(\{ block: 'nearest' \}\)/);
+  assert.match(publicSource, /history-item\.search-match/);
   assert.match(publicSource, /\.history-search \{ position: relative;/);
+  assert.match(publicSource, /\.history-item mark/);
   assert.match(publicSource, /\.history-search input:focus/);
   assert.match(publicSource, /\.history-search::before/);
+});
+
+test('conversation titles request Gemini Flash and retain the first-message fallback on failure', () => {
+  assert.match(publicSource, /function requestGeneratedConversationTitle\(/);
+  assert.match(publicSource, /\/api\/conversations\/title/);
+  assert.match(publicSource, /Keep the already-visible first-message fallback title/);
+  assert.match(backendSource, /CONVERSATION_TITLE_MODEL = 'gemini-3\.5-flash-low-fan'/);
+  assert.match(backendSource, /根据用户输入生成一个简洁的中文对话标题/);
 });
 
 test('Gemini Flash image generation is advertised as a one-credit option', () => {
@@ -336,7 +368,9 @@ test('image model size choices expand in a stable in-menu panel', () => {
   assert.match(publicSource, /const setExpanded = \(expanded\) => \{ row\.dataset\.expanded = String\(expanded\); button\.setAttribute\('aria-expanded', String\(expanded\)\); \}/);
   assert.match(publicSource, /button\.addEventListener\('click', \(\) => setExpanded\(row\.dataset\.expanded !== 'true'\)\)/);
   assert.match(publicSource, /variant-image-model-row\[data-expanded="true"\] \.variant-image-size-menu/);
-  assert.match(publicSource, /\.variant-image-size-menu \{ grid-column: 1 \/ -1;/);
+  assert.match(publicSource, /\.variant-image-size-menu \{ grid-column: 1 \/ -1; width: calc\(100% - 12px\);/);
+  assert.match(publicSource, /variant-image-size-menu \{[\s\S]*?flex-direction: column;/);
+  assert.match(publicSource, /variant-image-size-menu button \{ width: 100%;/);
   assert.doesNotMatch(publicSource, /\.variant-image-size-menu \{ position: absolute;/);
 });
 

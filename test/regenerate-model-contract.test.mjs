@@ -34,6 +34,7 @@ test('regeneration keeps an in-place pending variant so earlier responses remain
 test('response model image-size choices remain readable in the @ model menu', () => {
   assert.match(appSource, /sizeButton\.setAttribute\('role', 'menuitem'\)/);
   assert.match(styles, /\.variant-model-menu \{ width: min\(320px, calc\(100vw - 16px\)\);/);
-  assert.match(styles, /\.variant-image-size-menu \{[^}]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(styles, /\.variant-image-size-menu \{[^}]*width: calc\(100% - 12px\);[^}]*flex-direction: column/);
+  assert.match(styles, /\.variant-image-size-menu button \{[^}]*width: 100%/);
   assert.match(styles, /\.variant-image-size-menu button \{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis/);
 });
