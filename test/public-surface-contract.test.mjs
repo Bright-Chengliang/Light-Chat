@@ -250,7 +250,11 @@ test('the sidebar exposes favorite media and recent-file context actions without
   assert.match(publicSource, /data-sidebar-drawer-panel="favorite-media"/);
   assert.match(publicSource, /id="favoriteMediaList"/);
   assert.match(publicSource, /id="recentFileContextMenu"/);
+  assert.match(publicSource, /id="jumpToRecentFileMessage"/);
   assert.match(publicSource, /function toggleFavoriteMedia\(itemId\)/);
+  assert.match(publicSource, /function recentFileMessageLocation\(fileId\)/);
+  assert.match(publicSource, /function jumpToRecentFileMessage\(\)/);
+  assert.match(publicSource, /highlightRecentFileMessage\(location\.message\.id\)/);
   assert.match(publicSource, /\/api\/media\/favorites/);
   assert.match(publicSource, /bindContextMenuTrigger\(open, 'recentFileContextMenu'/);
   assert.match(publicSource, /favorite-media-card/);

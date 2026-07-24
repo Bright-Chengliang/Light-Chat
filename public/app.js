@@ -35,7 +35,7 @@ const elements = {
   historyContextMenu: $('#historyContextMenu'), renameConversation: $('#renameConversation'), toggleFavoriteConversation: $('#toggleFavoriteConversation'), jumpToRoleFromConversation: $('#jumpToRoleFromConversation'), jumpToSourceConversation: $('#jumpToSourceConversation'), exportTxt: $('#exportConversationTxt'), exportMarkdownText: $('#exportConversationMarkdownText'), exportMarkdown: $('#exportConversationMarkdown'), deleteConversation: $('#deleteConversation'),
   roleFolderContextMenu: $('#roleFolderContextMenu'), addRoleToFolder: $('#addRoleToFolder'), deleteRoleFolder: $('#deleteRoleFolder'),
   roleContextMenu: $('#roleContextMenu'), toggleRoleConversations: $('#toggleRoleConversations'), toggleRoleConversationsLabel: $('#toggleRoleConversationsLabel'), toggleRoleConversationsCount: $('#toggleRoleConversationsCount'), editRole: $('#editRole'), duplicateRole: $('#duplicateRole'), copyRoleToFolder: $('#copyRoleToFolder'), moveRoleToFolder: $('#moveRoleToFolder'), deleteRole: $('#deleteRole'),
-  favoriteContextMenu: $('#favoriteContextMenu'), editFavorite: $('#editFavorite'), deleteFavorite: $('#deleteFavorite'), recentFileContextMenu: $('#recentFileContextMenu'), toggleFavoriteMediaButton: $('#toggleFavoriteMediaButton'),
+  favoriteContextMenu: $('#favoriteContextMenu'), editFavorite: $('#editFavorite'), deleteFavorite: $('#deleteFavorite'), recentFileContextMenu: $('#recentFileContextMenu'), jumpToRecentFileMessage: $('#jumpToRecentFileMessage'), toggleFavoriteMediaButton: $('#toggleFavoriteMediaButton'),
   variantModelMenu: $('#variantModelMenu'), globalDropOverlay: $('#globalDropOverlay'), globalDropTitle: $('#globalDropOverlay strong'),
   translatorWorkspace: $('#translatorWorkspace'), translateHistoryButton: $('#translateHistoryButton'), translateHistoryPanel: $('#translateHistoryPanel'), translateSourceLanguage: $('#translateSourceLanguage'), translateTargetLanguage: $('#translateTargetLanguage'), translateSwapButton: $('#translateSwapButton'), translateButton: $('#translateButton'), translateModelButton: $('#translateModelButton'), translatorCurrentModel: $('#translatorCurrentModel'), translateInput: $('#translateInput'), translateInputCount: $('#translateInputCount'), translateClearButton: $('#translateClearButton'), translateCopyButton: $('#translateCopyButton'), translateOutput: $('#translateOutput'), translateStatus: $('#translateStatus'), translateModelLabel: $('#translateModelLabel'),
 };
@@ -871,6 +871,55 @@ function renderRecentFiles() {
 function isFavoriteMedia(itemId) { return state.preferences.favoriteMediaIds.includes(itemId); }
 function mediaItemById(itemId) { return [...state.recentFiles, ...state.favoriteMedia].find((item) => item.id === itemId) || null; }
 
+function attachmentTreeIncludesId(items, fileId) {
+  const pending = Array.isArray(items) ? [...items] : [];
+  const visited = new Set();
+  while (pending.length) {
+    const item = pending.pop();
+    if (!item || typeof item !== 'object' || visited.has(item)) continue;
+    visited.add(item);
+    if (item.id === fileId) return true;
+    if (Array.isArray(item.upscales)) pending.push(...item.upscales);
+  }
+  return false;
+}
+
+function messageIncludesMediaId(message, fileId) {
+  return attachmentTreeIncludesId(message?.attachments, fileId) || attachmentTreeIncludesId(message?.images, fileId);
+}
+
+function recentFileMessageLocation(fileId) {
+  if (!fileId) return null;
+  const conversations = [...state.conversations].sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
+  for (const conversation of conversations) {
+    for (let index = conversation.messages.length - 1; index >= 0; index -= 1) {
+      const message = conversation.messages[index];
+      if (messageIncludesMediaId(message, fileId)) return { conversation, message };
+    }
+  }
+  return null;
+}
+
+function highlightRecentFileMessage(messageId) {
+  const target = elements.messageList.querySelector(`[data-message-id="${CSS.escape(messageId)}"]`);
+  if (!target) return false;
+  elements.messageList.querySelectorAll('.recent-file-message-target').forEach((item) => item.classList.remove('recent-file-message-target'));
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target.classList.add('recent-file-message-target');
+  window.setTimeout(() => target.classList.remove('recent-file-message-target'), 2_400);
+  return true;
+}
+
+function jumpToRecentFileMessage() {
+  const location = recentFileMessageLocation(state.contextRecentFileId);
+  closeContextMenu(elements.recentFileContextMenu, { restoreFocus: false });
+  if (!location) { setStatus('本机没有该文件对应的会话记录', 'error'); return; }
+  activateConversation(location.conversation.id, { closeSidebar: true });
+  requestAnimationFrame(() => {
+    if (!highlightRecentFileMessage(location.message.id)) setStatus('未能定位该文件对应的消息', 'error');
+  });
+}
+
 function renderFavoriteMedia() {
   elements.favoriteMedia.replaceChildren();
   if (state.favoriteMediaLoading) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '正在加载收藏图片…' })); return; }
@@ -1306,6 +1355,9 @@ function updateContextMenuAvailability(menu) {
   }
   if (menu === elements.recentFileContextMenu) {
     const item = mediaItemById(state.contextRecentFileId);
+    const location = recentFileMessageLocation(state.contextRecentFileId);
+    elements.jumpToRecentFileMessage.disabled = !location;
+    elements.jumpToRecentFileMessage.title = location ? `跳转到“${location.conversation.title}”中的对应消息` : '本机没有该文件对应的会话记录';
     const favorite = item && isFavoriteMedia(item.id);
     elements.toggleFavoriteMediaButton.textContent = favorite ? '♡ 取消收藏图片' : '♥ 收藏到图片';
     elements.toggleFavoriteMediaButton.disabled = !item || preferenceWritesInFlight > 0;
@@ -4961,6 +5013,7 @@ function bindEvents() {
   elements.deleteRole.addEventListener('click', deleteRoleFromContext);
   elements.editFavorite.addEventListener('click', editFavoriteFromContext);
   elements.deleteFavorite.addEventListener('click', deleteFavoriteFromContext);
+  elements.jumpToRecentFileMessage.addEventListener('click', jumpToRecentFileMessage);
   elements.toggleFavoriteMediaButton.addEventListener('click', () => { const id = state.contextRecentFileId; closeContextMenu(elements.recentFileContextMenu, { restoreFocus: true }); if (id) void toggleFavoriteMedia(id); });
   for (const menu of contextMenus()) menu.addEventListener('keydown', handleContextMenuKeydown);
   elements.imageLightbox.addEventListener('click', (event) => { if (event.target === elements.imageLightbox) elements.imageLightbox.close(); });

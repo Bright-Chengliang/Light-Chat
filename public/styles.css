@@ -375,6 +375,7 @@ body.resizing-sidebar-roles, body.resizing-sidebar-roles * { cursor: row-resize 
 .message-list { display: grid; gap: 30px; }
 .message { display: grid; grid-template-columns: 31px minmax(0, 1fr); gap: 12px; animation: message-in 180ms ease both; }
 .message.live-update { animation: none; }
+.message.recent-file-message-target { animation: recent-file-message-target 2.4s ease both; }
 .message.user { grid-template-columns: minmax(0, 1fr); justify-items: end; }
 .assistant-avatar { width: 30px; height: 30px; display: grid; place-items: center; color: #fff9f2; background: var(--accent); border-radius: 9px; font: 750 .86rem/1 "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
 .message-body { min-width: 0; }
@@ -769,6 +770,7 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 @keyframes image-lightbox-spin { to { transform: rotate(360deg); } }
 
 @keyframes message-in { from { opacity: 0; transform: translateY(5px); } }
+@keyframes recent-file-message-target { 0%, 100% { filter: none; } 18%, 68% { filter: drop-shadow(0 0 10px rgba(166,75,55,.48)); } }
 @keyframes history-search-focus { 0%, 100% { box-shadow: none; } 28%, 72% { color: var(--text); background: rgba(166,75,55,.14); box-shadow: inset 2px 0 var(--accent), 0 0 0 3px rgba(166,75,55,.08); } }
 @keyframes typing { 0%, 65%, 100% { opacity: .3; transform: translateY(0); } 32% { opacity: 1; transform: translateY(-3px); } }
 
