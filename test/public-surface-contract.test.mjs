@@ -245,6 +245,20 @@ test('the sidebar exposes recent uploaded and generated files with preview and r
   assert.match(publicSource, /\.recent-file-item/);
 });
 
+test('the sidebar exposes favorite media and recent-file context actions without bypassing authenticated media URLs', () => {
+  assert.match(publicSource, /id="openFavoriteMediaDrawer"/);
+  assert.match(publicSource, /data-sidebar-drawer-panel="favorite-media"/);
+  assert.match(publicSource, /id="favoriteMediaList"/);
+  assert.match(publicSource, /id="recentFileContextMenu"/);
+  assert.match(publicSource, /function toggleFavoriteMedia\(itemId\)/);
+  assert.match(publicSource, /\/api\/media\/favorites/);
+  assert.match(publicSource, /bindContextMenuTrigger\(open, 'recentFileContextMenu'/);
+  assert.match(publicSource, /favorite-media-card/);
+  assert.match(backendSource, /favoriteMediaIds/);
+  assert.match(backendSource, /\/api\/media\/favorites/);
+  assert.match(backendSource, /mediaStore\.listOwned/);
+});
+
 test('the sidebar exposes server-orchestrated packaged workflows without exposing ordinary-user internals', () => {
   assert.match(publicSource, /id="openWorkflowsDrawer"/);
   assert.match(publicSource, /data-sidebar-drawer-panel="workflows"/);
@@ -277,15 +291,21 @@ test('workflow cards reuse their latest unused conversation and expose only thei
   assert.match(publicSource, /activateWorkflow\(workflow, \{ forceNew: true \}\)/);
 });
 
-test('administrators can configure private workflow nodes while the user surface stays orchestration-free', () => {
+test('administrators can configure private node graphs while the user surface stays orchestration-free', () => {
   assert.match(publicSource, /data-account-panel="workflows"/);
   assert.match(publicSource, /id="workflowEditor"/);
   assert.match(publicSource, /function renderWorkflowEditor\(\)/);
-  assert.match(publicSource, /newWorkflowTextNode\('temporary'\)/);
+  assert.match(publicSource, /function renderWorkflowGraphCanvas\(workflow\)/);
+  assert.match(publicSource, /function connectWorkflowNodes\(workflow, from, to\)/);
+  assert.match(publicSource, /function workflowGraphWouldCycle\(workflow, from, to\)/);
+  assert.match(publicSource, /newWorkflowMergeNode/);
+  assert.match(publicSource, /workflow-graph-edge/);
   assert.match(publicSource, /临时系统提示词/);
   assert.match(publicSource, /jsonRequest\('\/api\/admin\/workflows'/);
   assert.match(backendSource, /function validateWorkflowDefinitions\(/);
-  assert.match(backendSource, /\['role', 'temporary', 'image'\]/);
+  assert.match(backendSource, /\['role', 'temporary', 'merge', 'image'\]/);
+  assert.match(backendSource, /function workflowTopologicalOrder\(/);
+  assert.match(backendSource, /function workflowNodeInput\(/);
   assert.match(backendSource, /function publicWorkflowList\(\)/);
   assert.match(backendSource, /\/api\/admin\/workflows/);
   assert.match(backendSource, /systemPrompt/);

@@ -201,6 +201,59 @@ test('administrator-defined workflow nodes persist privately and run role plus t
   }
 });
 
+test('node-graph workflows merge multiple upstream outputs before the next role and final image', async () => {
+  const context = await fixture();
+  try {
+    const signedIn = await authenticated(context);
+    const definition = {
+      version: 2,
+      workflows: [{
+        id: 'diamond-graph', name: '菱形节点图', description: '并行整理后合并为专业绘图提示词', enabled: true,
+        nodes: [
+          { id: 'brief', type: 'temporary', model: 'chat-test', systemPrompt: '整理主体。', inputTemplate: '主体：{{input}}', inputMerge: 'plain', output: { mode: 'full' }, position: { x: 140, y: 120 } },
+          { id: 'style', type: 'temporary', model: 'chat-test', systemPrompt: '整理风格。', inputTemplate: '风格：{{input}}', inputMerge: 'plain', output: { mode: 'full' }, position: { x: 140, y: 420 } },
+          { id: 'merge', type: 'merge', mergeMode: 'template', separator: '\n\n', template: '主体设定：{{brief}}\n风格设定：{{style}}', position: { x: 500, y: 260 } },
+          { id: 'architect', type: 'role', roleId: 'role-mrsmkx9c-2293', model: 'claude-sonnet-4-5', inputTemplate: '综合为最终绘图提示词：{{input}}', inputMerge: 'plain', output: { mode: 'full' }, position: { x: 820, y: 260 } },
+          { id: 'image', type: 'image', model: 'gemini-3.1-flash-image', output: { mode: 'full' }, size: '1024x1024', quality: 'high', allowUserModelOverride: false, allowUserSizeOverride: false, allowUserQualityOverride: false, position: { x: 1_180, y: 260 } },
+        ],
+        edges: [
+          { id: 'user-brief', from: 'user', to: 'brief', inputKey: 'user', order: 0 },
+          { id: 'user-style', from: 'user', to: 'style', inputKey: 'user', order: 0 },
+          { id: 'brief-merge', from: 'brief', to: 'merge', inputKey: 'brief', order: 0 },
+          { id: 'style-merge', from: 'style', to: 'merge', inputKey: 'style', order: 1 },
+          { id: 'merge-architect', from: 'merge', to: 'architect', inputKey: 'merged', order: 0 },
+          { id: 'architect-image', from: 'architect', to: 'image', inputKey: 'prompt', order: 0 },
+        ],
+      }],
+    };
+    const saved = await fetch(`${context.baseUrl}/api/admin/workflows`, {
+      method: 'PUT',
+      headers: { Cookie: signedIn.cookie, Origin: context.baseUrl, 'X-CSRF-Token': signedIn.body.csrfToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(definition),
+    });
+    assert.equal(saved.status, 200, await saved.text());
+    const privateDefinition = await (await fetch(`${context.baseUrl}/api/admin/workflows`, { headers: { Cookie: signedIn.cookie } })).json();
+    assert.equal(privateDefinition.version, 2);
+    assert.equal(privateDefinition.workflows[0].edges.length, 6);
+    const publicDefinition = await (await fetch(`${context.baseUrl}/api/workflows`, { headers: { Cookie: signedIn.cookie } })).json();
+    assert.equal(publicDefinition.workflows[0].edges, undefined);
+
+    const result = await postJson(context, signedIn, '/api/workflows/run', { workflowId: 'diamond-graph', prompt: '冰原女探险家', imageModel: 'gpt-image-2', size: '1792x1024', quality: 'low' });
+    assert.equal(result.response.status, 200);
+    const chats = context.fake.requests.filter((request) => request.url === '/v1/chat/completions').map((request) => JSON.parse(request.bodyText));
+    assert.equal(chats.length, 3);
+    assert.equal(chats[0].messages[1].content, '主体：冰原女探险家');
+    assert.equal(chats[1].messages[1].content, '风格：冰原女探险家');
+    assert.equal(chats[2].model, 'claude-sonnet-4-5');
+    assert.equal(chats[2].messages[1].content, '综合为最终绘图提示词：主体设定：你好，图片如下：\n风格设定：你好，图片如下：');
+    const imageRequest = context.fake.requests.find((request) => request.url === '/v1/images/generations');
+    assert.equal(JSON.parse(imageRequest.bodyText).model, 'gemini-3.1-flash-image');
+    assert.equal(JSON.parse(imageRequest.bodyText).prompt, '你好，图片如下：');
+  } finally {
+    await context.close();
+  }
+});
+
 test('packaged workflow streams an immediate keep-alive response for remote clients', async () => {
   const context = await fixture();
   try {
@@ -488,6 +541,32 @@ test('recent media lists uploaded and generated files newest first for the signe
     assert.equal(payload.files[1].fileName, 'reference.png');
     assert.ok(payload.files[0].createdAt >= payload.files[1].createdAt);
     assert.match(payload.files[0].url, /^\/api\/media\/[A-Za-z0-9_-]{32}$/);
+  } finally {
+    await context.close();
+  }
+});
+
+test('favorite media persists per account and only returns owned authenticated files', async () => {
+  const context = await fixture();
+  try {
+    const signedIn = await authenticated(context);
+    const upload = await uploadFile(context, signedIn, { buffer: tinyPng(4, 4), mimeType: 'image/png', fileName: 'favorite-reference.png' });
+    const generated = await postJson(context, signedIn, '/api/images/generations', { model: 'gpt-image-2', prompt: 'favorite output', size: '1024x1024', count: 1 });
+    assert.equal(upload.response.status, 201); assert.equal(generated.response.status, 200);
+    const preferences = await fetch(`${context.baseUrl}/api/preferences`, { headers: { Cookie: signedIn.cookie } }).then((response) => response.json());
+    const favoriteIds = [generated.body.images[0].id, upload.body.attachment.id];
+    const saved = await fetch(`${context.baseUrl}/api/preferences`, {
+      method: 'PUT',
+      headers: { Cookie: signedIn.cookie, Origin: context.baseUrl, 'X-CSRF-Token': signedIn.body.csrfToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ favoriteGroups: preferences.favoriteGroups, selected: preferences.selected, modelContextLimits: preferences.modelContextLimits, favoriteMediaIds: favoriteIds }),
+    });
+    assert.equal(saved.status, 200);
+    assert.deepEqual((await saved.json()).favoriteMediaIds, favoriteIds);
+    const listed = await fetch(`${context.baseUrl}/api/media/favorites`, { headers: { Cookie: signedIn.cookie } });
+    assert.equal(listed.status, 200);
+    const payload = await listed.json();
+    assert.deepEqual(payload.files.map((item) => item.id), favoriteIds);
+    assert.ok(payload.files.every((item) => /^\/api\/media\/[A-Za-z0-9_-]{32}$/.test(item.url)));
   } finally {
     await context.close();
   }

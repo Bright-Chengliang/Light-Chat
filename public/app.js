@@ -3,8 +3,8 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 const elements = {
   appShell: $('.app-shell'), sidebar: $('#sidebar'), sidebarResizer: $('#sidebarResizer'), sidebarBackdrop: $('#sidebarBackdrop'), sidebarClose: $('#sidebarCloseButton'), menu: $('#menuButton'),
-  sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
-  recentFiles: $('#recentFilesList'), recentFilesToggle: $('#recentFilesToggle'), refreshRecentFiles: $('#refreshRecentFilesButton'),
+  sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openFavoriteMediaDrawer: $('#openFavoriteMediaDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
+  recentFiles: $('#recentFilesList'), recentFilesToggle: $('#recentFilesToggle'), refreshRecentFiles: $('#refreshRecentFilesButton'), favoriteMedia: $('#favoriteMediaList'), favoriteMediaToggle: $('#favoriteMediaToggle'), refreshFavoriteMedia: $('#refreshFavoriteMediaButton'),
   newConversation: $('#newConversationButton'), currentModelNewConversation: $('#currentModelNewConversationButton'), addHistoryFolder: $('#addHistoryFolderButton'), clearHistory: $('#clearHistoryButton'), history: $('#historyList'), historyToggle: $('#historyToggle'), historySearch: $('#historySearchInput'), favoriteConversations: $('#favoriteConversations'), favoriteConversationsToggle: $('#favoriteConversationsToggle'),
   sidebarFavorites: $('#sidebarFavorites'), sidebarFavoritesToggle: $('#sidebarFavoritesToggle'),
   quickModelPicker: $('#quickModelPicker'), quickChatPicker: $('#quickChatPicker'), quickImagePicker: $('#quickImagePicker'), quickChatCurrent: $('#quickChatCurrent'), quickImageCurrent: $('#quickImageCurrent'), quickChatModels: $('#quickChatModels'), quickImageModels: $('#quickImageModels'), manageFavorites: $('#manageFavoritesButton'),
@@ -35,7 +35,7 @@ const elements = {
   historyContextMenu: $('#historyContextMenu'), renameConversation: $('#renameConversation'), toggleFavoriteConversation: $('#toggleFavoriteConversation'), jumpToRoleFromConversation: $('#jumpToRoleFromConversation'), jumpToSourceConversation: $('#jumpToSourceConversation'), exportTxt: $('#exportConversationTxt'), exportMarkdownText: $('#exportConversationMarkdownText'), exportMarkdown: $('#exportConversationMarkdown'), deleteConversation: $('#deleteConversation'),
   roleFolderContextMenu: $('#roleFolderContextMenu'), addRoleToFolder: $('#addRoleToFolder'), deleteRoleFolder: $('#deleteRoleFolder'),
   roleContextMenu: $('#roleContextMenu'), toggleRoleConversations: $('#toggleRoleConversations'), toggleRoleConversationsLabel: $('#toggleRoleConversationsLabel'), toggleRoleConversationsCount: $('#toggleRoleConversationsCount'), editRole: $('#editRole'), duplicateRole: $('#duplicateRole'), copyRoleToFolder: $('#copyRoleToFolder'), moveRoleToFolder: $('#moveRoleToFolder'), deleteRole: $('#deleteRole'),
-  favoriteContextMenu: $('#favoriteContextMenu'), editFavorite: $('#editFavorite'), deleteFavorite: $('#deleteFavorite'),
+  favoriteContextMenu: $('#favoriteContextMenu'), editFavorite: $('#editFavorite'), deleteFavorite: $('#deleteFavorite'), recentFileContextMenu: $('#recentFileContextMenu'), toggleFavoriteMediaButton: $('#toggleFavoriteMediaButton'),
   variantModelMenu: $('#variantModelMenu'), globalDropOverlay: $('#globalDropOverlay'), globalDropTitle: $('#globalDropOverlay strong'),
   translatorWorkspace: $('#translatorWorkspace'), translateHistoryButton: $('#translateHistoryButton'), translateHistoryPanel: $('#translateHistoryPanel'), translateSourceLanguage: $('#translateSourceLanguage'), translateTargetLanguage: $('#translateTargetLanguage'), translateSwapButton: $('#translateSwapButton'), translateButton: $('#translateButton'), translateModelButton: $('#translateModelButton'), translatorCurrentModel: $('#translatorCurrentModel'), translateInput: $('#translateInput'), translateInputCount: $('#translateInputCount'), translateClearButton: $('#translateClearButton'), translateCopyButton: $('#translateCopyButton'), translateOutput: $('#translateOutput'), translateStatus: $('#translateStatus'), translateModelLabel: $('#translateModelLabel'),
 };
@@ -88,13 +88,13 @@ if (localStorage.getItem(STREAM_KEY) === null && storedStreamPreference !== null
   localStorage.setItem(STREAM_KEY, storedStreamPreference); localStorage.removeItem(LEGACY_STREAM_KEY);
 }
 const state = {
-  csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {} },
+  csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {}, favoriteMediaIds: [] },
   selected: null, stream: storedStreamPreference !== 'false', conversations: [], currentId: '',
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
   historyFolders: [], openHistoryFolders: new Set(), historySearch: '',
-  contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextAssistantMessageId: '', renamingConversationId: '',
-  pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingWorkflows: [], editingMessageId: '', pendingRoleTransfer: null,
-  followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationOutput: '', recentFiles: [], recentFilesLoading: false, workflows: [], workflowRunning: false, selectedWorkflow: null,
+  contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextRecentFileId: '', contextAssistantMessageId: '', renamingConversationId: '',
+  pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', pendingRoleTransfer: null,
+  followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationOutput: '', recentFiles: [], recentFilesLoading: false, favoriteMedia: [], favoriteMediaLoading: false, workflows: [], workflowRunning: false, selectedWorkflow: null,
 };
 let globalFileDragDepth = 0;
 let editingAttachmentDropHandler = null;
@@ -638,7 +638,7 @@ function sidebarDrawerBase(view) {
   if (view?.startsWith('role:')) return 'roles';
   if (view?.startsWith('workflow:')) return 'workflows';
   if (view?.startsWith('history-folder:')) return 'history';
-  return ['favorites', 'favorite-conversations', 'roles', 'recent-files', 'workflows', 'history'].includes(view) ? view : 'root';
+  return ['favorites', 'favorite-conversations', 'roles', 'recent-files', 'favorite-media', 'workflows', 'history'].includes(view) ? view : 'root';
 }
 
 function findWorkflowById(workflowId) { return state.workflows.find((workflow) => workflow.id === workflowId) || null; }
@@ -849,7 +849,7 @@ function renderRecentFiles() {
   if (!state.recentFiles.length) { const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '暂无最近文件。上传附件或生成图片后会显示在这里。'; elements.recentFiles.append(empty); return; }
   const images = state.recentFiles.filter((item) => item.isImage);
   for (const item of state.recentFiles) {
-    const row = document.createElement('div'); row.className = 'recent-file-item';
+    const row = document.createElement('div'); row.className = `recent-file-item${isFavoriteMedia(item.id) ? ' favorited' : ''}`;
     const open = document.createElement(item.isImage ? 'button' : 'a'); open.className = 'recent-file-open';
     if (item.isImage) { open.type = 'button'; open.addEventListener('click', () => void openRecentFile(item, images)); }
     else { open.href = item.url; open.target = '_blank'; open.rel = 'noopener'; }
@@ -864,8 +864,40 @@ function renderRecentFiles() {
     const meta = document.createElement('small'); meta.textContent = `${item.kind === 'output' ? '生成' : '上传'} · ${formatTime(item.createdAt)}`;
     copy.append(name, meta);
     const download = document.createElement('a'); download.className = 'recent-file-download'; download.href = item.url; download.download = recentFileName(item); download.textContent = '↓'; download.title = '下载'; download.setAttribute('aria-label', `下载 ${recentFileName(item)}`); download.addEventListener('click', (event) => event.stopPropagation());
-    open.append(preview, copy); row.append(open, download); elements.recentFiles.append(row);
+    open.append(preview, copy); bindContextMenuTrigger(open, 'recentFileContextMenu', (x, y, trigger) => openRecentFileContextMenu(item.id, x, y, trigger)); row.append(open, download); elements.recentFiles.append(row);
   }
+}
+
+function isFavoriteMedia(itemId) { return state.preferences.favoriteMediaIds.includes(itemId); }
+function mediaItemById(itemId) { return [...state.recentFiles, ...state.favoriteMedia].find((item) => item.id === itemId) || null; }
+
+function renderFavoriteMedia() {
+  elements.favoriteMedia.replaceChildren();
+  if (state.favoriteMediaLoading) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '正在加载收藏图片…' })); return; }
+  if (!state.favoriteMedia.length) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '还没有收藏图片。可在“最近文件”中右键任意文件后选择收藏。' })); return; }
+  const images = state.favoriteMedia.filter((item) => item.isImage);
+  for (const item of state.favoriteMedia) {
+    const card = document.createElement('article'); card.className = 'favorite-media-card';
+    const open = document.createElement(item.isImage ? 'button' : 'a'); open.className = 'favorite-media-open';
+    if (item.isImage) { open.type = 'button'; open.addEventListener('click', () => void openRecentFile(item, images)); } else { open.href = item.url; open.target = '_blank'; open.rel = 'noopener'; }
+    if (item.isImage) { const image = document.createElement('img'); image.src = item.url; image.alt = recentFileName(item); image.loading = 'lazy'; image.decoding = 'async'; image.addEventListener('error', () => { image.replaceWith(Object.assign(document.createElement('span'), { textContent: '图片不可用' })); }); open.append(image); } else open.append(Object.assign(document.createElement('span'), { textContent: (item.fileName.split('.').pop() || 'FILE').toUpperCase() }));
+    open.append(Object.assign(document.createElement('small'), { textContent: recentFileName(item), title: recentFileName(item) })); bindContextMenuTrigger(open, 'recentFileContextMenu', (x, y, trigger) => openRecentFileContextMenu(item.id, x, y, trigger));
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'favorite-media-remove'; remove.textContent = '♥'; remove.title = '取消收藏'; remove.setAttribute('aria-label', `取消收藏 ${recentFileName(item)}`); remove.addEventListener('click', () => { void toggleFavoriteMedia(item.id); }); card.append(open, remove); elements.favoriteMedia.append(card);
+  }
+}
+
+async function toggleFavoriteMedia(itemId) {
+  if (preferenceWritesInFlight) { setStatus('收藏设置正在保存，请稍候', 'pending'); return; }
+  const item = mediaItemById(itemId); if (!item) { setStatus('文件不存在或已过期，无法收藏', 'error'); return; }
+  const nextPreferences = structuredClone(state.preferences); const index = nextPreferences.favoriteMediaIds.indexOf(itemId); const adding = index < 0;
+  if (adding) nextPreferences.favoriteMediaIds.unshift(itemId); else nextPreferences.favoriteMediaIds.splice(index, 1);
+  try {
+    await savePreferences(nextPreferences);
+    state.favoriteMedia = adding ? [item, ...state.favoriteMedia.filter((candidate) => candidate.id !== itemId)] : state.favoriteMedia.filter((candidate) => candidate.id !== itemId);
+    renderRecentFiles(); renderFavoriteMedia();
+    if (adding) setStatus(`已收藏“${recentFileName(item)}”`, 'success'); else setStatus(`已取消收藏“${recentFileName(item)}”`, 'success');
+    if (adding) void loadFavoriteMedia();
+  } catch (error) { setStatus(error.message || '收藏图片保存失败', 'error'); }
 }
 
 async function openRecentFile(item, images) {
@@ -886,6 +918,13 @@ async function loadRecentFiles() {
   try { const payload = await jsonRequest('/api/media/recent'); state.recentFiles = Array.isArray(payload.files) ? payload.files : []; }
   catch (error) { state.recentFiles = []; setStatus(error.message || '最近文件加载失败', 'error'); }
   finally { state.recentFilesLoading = false; renderRecentFiles(); }
+}
+
+async function loadFavoriteMedia() {
+  state.favoriteMediaLoading = true; renderFavoriteMedia();
+  try { const payload = await jsonRequest('/api/media/favorites'); state.favoriteMedia = Array.isArray(payload.files) ? payload.files : []; }
+  catch (error) { state.favoriteMedia = []; setStatus(error.message || '收藏图片加载失败', 'error'); }
+  finally { state.favoriteMediaLoading = false; renderFavoriteMedia(); }
 }
 
 function renderSidebarDrawerState() {
@@ -1164,7 +1203,7 @@ function deleteHistoryFolder(folderId) {
 }
 
 function contextMenus() {
-  return [elements.historyContextMenu, elements.roleFolderContextMenu, elements.roleContextMenu, elements.favoriteContextMenu, elements.variantModelMenu];
+  return [elements.historyContextMenu, elements.roleFolderContextMenu, elements.roleContextMenu, elements.favoriteContextMenu, elements.recentFileContextMenu, elements.variantModelMenu];
 }
 
 function contextMenuItems(menu, { includeDisabled = false } = {}) {
@@ -1178,6 +1217,7 @@ function resetContextMenuState(menu) {
   if (menu === elements.favoriteContextMenu) {
     state.contextFavoriteGroupId = ''; state.contextFavoriteModelId = ''; state.contextFavoriteMode = '';
   }
+  if (menu === elements.recentFileContextMenu) state.contextRecentFileId = '';
   if (menu === elements.variantModelMenu) {
     state.contextAssistantMessageId = ''; menu.replaceChildren();
   }
@@ -1264,8 +1304,14 @@ function updateContextMenuAvailability(menu) {
     elements.editFavorite.disabled = busy;
     elements.deleteFavorite.disabled = busy;
   }
+  if (menu === elements.recentFileContextMenu) {
+    const item = mediaItemById(state.contextRecentFileId);
+    const favorite = item && isFavoriteMedia(item.id);
+    elements.toggleFavoriteMediaButton.textContent = favorite ? '♡ 取消收藏图片' : '♥ 收藏到图片';
+    elements.toggleFavoriteMediaButton.disabled = !item || preferenceWritesInFlight > 0;
+  }
   menu.setAttribute('aria-busy', String(
-    (menu === elements.favoriteContextMenu && (preferenceContextMutationInFlight || preferenceWritesInFlight > 0))
+    ([elements.favoriteContextMenu, elements.recentFileContextMenu].includes(menu) && (preferenceContextMutationInFlight || preferenceWritesInFlight > 0))
     || ([elements.roleFolderContextMenu, elements.roleContextMenu].includes(menu) && roleContextMutationInFlight)
     || (menu === elements.historyContextMenu && markdownZipExportInFlight)
   ));
@@ -1330,6 +1376,11 @@ function openHistoryContextMenu(conversationId, x, y, trigger) {
   closeHeaderModelMenu(); closeAllContextMenus();
   state.contextConversationId = conversationId;
   positionContextMenu(elements.historyContextMenu, x, y, trigger);
+}
+
+function openRecentFileContextMenu(fileId, x, y, trigger) {
+  if (!mediaItemById(fileId)) return;
+  closeHeaderModelMenu(); closeAllContextMenus(); state.contextRecentFileId = fileId; positionContextMenu(elements.recentFileContextMenu, x, y, trigger);
 }
 
 function closeHistoryContextMenu(options) { closeContextMenu(elements.historyContextMenu, options); }
@@ -2786,7 +2837,7 @@ async function savePreferences(nextPreferences = state.preferences) {
     for (const [modelId, limit] of Object.entries(requestedContextLimits)) if (limit === DEFAULT_CONTEXT_TOKENS) delete requestedContextLimits[modelId];
     const payload = await jsonRequest('/api/preferences', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ favoriteGroups: nextPreferences.favoriteGroups, selected: state.selected, modelContextLimits: requestedContextLimits }),
+      body: JSON.stringify({ favoriteGroups: nextPreferences.favoriteGroups, selected: state.selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: nextPreferences.favoriteMediaIds || [] }),
     });
     if (!Object.prototype.hasOwnProperty.call(payload, 'modelContextLimits') && Object.keys(requestedContextLimits).length) {
       throw new Error('当前服务端尚未加载模型上下文持久化功能，请重启服务后重试');
@@ -2797,7 +2848,7 @@ async function savePreferences(nextPreferences = state.preferences) {
     const contextLimitsMatch = requestedEntries.length === persistedEntries.length
       && requestedEntries.every(([modelId, limit]) => persistedContextLimits[modelId] === limit);
     if (!contextLimitsMatch) throw new Error('服务器未完整保存模型上下文配置，请重试');
-    state.preferences = { favoriteGroups: payload.favoriteGroups || [], selected: payload.selected || state.selected, modelContextLimits: persistedContextLimits };
+    state.preferences = { favoriteGroups: payload.favoriteGroups || [], selected: payload.selected || state.selected, modelContextLimits: persistedContextLimits, favoriteMediaIds: Array.isArray(payload.favoriteMediaIds) ? payload.favoriteMediaIds : [] };
     state.selected = normalizeSelection(state.preferences.selected);
     renderFavorites(); renderConversation();
   } finally { preferenceWritesInFlight = Math.max(0, preferenceWritesInFlight - 1); }
@@ -4411,141 +4462,105 @@ async function loadModelAccessGroups() {
   renderModelAccessGroups();
 }
 
+const WORKFLOW_GRAPH_NODE_WIDTH = 276;
+const WORKFLOW_GRAPH_MAX_NODES = 16;
+
 function workflowModelOptions(mode) { return state.models.filter((model) => model.modes.includes(mode)); }
 function newWorkflowNodeId(prefix = 'node') { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
-
-function workflowEditorField(label, control) {
-  const field = document.createElement('label'); field.className = 'workflow-editor-field';
-  const caption = document.createElement('span'); caption.textContent = label;
-  field.append(caption, control); return field;
-}
-
-function workflowEditorSelect(options, value, ariaLabel) {
-  const select = document.createElement('select'); select.setAttribute('aria-label', ariaLabel);
-  for (const optionData of options) {
-    const option = document.createElement('option'); option.value = optionData.value; option.textContent = optionData.label; select.append(option);
-  }
-  select.value = options.some((option) => option.value === value) ? value : (options[0]?.value || '');
-  return select;
-}
-
-function ensureWorkflowOutput(node) {
-  if (!node.output || typeof node.output !== 'object') node.output = { mode: 'full' };
-  if (!['full', 'poster-chinese', 'between'].includes(node.output.mode)) node.output = { mode: 'full' };
-  return node.output;
-}
+function workflowEditorField(label, control) { const field = document.createElement('label'); field.className = 'workflow-editor-field'; field.append(Object.assign(document.createElement('span'), { textContent: label }), control); return field; }
+function workflowEditorSelect(options, value, ariaLabel) { const select = document.createElement('select'); select.setAttribute('aria-label', ariaLabel); for (const item of options) { const option = document.createElement('option'); option.value = item.value; option.textContent = item.label; select.append(option); } select.value = options.some((item) => item.value === value) ? value : (options[0]?.value || ''); return select; }
+function workflowNodePosition(position, index = 0) { return { x: Math.max(24, Number(position?.x) || 280 + index * 320), y: Math.max(24, Number(position?.y) || 120) }; }
+function workflowNodeById(workflow, nodeId) { return workflow.nodes.find((node) => node.id === nodeId) || null; }
+function workflowEdges(workflow) { if (!Array.isArray(workflow.edges)) workflow.edges = []; return workflow.edges; }
+function workflowIncomingEdges(workflow, nodeId) { return workflowEdges(workflow).filter((edge) => edge.to === nodeId).sort((left, right) => left.order - right.order); }
+function workflowNodeName(workflow, nodeId) { if (nodeId === 'user') return '用户输入'; const node = workflowNodeById(workflow, nodeId); return node?.type === 'role' ? (findRoleById(node.roleId)?.name || node.id) : node?.type === 'temporary' ? '临时提示词' : node?.type === 'merge' ? '合并内容' : node?.type === 'image' ? '最终生图' : nodeId; }
+function ensureWorkflowOutput(node) { if (!node.output || !['full', 'poster-chinese', 'between'].includes(node.output.mode)) node.output = { mode: 'full' }; return node.output; }
 
 function renderWorkflowOutputEditor(node, body, rerender) {
-  const output = ensureWorkflowOutput(node);
-  const select = workflowEditorSelect([
-    { value: 'full', label: '完整输出' },
-    { value: 'poster-chinese', label: '海报中文段落' },
-    { value: 'between', label: '开始/结束标记之间' },
-  ], output.mode, '输出提取方式');
-  select.addEventListener('change', () => { node.output = { mode: select.value }; rerender(); });
-  body.append(workflowEditorField('输出给下一节点', select));
+  const output = ensureWorkflowOutput(node); const select = workflowEditorSelect([{ value: 'full', label: '完整输出' }, { value: 'poster-chinese', label: '海报中文段落' }, { value: 'between', label: '开始/结束标记之间' }], output.mode, '输出提取方式');
+  select.addEventListener('change', () => { node.output = { mode: select.value }; rerender(); }); body.append(workflowEditorField('输出处理', select));
   if (output.mode !== 'between') return;
   const start = document.createElement('input'); start.maxLength = 120; start.value = output.startMarker || ''; start.placeholder = '开始标记'; start.addEventListener('input', () => { output.startMarker = start.value; });
-  const end = document.createElement('input'); end.maxLength = 120; end.value = output.endMarker || ''; end.placeholder = '结束标记'; end.addEventListener('input', () => { output.endMarker = end.value; });
-  body.append(workflowEditorField('开始标记', start), workflowEditorField('结束标记', end));
+  const end = document.createElement('input'); end.maxLength = 120; end.value = output.endMarker || ''; end.placeholder = '结束标记'; end.addEventListener('input', () => { output.endMarker = end.value; }); body.append(workflowEditorField('开始标记', start), workflowEditorField('结束标记', end));
 }
 
-function newWorkflowTextNode(type) {
-  const model = workflowModelOptions('chat')[0]?.id || '';
-  const base = { id: newWorkflowNodeId(type === 'role' ? 'role' : 'temp'), type, model, inputFrom: 'user', inputTemplate: '{{input}}', output: { mode: 'full' } };
-  return type === 'role'
-    ? { ...base, roleId: allRoles()[0]?.id || '' }
-    : { ...base, systemPrompt: '根据用户需求输出可直接交给下一节点使用的完整内容。' };
+function newWorkflowTextNode(type, position) {
+  const model = workflowModelOptions('chat')[0]?.id || ''; const base = { id: newWorkflowNodeId(type === 'role' ? 'role' : 'temp'), type, model, inputTemplate: '{{input}}', inputMerge: 'plain', output: { mode: 'full' }, position: workflowNodePosition(position) };
+  return type === 'role' ? { ...base, roleId: allRoles()[0]?.id || '' } : { ...base, systemPrompt: '根据用户需求输出可直接交给下一节点使用的完整内容。' };
 }
+function newWorkflowMergeNode(position) { return { id: newWorkflowNodeId('merge'), type: 'merge', mergeMode: 'join', separator: '\n\n', template: '{{all}}', position: workflowNodePosition(position) }; }
+function newWorkflowImageNode(position) { const model = workflowModelOptions('image')[0]; return { id: newWorkflowNodeId('image'), type: 'image', model: model?.id || '', output: { mode: 'full' }, size: model?.imageOptions?.defaultSize || '1024x1024', quality: model?.imageOptions?.defaultQuality || 'high', allowUserModelOverride: true, allowUserSizeOverride: true, allowUserQualityOverride: true, position: workflowNodePosition(position) }; }
+function newWorkflowDefinition() { const textNode = newWorkflowTextNode('temporary', { x: 300, y: 150 }); const imageNode = newWorkflowImageNode({ x: 720, y: 150 }); return { id: `workflow-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, name: '新工作流', description: '拖拽并连线组合角色卡、临时提示词和生图节点', enabled: false, nodes: [textNode, imageNode], edges: [{ id: newWorkflowNodeId('edge'), from: 'user', to: textNode.id, inputKey: 'user', order: 0 }, { id: newWorkflowNodeId('edge'), from: textNode.id, to: imageNode.id, inputKey: 'prompt', order: 0 }] }; }
 
-function newWorkflowImageNode(promptFrom) {
-  const model = workflowModelOptions('image')[0];
-  return {
-    id: newWorkflowNodeId('image'), type: 'image', model: model?.id || '', promptFrom,
-    output: { mode: 'full' }, size: model?.imageOptions?.defaultSize || '1024x1024', quality: model?.imageOptions?.defaultQuality || 'high',
-    allowUserModelOverride: true, allowUserSizeOverride: true, allowUserQualityOverride: true,
-  };
+function workflowGraphWouldCycle(workflow, from, to) {
+  if (from === 'user') return false; const outgoing = new Map(); for (const edge of workflowEdges(workflow)) { const list = outgoing.get(edge.from) || []; list.push(edge.to); outgoing.set(edge.from, list); }
+  const pending = [to]; const seen = new Set(); while (pending.length) { const current = pending.pop(); if (current === from) return true; if (seen.has(current)) continue; seen.add(current); pending.push(...(outgoing.get(current) || [])); } return false;
 }
-
-function newWorkflowDefinition() {
-  const textNode = newWorkflowTextNode('temporary');
-  return { id: `workflow-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, name: '新工作流', description: '先生成专业提示词，再生成图片', enabled: false, nodes: [textNode, newWorkflowImageNode(textNode.id)] };
+function connectWorkflowNodes(workflow, from, to) {
+  const target = workflowNodeById(workflow, to); const source = from === 'user' ? null : workflowNodeById(workflow, from); const edges = workflowEdges(workflow);
+  if (!target || from === to || (!source && from !== 'user') || source?.type === 'image') { setStatus('该连线无效', 'error'); return false; }
+  if (edges.some((edge) => edge.from === from && edge.to === to)) { setStatus('这两个节点已经连接', 'error'); return false; }
+  if (target.type !== 'merge' && edges.some((edge) => edge.to === to)) { setStatus('该输入端只能连接一个来源；需要合并时请添加“合并节点”', 'error'); return false; }
+  if (workflowGraphWouldCycle(workflow, from, to)) { setStatus('不能创建环路：工作流必须从用户输入流向最终生图节点', 'error'); return false; }
+  const incoming = workflowIncomingEdges(workflow, to); edges.push({ id: newWorkflowNodeId('edge'), from, to, inputKey: from === 'user' ? 'user' : from, order: incoming.length }); state.workflowGraph.pendingSource = ''; return true;
 }
+function disconnectWorkflowEdge(workflow, edgeId) { const index = workflowEdges(workflow).findIndex((edge) => edge.id === edgeId); if (index >= 0) workflow.edges.splice(index, 1); }
+function selectWorkflowGraphNode(workflow, nodeId) { state.workflowGraph.selectedWorkflowId = workflow.id; state.workflowGraph.selectedNodeId = nodeId; }
+function nextWorkflowNodePosition(workflow) { const right = Math.max(300, ...workflow.nodes.map((node) => workflowNodePosition(node.position).x + WORKFLOW_GRAPH_NODE_WIDTH)); return { x: Math.min(2_700, right + 54), y: 140 + (workflow.nodes.length % 3) * 190 }; }
 
-function renderWorkflowTextNode(workflow, node, index, rerender) {
-  const card = document.createElement('article'); card.className = 'workflow-node-card';
-  const heading = document.createElement('header');
-  const title = document.createElement('strong'); title.textContent = `${index + 1}. ${node.type === 'role' ? '角色卡节点' : '临时提示词节点'}`;
-  const actions = document.createElement('span'); actions.className = 'workflow-node-actions';
-  const up = document.createElement('button'); up.type = 'button'; up.textContent = '↑'; up.title = '上移节点'; up.disabled = index === 0; up.addEventListener('click', () => { [workflow.nodes[index - 1], workflow.nodes[index]] = [workflow.nodes[index], workflow.nodes[index - 1]]; rerender(); });
-  const down = document.createElement('button'); down.type = 'button'; down.textContent = '↓'; down.title = '下移节点'; down.disabled = workflow.nodes[index + 1]?.type === 'image'; down.addEventListener('click', () => { [workflow.nodes[index + 1], workflow.nodes[index]] = [workflow.nodes[index], workflow.nodes[index + 1]]; rerender(); });
-  const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'danger-action'; remove.textContent = '删除'; remove.disabled = workflow.nodes.filter((candidate) => candidate.type !== 'image').length <= 1; remove.addEventListener('click', () => { workflow.nodes.splice(index, 1); rerender(); });
-  actions.append(up, down, remove); heading.append(title, actions); card.append(heading);
-  const body = document.createElement('div'); body.className = 'workflow-node-fields';
-  const type = workflowEditorSelect([{ value: 'role', label: '引用角色卡' }, { value: 'temporary', label: '临时系统提示词' }], node.type, '节点类型');
-  type.addEventListener('change', () => {
-    const replacement = newWorkflowTextNode(type.value);
-    Object.assign(node, replacement, { id: node.id, inputFrom: node.inputFrom, inputTemplate: node.inputTemplate, output: node.output });
-    rerender();
+function workflowGraphPath(workflow, edge) {
+  const sourcePosition = edge.from === 'user' ? { x: 32, y: 280, width: 176 } : { ...workflowNodePosition(workflowNodeById(workflow, edge.from)?.position), width: WORKFLOW_GRAPH_NODE_WIDTH };
+  const targetPosition = workflowNodePosition(workflowNodeById(workflow, edge.to)?.position);
+  const startX = sourcePosition.x + sourcePosition.width; const startY = sourcePosition.y + 54; const endX = targetPosition.x; const endY = targetPosition.y + 54; const curve = Math.max(70, Math.abs(endX - startX) * .42);
+  return `M ${startX} ${startY} C ${startX + curve} ${startY}, ${endX - curve} ${endY}, ${endX} ${endY}`;
+}
+function renderWorkflowGraphEdges(svg, workflow) {
+  svg.replaceChildren(); for (const edge of workflowEdges(workflow)) { const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.classList.add('workflow-graph-edge'); path.setAttribute('d', workflowGraphPath(workflow, edge)); path.setAttribute('tabindex', '0'); path.setAttribute('role', 'button'); path.setAttribute('aria-label', `断开 ${workflowNodeName(workflow, edge.from)} 到 ${workflowNodeName(workflow, edge.to)} 的连线`); path.title = '点击断开连线'; path.addEventListener('click', () => { disconnectWorkflowEdge(workflow, edge.id); renderWorkflowEditor(); }); path.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); disconnectWorkflowEdge(workflow, edge.id); renderWorkflowEditor(); } }); svg.append(path); }
+}
+function bindWorkflowNodeDrag(header, frame, workflow, node, svg) {
+  header.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || event.target.closest('button, input, select, textarea')) return; event.preventDefault(); const initial = workflowNodePosition(node.position); const startX = event.clientX; const startY = event.clientY; frame.classList.add('dragging');
+    const move = (moveEvent) => { node.position = { x: Math.max(24, Math.round(initial.x + moveEvent.clientX - startX)), y: Math.max(24, Math.round(initial.y + moveEvent.clientY - startY)) }; frame.style.left = `${node.position.x}px`; frame.style.top = `${node.position.y}px`; renderWorkflowGraphEdges(svg, workflow); };
+    const finish = () => { frame.classList.remove('dragging'); document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', finish); };
+    document.addEventListener('pointermove', move); document.addEventListener('pointerup', finish, { once: true });
   });
-  const chatModels = workflowModelOptions('chat').map((model) => ({ value: model.id, label: model.id }));
-  const model = workflowEditorSelect(chatModels, node.model, '文本节点模型'); model.addEventListener('change', () => { node.model = model.value; });
-  const prior = ['user', ...workflow.nodes.slice(0, index).filter((candidate) => candidate.type !== 'image').map((candidate) => candidate.id)];
-  const inputFrom = workflowEditorSelect(prior.map((value) => ({ value, label: value === 'user' ? '用户原始输入' : `节点：${value}` })), node.inputFrom, '节点输入来源'); inputFrom.addEventListener('change', () => { node.inputFrom = inputFrom.value; });
-  body.append(workflowEditorField('节点类型', type), workflowEditorField('调用模型', model), workflowEditorField('输入来源', inputFrom));
-  if (node.type === 'role') {
-    const roles = allRoles().map((role) => ({ value: role.id, label: role.name }));
-    const role = workflowEditorSelect(roles.length ? roles : [{ value: '', label: '请先创建角色卡' }], node.roleId, '引用角色卡'); role.addEventListener('change', () => { node.roleId = role.value; });
-    body.append(workflowEditorField('引用角色卡', role));
+}
+function workflowGraphPort(label, className, action) { const port = document.createElement('button'); port.type = 'button'; port.className = `workflow-graph-port ${className}`; port.textContent = label; port.addEventListener('click', (event) => { event.stopPropagation(); action(); }); return port; }
+function renderWorkflowGraphFrame(workflow, node, svg) {
+  const position = workflowNodePosition(node.position); node.position = position; const frame = document.createElement('article'); frame.className = `workflow-graph-node ${node.type}${state.workflowGraph.selectedWorkflowId === workflow.id && state.workflowGraph.selectedNodeId === node.id ? ' selected' : ''}`; frame.style.left = `${position.x}px`; frame.style.top = `${position.y}px`; frame.dataset.workflowNodeId = node.id;
+  const header = document.createElement('header'); const title = document.createElement('strong'); title.textContent = node.type === 'role' ? (findRoleById(node.roleId)?.name || '角色卡节点') : node.type === 'temporary' ? '临时提示词节点' : node.type === 'merge' ? '合并节点' : '最终生图节点'; const badge = document.createElement('small'); badge.textContent = node.type === 'image' ? 'IMAGE' : node.type === 'merge' ? 'MERGE' : 'TEXT'; header.append(title, badge); bindWorkflowNodeDrag(header, frame, workflow, node, svg); header.addEventListener('click', () => { selectWorkflowGraphNode(workflow, node.id); renderWorkflowEditor(); });
+  const ports = document.createElement('div'); ports.className = 'workflow-graph-node-ports'; const input = workflowGraphPort(node.type === 'merge' ? `输入 ${workflowIncomingEdges(workflow, node.id).length}` : '输入', 'input', () => { const source = state.workflowGraph.pendingSource; if (!source) { setStatus('先点击一个节点的“输出”端，再点击这里连接', 'pending'); return; } if (connectWorkflowNodes(workflow, source, node.id)) renderWorkflowEditor(); }); const output = node.type === 'image' ? null : workflowGraphPort('输出', 'output', () => { state.workflowGraph.pendingSource = node.id; setStatus(`已选择“${workflowNodeName(workflow, node.id)}”输出，请点击目标节点的输入端`, 'pending'); renderWorkflowEditor(); }); ports.append(input); if (output) ports.append(output); frame.append(header, ports); return frame;
+}
+function renderWorkflowGraphCanvas(workflow) {
+  const scroll = document.createElement('div'); scroll.className = 'workflow-graph-scroll'; const canvas = document.createElement('div'); canvas.className = `workflow-graph-canvas${state.workflowGraph.pendingSource ? ' connecting' : ''}`; const maxX = Math.max(1_040, ...workflow.nodes.map((node) => workflowNodePosition(node.position).x + WORKFLOW_GRAPH_NODE_WIDTH + 80)); const maxY = Math.max(620, ...workflow.nodes.map((node) => workflowNodePosition(node.position).y + 280)); canvas.style.width = `${maxX}px`; canvas.style.height = `${maxY}px`;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.classList.add('workflow-graph-edges'); svg.setAttribute('width', String(maxX)); svg.setAttribute('height', String(maxY)); renderWorkflowGraphEdges(svg, workflow); canvas.append(svg);
+  const userNode = document.createElement('section'); userNode.className = `workflow-graph-user-node${state.workflowGraph.pendingSource === 'user' ? ' selected' : ''}`; userNode.style.left = '32px'; userNode.style.top = '280px'; userNode.append(Object.assign(document.createElement('strong'), { textContent: '用户输入' }), workflowGraphPort('输出', 'output', () => { state.workflowGraph.pendingSource = 'user'; setStatus('已选择用户输入，请点击一个节点的输入端连接', 'pending'); renderWorkflowEditor(); })); canvas.append(userNode);
+  for (const node of workflow.nodes) canvas.append(renderWorkflowGraphFrame(workflow, node, svg)); scroll.append(canvas); return scroll;
+}
+function renderWorkflowConnectionInspector(workflow, node, body, rerender) {
+  const incoming = workflowIncomingEdges(workflow, node.id); const sources = [{ value: 'user', label: '用户输入' }, ...workflow.nodes.filter((candidate) => candidate.id !== node.id && candidate.type !== 'image').map((candidate) => ({ value: candidate.id, label: workflowNodeName(workflow, candidate.id) }))]; const source = workflowEditorSelect(sources, '', '连接来源'); const add = document.createElement('button'); add.type = 'button'; add.textContent = '连接到此节点'; add.addEventListener('click', () => { if (connectWorkflowNodes(workflow, source.value, node.id)) rerender(); }); const addRow = document.createElement('div'); addRow.className = 'workflow-connection-add'; addRow.append(source, add); body.append(workflowEditorField('连接来源', addRow));
+  const list = document.createElement('div'); list.className = 'workflow-connection-list'; for (const edge of incoming) { const row = document.createElement('div'); row.className = 'workflow-connection-row'; const label = document.createElement('span'); label.textContent = workflowNodeName(workflow, edge.from); row.append(label); if (node.type === 'merge') { const key = document.createElement('input'); key.maxLength = 64; key.value = edge.inputKey || edge.from; key.title = '模板引用名'; key.addEventListener('change', () => { edge.inputKey = key.value.trim() || edge.from; rerender(); }); const order = document.createElement('input'); order.type = 'number'; order.min = '0'; order.max = '15'; order.value = String(edge.order || 0); order.title = '合并顺序'; order.addEventListener('change', () => { edge.order = Math.max(0, Number.parseInt(order.value, 10) || 0); rerender(); }); row.append(key, order); } const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '断开'; remove.addEventListener('click', () => { disconnectWorkflowEdge(workflow, edge.id); rerender(); }); row.append(remove); list.append(row); } if (incoming.length) body.append(workflowEditorField('已连接输入', list));
+}
+function renderWorkflowGraphInspector(workflow, rerender) {
+  const inspector = document.createElement('aside'); inspector.className = 'workflow-graph-inspector'; const node = workflowNodeById(workflow, state.workflowGraph.selectedWorkflowId === workflow.id ? state.workflowGraph.selectedNodeId : ''); if (!node) { inspector.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '点击画布中的节点后，可在此编辑模型、角色卡、合并模板与连线。' })); return inspector; }
+  inspector.append(Object.assign(document.createElement('h4'), { textContent: `${workflowNodeName(workflow, node.id)} · ${node.id}` })); const body = document.createElement('div'); body.className = 'workflow-inspector-fields';
+  if (node.type === 'role' || node.type === 'temporary') {
+    const type = workflowEditorSelect([{ value: 'role', label: '引用角色卡' }, { value: 'temporary', label: '临时系统提示词' }], node.type, '节点类型'); type.addEventListener('change', () => { const replacement = newWorkflowTextNode(type.value, node.position); Object.assign(node, replacement, { id: node.id, inputTemplate: node.inputTemplate, inputMerge: node.inputMerge, output: node.output, position: node.position }); rerender(); }); const models = workflowEditorSelect(workflowModelOptions('chat').map((model) => ({ value: model.id, label: model.id })), node.model, '调用模型'); models.addEventListener('change', () => { node.model = models.value; }); body.append(workflowEditorField('节点类型', type), workflowEditorField('调用模型', models));
+    if (node.type === 'role') { const roles = allRoles().map((role) => ({ value: role.id, label: role.name })); const role = workflowEditorSelect(roles.length ? roles : [{ value: '', label: '请先创建角色卡' }], node.roleId, '引用角色卡'); role.addEventListener('change', () => { node.roleId = role.value; }); body.append(workflowEditorField('引用角色卡', role)); } else { const systemPrompt = document.createElement('textarea'); systemPrompt.rows = 6; systemPrompt.maxLength = 120000; systemPrompt.value = node.systemPrompt || ''; systemPrompt.placeholder = '仅服务端执行的系统提示词'; systemPrompt.addEventListener('input', () => { node.systemPrompt = systemPrompt.value; }); body.append(workflowEditorField('临时系统提示词', systemPrompt)); }
+    const template = document.createElement('textarea'); template.rows = 4; template.maxLength = 4000; template.value = node.inputTemplate || '{{input}}'; template.placeholder = '支持 {{input}} 与 {{userPrompt}}'; template.addEventListener('input', () => { node.inputTemplate = template.value; }); body.append(workflowEditorField('输入模板', template)); renderWorkflowOutputEditor(node, body, rerender);
+  } else if (node.type === 'merge') {
+    const mode = workflowEditorSelect([{ value: 'join', label: '按顺序拼接' }, { value: 'template', label: '按引用名套用模板' }], node.mergeMode, '合并方式'); mode.addEventListener('change', () => { node.mergeMode = mode.value; rerender(); }); const separator = document.createElement('textarea'); separator.rows = 2; separator.maxLength = 1000; separator.value = node.separator || '\n\n'; separator.placeholder = '拼接分隔符'; separator.addEventListener('input', () => { node.separator = separator.value; }); body.append(workflowEditorField('合并方式', mode), workflowEditorField('分隔符', separator)); if (node.mergeMode === 'template') { const template = document.createElement('textarea'); template.rows = 6; template.maxLength = 4000; template.value = node.template || '{{all}}'; template.placeholder = '例如：主体：{{brief}}\n风格：{{style}}\n全部：{{all}}'; template.addEventListener('input', () => { node.template = template.value; }); body.append(workflowEditorField('合并模板', template)); }
   } else {
-    const systemPrompt = document.createElement('textarea'); systemPrompt.rows = 5; systemPrompt.maxLength = 120000; systemPrompt.value = node.systemPrompt || ''; systemPrompt.placeholder = '此节点的系统提示词仅在服务端执行。'; systemPrompt.addEventListener('input', () => { node.systemPrompt = systemPrompt.value; });
-    body.append(workflowEditorField('临时系统提示词', systemPrompt));
+    const imageModels = workflowEditorSelect(workflowModelOptions('image').map((model) => ({ value: model.id, label: model.id })), node.model, '生图模型'); imageModels.addEventListener('change', () => { node.model = imageModels.value; const selected = state.models.find((model) => model.id === node.model); node.size = selected?.imageOptions?.defaultSize || '1024x1024'; node.quality = selected?.imageOptions?.defaultQuality || 'high'; rerender(); }); const selected = state.models.find((model) => model.id === node.model); const size = workflowEditorSelect((selected?.imageOptions?.sizes || []).map((value) => ({ value, label: imageSizeLabel(value) })), node.size, '默认尺寸'); size.addEventListener('change', () => { node.size = size.value; }); const quality = workflowEditorSelect((selected?.imageOptions?.qualities || []).map((value) => ({ value, label: value })), node.quality, '默认质量'); quality.addEventListener('change', () => { node.quality = quality.value; }); body.append(workflowEditorField('生图模型', imageModels), workflowEditorField('默认尺寸', size), workflowEditorField('默认质量', quality)); renderWorkflowOutputEditor(node, body, rerender); for (const [key, label] of [['allowUserModelOverride', '用户可切换生图模型'], ['allowUserSizeOverride', '用户可切换尺寸'], ['allowUserQualityOverride', '用户可切换质量']]) { const field = document.createElement('label'); field.className = 'workflow-editor-check'; const input = document.createElement('input'); input.type = 'checkbox'; input.checked = node[key] !== false; input.addEventListener('change', () => { node[key] = input.checked; }); field.append(input, document.createTextNode(label)); body.append(field); }
   }
-  const template = document.createElement('textarea'); template.rows = 3; template.maxLength = 4000; template.value = node.inputTemplate || '{{input}}'; template.placeholder = '支持 {{input}} 和 {{userPrompt}}'; template.addEventListener('input', () => { node.inputTemplate = template.value; });
-  body.append(workflowEditorField('输入模板', template));
-  renderWorkflowOutputEditor(node, body, rerender);
-  card.append(body); return card;
+  renderWorkflowConnectionInspector(workflow, node, body, rerender); inspector.append(body); const textCount = workflow.nodes.filter((candidate) => candidate.type === 'role' || candidate.type === 'temporary').length; const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'danger-action'; remove.textContent = '删除此节点'; remove.disabled = node.type === 'image' || ((node.type === 'role' || node.type === 'temporary') && textCount <= 1); remove.addEventListener('click', () => { workflow.nodes = workflow.nodes.filter((candidate) => candidate.id !== node.id); workflow.edges = workflowEdges(workflow).filter((edge) => edge.from !== node.id && edge.to !== node.id); state.workflowGraph.selectedNodeId = ''; state.workflowGraph.pendingSource = ''; rerender(); }); inspector.append(remove); return inspector;
 }
-
-function renderWorkflowImageNode(workflow, node, index, rerender) {
-  const card = document.createElement('article'); card.className = 'workflow-node-card image-node';
-  const heading = document.createElement('header'); const title = document.createElement('strong'); title.textContent = `${index + 1}. 最终生图节点`; heading.append(title); card.append(heading);
-  const body = document.createElement('div'); body.className = 'workflow-node-fields';
-  const imageModels = workflowModelOptions('image').map((model) => ({ value: model.id, label: model.id }));
-  const model = workflowEditorSelect(imageModels, node.model, '生图模型'); model.addEventListener('change', () => { node.model = model.value; const selected = state.models.find((candidate) => candidate.id === node.model); node.size = selected?.imageOptions?.defaultSize || '1024x1024'; node.quality = selected?.imageOptions?.defaultQuality || 'high'; rerender(); });
-  const prior = workflow.nodes.slice(0, index).filter((candidate) => candidate.type !== 'image').map((candidate) => candidate.id);
-  const promptFrom = workflowEditorSelect(prior.map((value) => ({ value, label: `节点：${value}` })), node.promptFrom, '绘图提示词来源'); promptFrom.addEventListener('change', () => { node.promptFrom = promptFrom.value; });
-  const selected = state.models.find((candidate) => candidate.id === node.model);
-  const size = workflowEditorSelect((selected?.imageOptions?.sizes || []).map((value) => ({ value, label: imageSizeLabel(value) })), node.size, '默认尺寸'); size.addEventListener('change', () => { node.size = size.value; });
-  const quality = workflowEditorSelect((selected?.imageOptions?.qualities || []).map((value) => ({ value, label: value })), node.quality, '默认质量'); quality.addEventListener('change', () => { node.quality = quality.value; });
-  body.append(workflowEditorField('生图模型', model), workflowEditorField('提示词来源', promptFrom), workflowEditorField('默认尺寸', size), workflowEditorField('默认质量', quality));
-  renderWorkflowOutputEditor(node, body, rerender);
-  for (const [key, label] of [['allowUserModelOverride', '用户可切换生图模型'], ['allowUserSizeOverride', '用户可切换尺寸'], ['allowUserQualityOverride', '用户可切换质量']]) {
-    const field = document.createElement('label'); field.className = 'workflow-editor-check'; const input = document.createElement('input'); input.type = 'checkbox'; input.checked = node[key] !== false; input.addEventListener('change', () => { node[key] = input.checked; }); field.append(input, document.createTextNode(label)); body.append(field);
-  }
-  card.append(body); return card;
+function renderWorkflowGraphEditor(workflow, body) {
+  const rerender = () => renderWorkflowEditor(); const actions = document.createElement('div'); actions.className = 'workflow-graph-actions'; const addNode = (type) => { if (workflow.nodes.length >= WORKFLOW_GRAPH_MAX_NODES) { setStatus(`每个工作流最多 ${WORKFLOW_GRAPH_MAX_NODES} 个节点`, 'error'); return; } if (type === 'image' && workflow.nodes.some((node) => node.type === 'image')) { setStatus('每个工作流只能有一个最终生图节点', 'error'); return; } const position = nextWorkflowNodePosition(workflow); const node = type === 'merge' ? newWorkflowMergeNode(position) : type === 'image' ? newWorkflowImageNode(position) : newWorkflowTextNode(type, position); workflow.nodes.push(node); selectWorkflowGraphNode(workflow, node.id); rerender(); }; for (const [type, label] of [['role', '＋ 角色卡'], ['temporary', '＋ 临时节点'], ['merge', '＋ 合并节点'], ['image', '＋ 生图节点']]) { const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.addEventListener('click', () => addNode(type)); actions.append(button); } const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = '取消连线'; cancel.disabled = !state.workflowGraph.pendingSource; cancel.addEventListener('click', () => { state.workflowGraph.pendingSource = ''; rerender(); }); actions.append(cancel); body.append(actions); const graph = document.createElement('div'); graph.className = 'workflow-graph-layout'; graph.append(renderWorkflowGraphCanvas(workflow), renderWorkflowGraphInspector(workflow, rerender)); body.append(graph);
 }
-
 function renderWorkflowEditor() {
-  elements.workflowEditor.replaceChildren();
-  if (!state.editingWorkflows.length) { const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '还没有工作流。创建后按顺序添加角色卡或临时提示词节点，并以生图节点结束。'; elements.workflowEditor.append(empty); return; }
-  state.editingWorkflows.forEach((workflow, workflowIndex) => {
-    const card = document.createElement('details'); card.className = 'workflow-editor-card'; card.open = workflowIndex === 0;
-    const summary = document.createElement('summary'); const title = document.createElement('strong'); title.textContent = workflow.name || '未命名工作流'; const meta = document.createElement('span'); meta.textContent = `${workflow.enabled !== false ? '已启用' : '已停用'} · ${workflow.nodes?.length || 0} 个节点`; summary.append(title, meta); card.append(summary);
-    const body = document.createElement('div'); body.className = 'workflow-editor-body';
-    const name = document.createElement('input'); name.maxLength = 60; name.value = workflow.name || ''; name.addEventListener('input', () => { workflow.name = name.value; title.textContent = name.value || '未命名工作流'; });
-    const description = document.createElement('textarea'); description.rows = 2; description.maxLength = 220; description.value = workflow.description || ''; description.addEventListener('input', () => { workflow.description = description.value; });
-    const enabled = document.createElement('input'); enabled.type = 'checkbox'; enabled.checked = workflow.enabled !== false; enabled.addEventListener('change', () => { workflow.enabled = enabled.checked; meta.textContent = `${workflow.enabled ? '已启用' : '已停用'} · ${workflow.nodes?.length || 0} 个节点`; });
-    const enabledLabel = document.createElement('label'); enabledLabel.className = 'workflow-editor-check'; enabledLabel.append(enabled, document.createTextNode('向普通用户显示并允许运行'));
-    body.append(workflowEditorField('名称', name), workflowEditorField('说明', description), enabledLabel);
-    const nodes = document.createElement('div'); nodes.className = 'workflow-node-list'; const rerender = () => renderWorkflowEditor();
-    workflow.nodes.forEach((node, index) => nodes.append(node.type === 'image' ? renderWorkflowImageNode(workflow, node, index, rerender) : renderWorkflowTextNode(workflow, node, index, rerender)));
-    const nodeActions = document.createElement('div'); nodeActions.className = 'workflow-editor-actions';
-    const addRole = document.createElement('button'); addRole.type = 'button'; addRole.textContent = '＋ 角色卡节点'; addRole.disabled = workflow.nodes.length >= 8; addRole.addEventListener('click', () => { workflow.nodes.splice(Math.max(0, workflow.nodes.length - 1), 0, newWorkflowTextNode('role')); rerender(); });
-    const addTemporary = document.createElement('button'); addTemporary.type = 'button'; addTemporary.textContent = '＋ 临时节点'; addTemporary.disabled = workflow.nodes.length >= 8; addTemporary.addEventListener('click', () => { workflow.nodes.splice(Math.max(0, workflow.nodes.length - 1), 0, newWorkflowTextNode('temporary')); rerender(); });
-    const removeWorkflow = document.createElement('button'); removeWorkflow.type = 'button'; removeWorkflow.className = 'danger-action'; removeWorkflow.textContent = '删除工作流'; removeWorkflow.addEventListener('click', () => { state.editingWorkflows.splice(workflowIndex, 1); rerender(); });
-    nodeActions.append(addRole, addTemporary, removeWorkflow); body.append(nodes, nodeActions); card.append(body); elements.workflowEditor.append(card);
-  });
+  elements.workflowEditor.replaceChildren(); if (!state.editingWorkflows.length) { elements.workflowEditor.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '还没有工作流。创建后可在画布中拖拽角色卡、临时提示词、合并与生图节点，并通过连线组合。' })); return; }
+  state.editingWorkflows.forEach((workflow, workflowIndex) => { workflow.nodes ||= []; workflowEdges(workflow); const card = document.createElement('details'); card.className = 'workflow-editor-card workflow-graph-card'; card.open = workflowIndex === 0; const summary = document.createElement('summary'); const title = document.createElement('strong'); title.textContent = workflow.name || '未命名工作流'; const meta = document.createElement('span'); meta.textContent = `${workflow.enabled !== false ? '已启用' : '已停用'} · ${workflow.nodes.length} 节点 · ${workflow.edges.length} 连线`; summary.append(title, meta); card.append(summary); const body = document.createElement('div'); body.className = 'workflow-editor-body'; const name = document.createElement('input'); name.maxLength = 60; name.value = workflow.name || ''; name.addEventListener('input', () => { workflow.name = name.value; title.textContent = name.value || '未命名工作流'; }); const description = document.createElement('textarea'); description.rows = 2; description.maxLength = 220; description.value = workflow.description || ''; description.addEventListener('input', () => { workflow.description = description.value; }); const enabled = document.createElement('input'); enabled.type = 'checkbox'; enabled.checked = workflow.enabled !== false; enabled.addEventListener('change', () => { workflow.enabled = enabled.checked; meta.textContent = `${workflow.enabled ? '已启用' : '已停用'} · ${workflow.nodes.length} 节点 · ${workflow.edges.length} 连线`; }); const enabledLabel = document.createElement('label'); enabledLabel.className = 'workflow-editor-check'; enabledLabel.append(enabled, document.createTextNode('向普通用户显示并允许运行')); body.append(workflowEditorField('名称', name), workflowEditorField('说明', description), enabledLabel); renderWorkflowGraphEditor(workflow, body); const removeWorkflow = document.createElement('button'); removeWorkflow.type = 'button'; removeWorkflow.className = 'danger-action'; removeWorkflow.textContent = '删除工作流'; removeWorkflow.addEventListener('click', () => { state.editingWorkflows.splice(workflowIndex, 1); if (state.workflowGraph.selectedWorkflowId === workflow.id) { state.workflowGraph.selectedWorkflowId = ''; state.workflowGraph.selectedNodeId = ''; } renderWorkflowEditor(); }); body.append(removeWorkflow); card.append(body); elements.workflowEditor.append(card); });
 }
 
 async function loadAdminWorkflows() {
@@ -4791,6 +4806,7 @@ function bindEvents() {
   elements.openTranslator.addEventListener('click', openTranslator);
   elements.openRolesDrawer.addEventListener('click', () => openSidebarDrawer('roles'));
   elements.openRecentFilesDrawer.addEventListener('click', () => { openSidebarDrawer('recent-files'); void loadRecentFiles(); });
+  elements.openFavoriteMediaDrawer.addEventListener('click', () => { openSidebarDrawer('favorite-media'); void loadFavoriteMedia(); });
   elements.openWorkflowsDrawer.addEventListener('click', () => { openSidebarDrawer('workflows'); void loadWorkflows(); });
   elements.workflowsToggle.addEventListener('click', () => handleSidebarDrawerHeader('workflows'));
   elements.exitWorkflow.addEventListener('click', () => {
@@ -4801,6 +4817,8 @@ function bindEvents() {
   elements.historySearch.addEventListener('input', () => { state.historySearch = elements.historySearch.value; renderHistory(); });
   elements.recentFilesToggle.addEventListener('click', () => handleSidebarDrawerHeader('recent-files'));
   elements.refreshRecentFiles.addEventListener('click', (event) => { event.stopPropagation(); void loadRecentFiles(); });
+  elements.favoriteMediaToggle.addEventListener('click', () => handleSidebarDrawerHeader('favorite-media'));
+  elements.refreshFavoriteMedia.addEventListener('click', (event) => { event.stopPropagation(); void loadFavoriteMedia(); });
   elements.translateInput.addEventListener('input', () => { state.translationOutput = ''; renderTranslator(); });
   for (const select of [elements.translateSourceLanguage, elements.translateTargetLanguage]) select.addEventListener('change', () => { state.translationOutput = ''; renderTranslator(); });
   elements.translateSwapButton.addEventListener('click', () => { swapTranslationLanguages(); state.translationOutput = ''; renderTranslator(); });
@@ -4816,7 +4834,7 @@ function bindEvents() {
   elements.favoriteConversationsToggle.addEventListener('click', (event) => { event.stopPropagation(); handleSidebarDrawerHeader('favorite-conversations'); });
   elements.sidebarRolesToggle.addEventListener('click', (event) => { event.stopPropagation(); handleSidebarDrawerHeader('roles'); });
   elements.sidebarFavoritesToggle.addEventListener('click', (event) => { event.stopPropagation(); handleSidebarDrawerHeader('favorites'); });
-  for (const [toggle, base] of [[elements.sidebarFavoritesToggle, 'favorites'], [elements.favoriteConversationsToggle, 'favorite-conversations'], [elements.sidebarRolesToggle, 'roles'], [elements.historyToggle, 'history']]) {
+  for (const [toggle, base] of [[elements.sidebarFavoritesToggle, 'favorites'], [elements.favoriteConversationsToggle, 'favorite-conversations'], [elements.sidebarRolesToggle, 'roles'], [elements.historyToggle, 'history'], [elements.favoriteMediaToggle, 'favorite-media']]) {
     toggle.closest('.sidebar-section-heading')?.addEventListener('click', (event) => { if (!event.target.closest('button')) handleSidebarDrawerHeader(base); });
   }
   elements.favoriteConversations.addEventListener('dragover', (event) => {
@@ -4911,7 +4929,7 @@ function bindEvents() {
   elements.saveWorkflows.addEventListener('click', async () => {
     elements.saveWorkflows.disabled = true; setDialogStatus(elements.accountStatus, '正在保存工作流…');
     try {
-      const payload = await jsonRequest('/api/admin/workflows', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, workflows: state.editingWorkflows }) });
+      const payload = await jsonRequest('/api/admin/workflows', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 2, workflows: state.editingWorkflows }) });
       state.editingWorkflows = Array.isArray(payload.workflows) ? structuredClone(payload.workflows) : [];
       await loadWorkflows(); renderWorkflowEditor(); setDialogStatus(elements.accountStatus, '工作流已保存；普通用户只会看到已启用工作流的名称和输入选项。', 'success');
     } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); } finally { elements.saveWorkflows.disabled = false; }
@@ -4938,6 +4956,7 @@ function bindEvents() {
   elements.deleteRole.addEventListener('click', deleteRoleFromContext);
   elements.editFavorite.addEventListener('click', editFavoriteFromContext);
   elements.deleteFavorite.addEventListener('click', deleteFavoriteFromContext);
+  elements.toggleFavoriteMediaButton.addEventListener('click', () => { const id = state.contextRecentFileId; closeContextMenu(elements.recentFileContextMenu, { restoreFocus: true }); if (id) void toggleFavoriteMedia(id); });
   for (const menu of contextMenus()) menu.addEventListener('keydown', handleContextMenuKeydown);
   elements.imageLightbox.addEventListener('click', (event) => { if (event.target === elements.imageLightbox) elements.imageLightbox.close(); });
   elements.imageLightbox.addEventListener('keydown', (event) => { if (event.key === 'ArrowLeft') { event.preventDefault(); switchImageLightbox(-1); } if (event.key === 'ArrowRight') { event.preventDefault(); switchImageLightbox(1); } });
@@ -4989,7 +5008,7 @@ async function initialize() {
     state.openRoleConversationIds = new Set([...state.openRoleConversationIds].filter((id) => id === DEFAULT_ROLE_CONVERSATIONS_ID || validRoleIds.has(id)));
     persistOpenRoleConversations();
     state.selectedRoleId = validRoleId(state.selectedRoleId);
-    state.preferences = { favoriteGroups: preferencesPayload.favoriteGroups || [], selected: preferencesPayload.selected || null, modelContextLimits: sanitizeContextLimits(preferencesPayload.modelContextLimits) };
+    state.preferences = { favoriteGroups: preferencesPayload.favoriteGroups || [], selected: preferencesPayload.selected || null, modelContextLimits: sanitizeContextLimits(preferencesPayload.modelContextLimits), favoriteMediaIds: Array.isArray(preferencesPayload.favoriteMediaIds) ? preferencesPayload.favoriteMediaIds : [] };
     seedFavoriteGroups(); state.selected = normalizeSelection(state.preferences.selected); state.preferences.selected = state.selected;
     if (state.selected) rememberModeSelection(state.selected.modelId, state.selected.mode);
     if (!preferencesPayload.favoriteGroups?.length && state.preferences.favoriteGroups.length) await savePreferences().catch(() => {});
