@@ -228,15 +228,16 @@ test('administrator conversation history merges device-local records on the serv
   const context = await fixture();
   try {
     const admin = await signIn(context);
-    const conversation = (id, updatedAt, content) => ({
-      id, title: content, titleCustomized: true, createdAt: updatedAt - 1, updatedAt, roleId: '', folderId: '', copiedFromConversationId: '', favoriteOrder: null, lastRequest: null,
+    const conversation = (id, updatedAt, content, workflowId = '') => ({
+      id, title: content, titleCustomized: true, createdAt: updatedAt - 1, updatedAt, roleId: '', workflowId, folderId: '', copiedFromConversationId: '', favoriteOrder: null, lastRequest: null,
       messages: [{ id: `${id}-message`, role: 'user', content, reasoning: '', modelId: '', mode: 'chat', replyToId: '', attachments: [], images: [], usage: null, variants: [], variantIndex: 0, createdAt: updatedAt }],
     });
     const first = await api(context, admin, 'PUT', '/api/conversations', { version: 1, conversations: [conversation('device-a', 100, '来自设备 A')] });
     assert.equal(first.response.status, 200, JSON.stringify(first.body));
-    const merged = await api(context, admin, 'PUT', '/api/conversations', { version: 1, conversations: [conversation('device-a', 200, '设备 A 的新版本'), conversation('device-b', 150, '来自设备 B')] });
+    const merged = await api(context, admin, 'PUT', '/api/conversations', { version: 1, conversations: [conversation('device-a', 200, '设备 A 的新版本', 'image-prompt-architect'), conversation('device-b', 150, '来自设备 B')] });
     assert.equal(merged.response.status, 200, JSON.stringify(merged.body));
     assert.deepEqual(merged.body.conversations.map((item) => [item.id, item.messages[0].content]), [['device-a', '设备 A 的新版本'], ['device-b', '来自设备 B']]);
+    assert.equal(merged.body.conversations.find((item) => item.id === 'device-a').workflowId, 'image-prompt-architect');
     const persisted = JSON.parse(await readFile(join(context.root, '.data', 'conversations-00000.json'), 'utf8'));
     assert.equal(persisted.conversations.length, 2);
 
@@ -482,7 +483,10 @@ test('preferences, roles, and media are isolated by ordinary-user UID', async ()
     assert.equal(savedPreferences.response.status, 200);
     const bobPreferences = await api(context, bob, 'GET', '/api/preferences');
     assert.equal(bobPreferences.response.status, 200);
-    assert.deepEqual(bobPreferences.body.favoriteGroups, []);
+    assert.deepEqual(bobPreferences.body.favoriteGroups, [{
+      id: 'all-models', name: '全部模型',
+      items: [{ modelId: 'chat-basic', model: 'chat-basic', mode: 'chat', label: 'chat-basic' }],
+    }]);
     assert.deepEqual((await api(context, alice, 'GET', '/api/preferences')).body.favoriteGroups, savedPreferences.body.favoriteGroups);
 
     const aliceRoles = {
@@ -511,6 +515,28 @@ test('preferences, roles, and media are isolated by ordinary-user UID', async ()
     });
     assert.equal(forgedAttachment.response.status, 404);
     assert.equal(context.upstream.count('/v1/chat/completions'), 0);
+  } finally {
+    await context.close();
+  }
+});
+
+test('ordinary users with at most twenty available models receive every model as their initial favorites', async () => {
+  const context = await fixture();
+  try {
+    const admin = await signIn(context);
+    const user = await createUser(context, admin, {
+      username: 'all-favorites-user', password: 'all-favorites-password', credits: 1,
+      extraModels: ['chat-basic', 'chat-extra', 'gpt-image-basic'],
+    });
+    const signedIn = await signIn(context, user.username, 'all-favorites-password');
+    const preferences = await api(context, signedIn, 'GET', '/api/preferences');
+    assert.equal(preferences.response.status, 200, JSON.stringify(preferences.body));
+    assert.deepEqual(preferences.body.favoriteGroups.map((group) => group.name), ['全部模型']);
+    assert.deepEqual(preferences.body.favoriteGroups[0].items.map((item) => [item.modelId, item.mode]), [
+      ['chat-basic', 'chat'], ['chat-extra', 'chat'], ['gpt-image-basic', 'image'],
+    ]);
+    const reloaded = await api(context, signedIn, 'GET', '/api/preferences');
+    assert.deepEqual(reloaded.body.favoriteGroups, preferences.body.favoriteGroups);
   } finally {
     await context.close();
   }

@@ -8,10 +8,10 @@
   <title>Light-Chat</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/vendor/katex/katex.min.css?v=0.18.0">
-  <link rel="stylesheet" href="/styles.css?v=20260724-workflows3">
+  <link rel="stylesheet" href="/styles.css?v=20260724-workflows4">
   <script src="/vendor/katex/katex.min.js?v=0.18.0" defer></script>
   <script src="/vendor/katex/auto-render.min.js?v=0.18.0" defer></script>
-  <script src="/app.js?v=20260724-workflows5" defer></script>
+  <script src="/app.js?v=20260724-workflow-history1" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -53,6 +53,7 @@
         </section>
         <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="history" hidden>
           <div class="sidebar-section-heading"><button class="section-toggle" id="historyToggle" type="button" aria-expanded="true" aria-controls="historyList"><span>最近对话</span><span class="section-chevron" aria-hidden="true"></span></button><span class="history-heading-actions"><button id="addHistoryFolderButton" type="button" title="创建对话文件夹">＋ 文件夹</button><button id="clearHistoryButton" type="button">清空</button></span></div>
+          <label class="history-search"><span class="sr-only">搜索当前历史会话标题</span><input id="historySearchInput" type="search" placeholder="搜索当前栏目会话标题" autocomplete="off"></label>
           <nav class="history-list" id="historyList" aria-label="本机对话历史"></nav>
         </section>
         <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="recent-files" hidden>
@@ -60,7 +61,7 @@
           <nav class="recent-files-list" id="recentFilesList" aria-label="最近上传和生成的文件"></nav>
         </section>
         <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="workflows" hidden>
-          <div class="sidebar-section-heading"><button class="section-toggle" type="button"><span>打包工作流</span><span class="section-chevron" aria-hidden="true"></span></button></div>
+          <div class="sidebar-section-heading"><button class="section-toggle" id="workflowsToggle" type="button" aria-expanded="true" aria-controls="workflowList"><span>打包工作流</span><span class="section-chevron" aria-hidden="true"></span></button></div>
           <nav class="workflow-list" id="workflowList" aria-label="打包工作流"></nav>
         </section>
       </div>

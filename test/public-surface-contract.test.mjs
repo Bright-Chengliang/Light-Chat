@@ -257,6 +257,28 @@ test('the sidebar exposes server-orchestrated packaged workflows without exposin
   assert.match(publicSource, /工作流正在运行中，请稍候/);
 });
 
+test('workflow cards create isolated conversations and expose only their own drawing history', () => {
+  assert.match(publicSource, /workflowId: validWorkflowId\(workflowId\)/);
+  assert.match(publicSource, /function workflowConversations\(workflowId\)/);
+  assert.match(publicSource, /conversation\.workflowId === workflowId/);
+  assert.match(publicSource, /createConversation\(\{ roleId: '', workflowId: workflow\.id, close: false \}\)/);
+  assert.match(publicSource, /openSidebarDrawer\(`workflow:\$\{workflow\.id\}`\); openSidebar\(\);/);
+  assert.match(publicSource, /workflow-conversations-\$\{workflow\.id\}/);
+  assert.match(publicSource, /workflowId: typeof item\.workflowId === 'string'/);
+  assert.ok(backendSource.includes("workflowId: /^[A-Za-z0-9_-]{3,64}$/.test(storedText(value.workflowId, 64))"));
+  assert.match(publicSource, /id="workflowsToggle"/);
+  assert.match(publicSource, /workflow-entry/);
+  assert.match(publicSource, /workflow-conversation-list/);
+});
+
+test('history search input uses the sidebar visual language', () => {
+  assert.match(publicSource, /id="historySearchInput"/);
+  assert.match(publicSource, /elements\.historySearch\.addEventListener\('input'/);
+  assert.match(publicSource, /\.history-search \{ position: relative;/);
+  assert.match(publicSource, /\.history-search input:focus/);
+  assert.match(publicSource, /\.history-search::before/);
+});
+
 test('Gemini Flash image generation is advertised as a one-credit option', () => {
   assert.match(publicSource, /Gemini Flash 1 积分/);
   assert.match(backendSource, /function imageCreditCost\(modelId\)/);

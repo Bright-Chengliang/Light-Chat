@@ -142,7 +142,9 @@ test('packaged workflow delegates gpt-image-2 generation to the shared image cli
     const body = JSON.parse(imageRequest.bodyText);
     assert.equal(body.model, 'gpt-5.4-mini');
     assert.equal(body.tools[0].model, 'gpt-image-2');
-    assert.equal(body.tool_choice, undefined);
+    assert.equal(body.tool_choice, 'required');
+    assert.equal(body.input[0].content[0].text, '你好，图片如下：');
+    assert.notEqual(body.input[0].content[0].text, '冰雪女皇的电影级角色设定图');
   } finally {
     await context.close();
   }

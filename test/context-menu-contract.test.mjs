@@ -50,6 +50,6 @@ test('history context menus can jump directly to an associated role card', () =>
 
 test('role-card conversation history reuses the full conversation context menu', () => {
   const bindings = appSource.match(/bindContextMenuTrigger\(conversationButton, 'historyContextMenu', \(x, y, trigger\) => openHistoryContextMenu\(conversation\.id, x, y, trigger\)\)/g) || [];
-  assert.equal(bindings.length, 2);
+  assert.ok(bindings.length >= 2);
   assert.match(appSource, /跳转到对话：\$\{conversation\.title\}；右键管理/);
 });

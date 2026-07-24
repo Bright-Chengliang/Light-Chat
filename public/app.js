@@ -3,9 +3,9 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 const elements = {
   appShell: $('.app-shell'), sidebar: $('#sidebar'), sidebarResizer: $('#sidebarResizer'), sidebarBackdrop: $('#sidebarBackdrop'), sidebarClose: $('#sidebarCloseButton'), menu: $('#menuButton'),
-  sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
+  sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
   recentFiles: $('#recentFilesList'), recentFilesToggle: $('#recentFilesToggle'), refreshRecentFiles: $('#refreshRecentFilesButton'),
-  newConversation: $('#newConversationButton'), currentModelNewConversation: $('#currentModelNewConversationButton'), addHistoryFolder: $('#addHistoryFolderButton'), clearHistory: $('#clearHistoryButton'), history: $('#historyList'), historyToggle: $('#historyToggle'), favoriteConversations: $('#favoriteConversations'), favoriteConversationsToggle: $('#favoriteConversationsToggle'),
+  newConversation: $('#newConversationButton'), currentModelNewConversation: $('#currentModelNewConversationButton'), addHistoryFolder: $('#addHistoryFolderButton'), clearHistory: $('#clearHistoryButton'), history: $('#historyList'), historyToggle: $('#historyToggle'), historySearch: $('#historySearchInput'), favoriteConversations: $('#favoriteConversations'), favoriteConversationsToggle: $('#favoriteConversationsToggle'),
   sidebarFavorites: $('#sidebarFavorites'), sidebarFavoritesToggle: $('#sidebarFavoritesToggle'),
   quickModelPicker: $('#quickModelPicker'), quickChatPicker: $('#quickChatPicker'), quickImagePicker: $('#quickImagePicker'), quickChatCurrent: $('#quickChatCurrent'), quickImageCurrent: $('#quickImageCurrent'), quickChatModels: $('#quickChatModels'), quickImageModels: $('#quickImageModels'), manageFavorites: $('#manageFavoritesButton'),
   sidebarRoles: $('#sidebarRoles'), sidebarRolesToggle: $('#sidebarRolesToggle'), sidebarRolesResizer: $('#sidebarRolesResizer'), manageRoles: $('#manageRolesButton'),
@@ -91,7 +91,7 @@ const state = {
   csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {} },
   selected: null, stream: storedStreamPreference !== 'false', conversations: [], currentId: '',
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
-  historyFolders: [], openHistoryFolders: new Set(),
+  historyFolders: [], openHistoryFolders: new Set(), historySearch: '',
   contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextAssistantMessageId: '', renamingConversationId: '',
   pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingMessageId: '', pendingRoleTransfer: null,
   followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationOutput: '', recentFiles: [], recentFilesLoading: false, workflows: [], workflowRunning: false, selectedWorkflow: null,
@@ -102,6 +102,7 @@ let adminConversationSyncQueue = Promise.resolve();
 let adminConversationSyncTimer = null;
 let adminConversationRevision = 0;
 let adminConversationSyncFailed = false;
+const titleGenerationConversationIds = new Set();
 let preferredSidebarWidth = Number.parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY) || '', 10);
 let preferredSidebarRolesHeight = Number.parseInt(localStorage.getItem(SIDEBAR_ROLES_HEIGHT_KEY) || '', 10);
 let previousConversationScrollTop = 0;
@@ -169,7 +170,7 @@ function scheduleAdministratorConversationSync() {
       });
       if (!Array.isArray(payload.conversations) || revision !== adminConversationRevision) return;
       state.conversations = mergeConversations(state.conversations, payload.conversations);
-      saveConversationsToBrowser(); renderHistory(); renderFavoriteConversations(); renderRoles();
+      saveConversationsToBrowser(); renderHistory(); renderFavoriteConversations(); renderRoles(); renderWorkflows();
       adminConversationSyncFailed = false;
     }).catch((error) => {
       if (!adminConversationSyncFailed) setStatus(`管理员会话未同步到服务器：${error.message}`, 'error');
@@ -480,6 +481,7 @@ function loadConversations() {
         createdAt: Number.isFinite(item.createdAt) ? item.createdAt : Date.now(),
         updatedAt: Number.isFinite(item.updatedAt) ? item.updatedAt : Date.now(),
         roleId: typeof item.roleId === 'string' && /^[A-Za-z0-9_-]{3,64}$/.test(item.roleId) ? item.roleId : '',
+        workflowId: typeof item.workflowId === 'string' && /^[A-Za-z0-9_-]{3,64}$/.test(item.workflowId) ? item.workflowId : '',
         folderId: typeof item.folderId === 'string' && /^[A-Za-z0-9_-]{3,64}$/.test(item.folderId) ? item.folderId : '',
         copiedFromConversationId: typeof item.copiedFromConversationId === 'string' && /^[A-Za-z0-9_-]{3,80}$/.test(item.copiedFromConversationId) ? item.copiedFromConversationId : '',
         favoriteOrder: Number.isSafeInteger(item.favoriteOrder) && item.favoriteOrder >= 0 && item.favoriteOrder < conversationStorageLimit() ? item.favoriteOrder : null,
@@ -515,7 +517,7 @@ function saveConversations() {
   state.conversations = state.conversations.slice(0, conversationStorageLimit());
   saveConversationsToBrowser();
   scheduleAdministratorConversationSync();
-  renderHistory(); renderFavoriteConversations(); renderRoles();
+  renderHistory(); renderFavoriteConversations(); renderRoles(); renderWorkflows();
 }
 
 function currentConversation() {
@@ -570,7 +572,7 @@ function setConversationBusy(conversationId, busy) {
   else state.busyConversationIds.delete(conversationId);
   // The main message area may update incrementally while an image request is
   // waiting, so refresh every sidebar representation independently as well.
-  renderHistory(); renderFavoriteConversations(); renderRoles();
+  renderHistory(); renderFavoriteConversations(); renderRoles(); renderWorkflows();
 }
 
 function isGeneratingResponseMessage(conversation, messageId) {
@@ -583,8 +585,8 @@ function allRoles() { return state.roleLibrary.folders.flatMap((folder) => folde
 function findRoleById(roleId) { return allRoles().find((role) => role.id === roleId) || null; }
 function validRoleId(roleId) { return findRoleById(roleId)?.id || ''; }
 
-function createConversation({ activate = true, roleId = validRoleId(state.selectedRoleId), close = true } = {}) {
-  const conversation = { id: randomId(), title: '新对话', titleCustomized: false, createdAt: Date.now(), updatedAt: Date.now(), roleId, folderId: '', messages: [] };
+function createConversation({ activate = true, roleId = validRoleId(state.selectedRoleId), workflowId = '', close = true } = {}) {
+  const conversation = { id: randomId(), title: '新对话', titleCustomized: false, createdAt: Date.now(), updatedAt: Date.now(), roleId, workflowId: validWorkflowId(workflowId), folderId: '', messages: [] };
   state.conversations.unshift(conversation);
   if (activate) { state.currentId = conversation.id; state.editingMessageId = ''; resumeOutputFollow(); }
   saveConversations();
@@ -592,6 +594,36 @@ function createConversation({ activate = true, roleId = validRoleId(state.select
   elements.input.focus();
   if (close) closeSidebar();
   return conversation;
+}
+
+function fallbackConversationTitle(content, attachments = [], fallback = '文件对话') {
+  return (String(content || '').trim() || attachments[0]?.fileName || fallback).slice(0, 34);
+}
+
+function requestGeneratedConversationTitle(conversation, source) {
+  if (!conversation || conversation.titleCustomized || titleGenerationConversationIds.has(conversation.id)) return;
+  const fallbackTitle = conversation.title;
+  const normalizedSource = String(source || '').trim().slice(0, 600);
+  if (!normalizedSource) return;
+  titleGenerationConversationIds.add(conversation.id);
+  void jsonRequest('/api/conversations/title', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: normalizedSource }),
+  }).then((payload) => {
+    const target = state.conversations.find((item) => item.id === conversation.id);
+    const title = typeof payload.title === 'string' ? payload.title.trim().slice(0, 80) : '';
+    if (!target || target.titleCustomized || target.title !== fallbackTitle || !title) return;
+    target.title = title; target.updatedAt = Date.now(); saveConversations();
+    if (state.currentId === target.id) renderConversation();
+  }).catch(() => {
+    // Keep the already-visible first-message fallback title when the title model is unavailable.
+  }).finally(() => titleGenerationConversationIds.delete(conversation.id));
+}
+
+function assignAutomaticConversationTitle(conversation, content, attachments = [], fallback = '文件对话') {
+  if (!conversation || conversation.titleCustomized || conversation.title !== '新对话') return;
+  const title = fallbackConversationTitle(content, attachments, fallback);
+  conversation.title = title;
+  requestGeneratedConversationTitle(conversation, String(content || '').trim() || attachments[0]?.fileName || fallback);
 }
 
 function formatTime(timestamp) {
@@ -604,22 +636,44 @@ function formatTime(timestamp) {
 
 function sidebarDrawerBase(view) {
   if (view?.startsWith('role:')) return 'roles';
+  if (view?.startsWith('workflow:')) return 'workflows';
   if (view?.startsWith('history-folder:')) return 'history';
   return ['favorites', 'favorite-conversations', 'roles', 'recent-files', 'workflows', 'history'].includes(view) ? view : 'root';
 }
 
+function findWorkflowById(workflowId) { return state.workflows.find((workflow) => workflow.id === workflowId) || null; }
+function validWorkflowId(workflowId) { return findWorkflowById(workflowId)?.id || ''; }
+function workflowConversations(workflowId) { return state.conversations.filter((conversation) => conversation.workflowId === workflowId).sort((a, b) => b.updatedAt - a.updatedAt); }
+
 function renderWorkflows() {
   elements.workflowList.replaceChildren();
   for (const workflow of state.workflows) {
+    const conversations = workflowConversations(workflow.id);
+    const expanded = state.sidebarDrawerStack.at(-1) === `workflow:${workflow.id}`;
+    const entry = document.createElement('section'); entry.className = 'workflow-entry'; entry.dataset.workflowId = workflow.id;
+    if (expanded) entry.setAttribute('data-workflow-drawer-active', 'true');
     const button = document.createElement('button'); button.type = 'button'; button.className = 'workflow-card';
     const active = workflow.id === state.selectedWorkflow?.id;
-    button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); button.disabled = state.workflowRunning;
+    button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); button.disabled = state.workflowRunning; button.setAttribute('aria-expanded', String(expanded)); button.setAttribute('aria-controls', `workflow-conversations-${workflow.id}`);
     const title = document.createElement('strong'); title.textContent = workflow.name;
     const description = document.createElement('small'); description.textContent = workflow.description;
-    button.append(title, description);
+    const count = document.createElement('span'); count.className = 'workflow-history-count'; count.textContent = `${conversations.length} 条绘画记录`;
+    button.append(title, description, count);
     button.addEventListener('click', () => activateWorkflow(workflow));
-    elements.workflowList.append(button);
+    entry.append(button);
+    const history = document.createElement('div'); history.id = `workflow-conversations-${workflow.id}`; history.className = 'role-conversation-list workflow-conversation-list'; history.hidden = !expanded;
+    if (expanded) history.append(createWorkflowConversationButton(workflow));
+    for (const conversation of conversations) {
+      const busy = isConversationBusy(conversation.id);
+      const conversationButton = document.createElement('button'); conversationButton.type = 'button'; conversationButton.className = `role-conversation-item${conversation.id === state.currentId ? ' active' : ''}${busy ? ' busy' : ''}`; conversationButton.title = `跳转到工作流绘画记录：${conversation.title}；右键管理`;
+      const conversationTitle = document.createElement('span'); conversationTitle.textContent = conversation.title;
+      const conversationTime = document.createElement('time'); conversationTime.textContent = busy ? '生成中…' : formatTime(conversation.updatedAt);
+      conversationButton.append(conversationTitle, conversationTime); conversationButton.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true })); bindContextMenuTrigger(conversationButton, 'historyContextMenu', (x, y, trigger) => openHistoryContextMenu(conversation.id, x, y, trigger)); history.append(conversationButton);
+    }
+    if (expanded && !conversations.length) { const empty = document.createElement('p'); empty.className = 'role-conversation-empty'; empty.textContent = '这个工作流还没有绘画记录'; history.append(empty); }
+    entry.append(history); elements.workflowList.append(entry);
   }
+  renderSidebarDrawerState();
 }
 
 function workflowImageModel(workflow) {
@@ -650,9 +704,15 @@ function activateWorkflow(workflow) {
   state.selectedWorkflow = workflow;
   const model = state.models.find((item) => item.id === imageModel);
   if (model?.imageOptions?.sizes?.includes(workflow.defaultSize)) elements.imageSize.value = workflow.defaultSize;
-  renderWorkflowComposer(); renderWorkflows(); autoResize(); closeSidebar();
-  setStatus('打包工作流已就绪：输入创作需求后发送。可直接切换生图模型和尺寸。', 'success');
+  createConversation({ roleId: '', workflowId: workflow.id, close: false });
+  openSidebarDrawer(`workflow:${workflow.id}`); openSidebar();
+  renderWorkflowComposer(); renderWorkflows(); autoResize();
+  setStatus(`已新建“${workflow.name}”工作流会话。可在这里查看该工作流的历史绘画记录。`, 'success');
   requestAnimationFrame(() => elements.input.focus());
+}
+
+function createWorkflowConversationButton(workflow) {
+  const button = document.createElement('button'); button.type = 'button'; button.className = 'role-conversation-new'; button.textContent = '＋ 新建工作流会话'; button.title = `使用“${workflow.name}”新建绘画会话`; button.addEventListener('click', () => activateWorkflow(workflow)); return button;
 }
 
 function exitWorkflow({ force = false, announce = true } = {}) {
@@ -666,8 +726,10 @@ function exitWorkflow({ force = false, announce = true } = {}) {
 
 async function runWorkflowMessage() {
   const workflow = state.selectedWorkflow;
-  const conversation = currentConversation() || createConversation();
-  if (!workflow || !conversation) return false;
+  if (!workflow) return false;
+  let conversation = currentConversation();
+  if (!conversation || conversation.workflowId !== workflow.id) conversation = createConversation({ roleId: '', workflowId: workflow.id, close: false });
+  if (!conversation) return false;
   if (isConversationBusy(conversation.id)) return false;
   if (state.busyConversationIds.size >= MAX_PARALLEL_REQUESTS) { setStatus('最多同时处理 4 个会话，请等待其中一个完成', 'error'); return false; }
   const messageDraft = composerMessageDraft(conversation);
@@ -679,7 +741,7 @@ async function runWorkflowMessage() {
   const user = { id: randomId(), role: 'user', content: messageDraft.content, reasoning: '', attachments: [], images: [], createdAt: Date.now() };
   const assistant = { id: randomId(), role: 'assistant', replyToId: user.id, modelId: messageDraft.selection.modelId, mode: 'image', content: '工作流正在运行中，请稍候…', reasoning: '', attachments: [], images: [], usage: null, variants: [], variantIndex: 0, streaming: false, createdAt: Date.now() };
   conversation.messages.push(user, assistant); conversation.updatedAt = Date.now();
-  if (!conversation.titleCustomized && conversation.title === '新对话') conversation.title = (messageDraft.content || workflow.name).slice(0, 34);
+  assignAutomaticConversationTitle(conversation, messageDraft.content, [], workflow.name);
   clearComposerDraft(); resumeOutputFollow(); setConversationBusy(conversationId, true); state.workflowRunning = true;
   const requestController = new AbortController(); activeRequestControllers.set(conversationId, requestController);
   renderWorkflowComposer(); renderWorkflows(); updateSendState(); renderConversation(); setStatus('工作流正在运行中，请稍候…', 'pending');
@@ -760,7 +822,9 @@ async function loadWorkflows() {
     state.workflows = Array.isArray(payload.workflows)
       ? payload.workflows.map((workflow) => workflow.id === 'image-prompt-architect' ? { ...workflow, name: '人设图生图' } : workflow)
       : [];
-    renderWorkflows();
+    const activeWorkflow = currentConversation()?.workflowId ? findWorkflowById(currentConversation().workflowId) : null;
+    if (activeWorkflow) state.selectedWorkflow = activeWorkflow;
+    renderWorkflowComposer(); renderWorkflows();
   } catch (error) { setStatus(error.message || '工作流加载失败', 'error'); }
 }
 
@@ -820,6 +884,9 @@ function renderSidebarDrawerState() {
   if (active.startsWith('role:') && active !== 'role:__default__' && !state.roleLibrary.folders.some((folder) => folder.roles.some((role) => `role:${role.id}` === active))) {
     state.sidebarDrawerStack = ['root', 'roles']; active = 'roles';
   }
+  if (active.startsWith('workflow:') && !findWorkflowById(active.slice('workflow:'.length))) {
+    state.sidebarDrawerStack = ['root', 'workflows']; active = 'workflows';
+  }
   if (active.startsWith('history-folder:') && !state.historyFolders.some((folder) => `history-folder:${folder.id}` === active)) {
     state.sidebarDrawerStack = ['root', 'history']; active = 'history';
   }
@@ -831,6 +898,7 @@ function renderSidebarDrawerState() {
 
   const roleFolderId = active.startsWith('role:') ? state.roleLibrary.folders.find((folder) => folder.roles.some((role) => `role:${role.id}` === active))?.id || '' : '';
   const roleId = active.startsWith('role:') ? active.slice('role:'.length) : '';
+  const workflowId = active.startsWith('workflow:') ? active.slice('workflow:'.length) : '';
   const historyFolderId = active.startsWith('history-folder:') ? active.slice('history-folder:'.length) : '';
   for (const folder of $$('.role-folder', elements.sidebarRoles)) {
     if (folder.dataset.folderId === roleFolderId) folder.setAttribute('data-sidebar-drawer-active', 'true'); else folder.removeAttribute('data-sidebar-drawer-active');
@@ -845,6 +913,9 @@ function renderSidebarDrawerState() {
   for (const folder of $$('.history-folder', elements.history)) {
     if (folder.dataset.folderId === historyFolderId) folder.setAttribute('data-sidebar-drawer-active', 'true'); else folder.removeAttribute('data-sidebar-drawer-active');
   }
+  for (const entry of $$('.workflow-entry', elements.workflowList)) {
+    if (workflowId && entry.dataset.workflowId === workflowId) entry.setAttribute('data-workflow-drawer-active', 'true'); else entry.removeAttribute('data-workflow-drawer-active');
+  }
 
   const roleTitle = $('span:first-child', elements.sidebarRolesToggle);
   const historyTitle = $('span:first-child', elements.historyToggle);
@@ -857,6 +928,7 @@ function renderSidebarDrawerState() {
   elements.sidebarFavoritesToggle.setAttribute('aria-label', '返回侧栏栏目');
   elements.favoriteConversationsToggle.setAttribute('aria-label', '返回侧栏栏目');
   elements.sidebarRolesToggle.setAttribute('aria-label', active.startsWith('role:') ? '返回自定义角色' : '返回侧栏栏目');
+  elements.workflowsToggle.setAttribute('aria-label', active.startsWith('workflow:') ? '返回打包工作流' : '返回侧栏栏目');
   elements.historyToggle.setAttribute('aria-label', active.startsWith('history-folder:') ? '返回最近对话' : '返回侧栏栏目');
 }
 
@@ -865,12 +937,17 @@ function openSidebarDrawer(view) {
   const base = sidebarDrawerBase(view);
   if (base === 'root') state.sidebarDrawerStack = ['root'];
   else if (view.startsWith('history-folder:')) state.sidebarDrawerStack = ['root', base, view];
+  else if (view.startsWith('workflow:')) {
+    state.sidebarDrawerStack = findWorkflowById(view.slice('workflow:'.length)) ? ['root', 'workflows', view] : ['root', 'workflows'];
+  }
   else if (view.startsWith('role:')) {
     const exists = view === 'role:__default__' || state.roleLibrary.folders.some((candidate) => candidate.roles.some((role) => `role:${role.id}` === view));
     state.sidebarDrawerStack = exists ? ['root', 'roles', view] : ['root', 'roles'];
   }
   else state.sidebarDrawerStack = ['root', base];
-  if (view.startsWith('role:')) renderRoles(); else renderSidebarDrawerState();
+  if (view.startsWith('role:')) renderRoles();
+  else if (view.startsWith('workflow:')) renderWorkflows();
+  else renderSidebarDrawerState();
   requestAnimationFrame(() => {
     const activePanel = $('[data-sidebar-drawer-panel]:not([hidden])', elements.sidebarDrawerShell);
     const scroller = activePanel?.querySelector('nav');
@@ -896,11 +973,15 @@ function renderHistory() {
   const validFolderIds = new Set(state.historyFolders.map((folder) => folder.id));
   for (const conversation of state.conversations) if (!validFolderIds.has(conversation.folderId)) conversation.folderId = '';
   const sorted = [...state.conversations].sort((a, b) => b.updatedAt - a.updatedAt);
+  const searchQuery = state.historySearch.trim().toLocaleLowerCase('zh-CN');
+  const matchesTitle = (conversation) => !searchQuery || conversation.title.toLocaleLowerCase('zh-CN').includes(searchQuery);
+  const visibleConversations = sorted.filter(matchesTitle);
   const root = document.createElement('section'); root.className = 'history-unfiled';
-  const rootTitle = document.createElement('p'); rootTitle.className = 'history-folder-label'; rootTitle.textContent = '未归档';
-  root.append(rootTitle, createHistoryDropZone('', sorted.filter((conversation) => !conversation.folderId))); elements.history.append(root);
+  const rootTitle = document.createElement('p'); rootTitle.className = 'history-folder-label'; rootTitle.textContent = searchQuery ? '搜索结果 · 未归档' : '未归档';
+  root.append(rootTitle, createHistoryDropZone('', visibleConversations.filter((conversation) => !conversation.folderId))); elements.history.append(root);
   for (const folder of state.historyFolders) {
-    const conversations = sorted.filter((conversation) => conversation.folderId === folder.id);
+    const conversations = visibleConversations.filter((conversation) => conversation.folderId === folder.id);
+    if (searchQuery && !conversations.length) continue;
     const drawer = document.createElement('details'); drawer.className = 'history-folder'; drawer.dataset.folderId = folder.id; drawer.open = state.openHistoryFolders.has(folder.id) || state.sidebarDrawerStack.at(-1) === `history-folder:${folder.id}`;
     const summary = document.createElement('summary');
     const folderName = document.createElement('span'); folderName.textContent = folder.name;
@@ -917,7 +998,9 @@ function renderHistory() {
     drawer.addEventListener('toggle', () => { if (drawer.open) state.openHistoryFolders.add(folder.id); else state.openHistoryFolders.delete(folder.id); saveHistoryFolders(); });
     elements.history.append(drawer);
   }
-  if (!state.conversations.length) {
+  if (searchQuery && !visibleConversations.length) {
+    const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = `没有匹配“${state.historySearch.trim()}”的对话标题。`; elements.history.append(empty);
+  } else if (!state.conversations.length) {
     const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '还没有本机对话。发送第一条消息后，可拖到上面的文件夹中。'; elements.history.append(empty);
   }
   renderSidebarDrawerState();
@@ -1007,10 +1090,18 @@ function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar
   const conversation = state.conversations.find((item) => item.id === conversationId);
   if (!conversation) return;
   state.currentId = conversationId;
+  const workflow = validWorkflowId(conversation.workflowId) ? findWorkflowById(conversation.workflowId) : null;
+  state.selectedWorkflow = workflow;
+  if (workflow) {
+    const imageModel = conversation.lastRequest?.mode === 'image' && state.models.some((model) => model.id === conversation.lastRequest.modelId && model.modes.includes('image'))
+      ? conversation.lastRequest.modelId
+      : workflowImageModel(workflow);
+    if (imageModel) setSelection(imageModel, 'image');
+  }
   restoreConversationRequest(conversation);
   state.editingMessageId = '';
   resumeOutputFollow();
-  renderConversation(); updateSendState();
+  renderWorkflowComposer(); renderWorkflows(); renderConversation(); updateSendState();
   if (shouldCloseSidebar) closeSidebar();
   else if (keepDrawer) { openSidebar(); renderSidebarDrawerState(); }
 }
@@ -1282,7 +1373,7 @@ function openVariantModelMenu(messageId, anchor) {
       const button = document.createElement('button'); button.type = 'button'; button.textContent = `@ ${item.label || modelId}`; button.title = `${modelId}（展开尺寸选项）`; button.setAttribute('aria-haspopup', 'true'); button.setAttribute('aria-expanded', 'false');
       const sizes = orderedImageSizes(model?.imageOptions?.sizes || []);
       const sizesMenu = document.createElement('div'); sizesMenu.className = 'variant-image-size-menu'; sizesMenu.id = `variant-image-size-${randomId()}`; button.setAttribute('aria-controls', sizesMenu.id);
-      for (const size of sizes) { const sizeButton = document.createElement('button'); sizeButton.type = 'button'; sizeButton.textContent = imageSizeLabel(size); sizeButton.addEventListener('click', () => { const targetId = state.contextAssistantMessageId; closeVariantModelMenu(); setSelection(modelId, 'image'); regenerateImageAssistant(targetId, modelId, { imageSize: size }); }); sizesMenu.append(sizeButton); }
+      for (const size of sizes) { const sizeButton = document.createElement('button'); sizeButton.type = 'button'; sizeButton.setAttribute('role', 'menuitem'); sizeButton.textContent = imageSizeLabel(size); sizeButton.title = `${modelId} · ${size}`; sizeButton.addEventListener('click', () => { const targetId = state.contextAssistantMessageId; closeVariantModelMenu(); setSelection(modelId, 'image'); regenerateImageAssistant(targetId, modelId, { imageSize: size }); }); sizesMenu.append(sizeButton); }
       const setExpanded = (expanded) => { row.dataset.expanded = String(expanded); button.setAttribute('aria-expanded', String(expanded)); };
       button.addEventListener('click', () => setExpanded(row.dataset.expanded !== 'true'));
       button.addEventListener('keydown', (event) => { if (event.key === 'Escape') { setExpanded(false); button.focus(); } });
@@ -2232,7 +2323,7 @@ function saveEditedMessage(messageId, content, attachments, images) {
   }
   conversation.updatedAt = Date.now();
   const firstUser = conversation.messages.find((item) => item.role === 'user');
-  if (firstUser?.id === messageId) conversation.title = (content.trim() || firstUser.attachments[0]?.fileName || '文件对话').slice(0, 34);
+  if (!conversation.titleCustomized && firstUser?.id === messageId) conversation.title = fallbackConversationTitle(content, firstUser.attachments);
   state.editingMessageId = '';
   saveConversations(); renderConversation(); setStatus('历史消息已保存', 'success');
 }
@@ -2247,7 +2338,7 @@ function deleteSingleMessage(messageId) {
   conversation.messages.splice(index, 1);
   if (state.editingMessageId === messageId) state.editingMessageId = '';
   const firstUser = conversation.messages.find((item) => item.role === 'user');
-  conversation.title = firstUser ? (firstUser.content.trim() || firstUser.attachments[0]?.fileName || '文件对话').slice(0, 34) : '新对话';
+  if (!conversation.titleCustomized) conversation.title = firstUser ? fallbackConversationTitle(firstUser.content, firstUser.attachments) : '新对话';
   conversation.updatedAt = Date.now();
   saveConversations(); renderConversation(); setStatus(`已删除一条${label}，后续消息已保留`, 'success');
 }
@@ -2633,6 +2724,16 @@ function toggleHeaderModelMenu() {
 
 function seedFavoriteGroups() {
   if (state.preferences.favoriteGroups.length || !state.models.length) return;
+  if (state.userRole === 'user' && state.models.length <= 20) {
+    state.preferences.favoriteGroups = [{
+      id: 'all-models', name: '全部模型',
+      items: state.models.map((model) => {
+        const mode = model.modes.includes(model.suggestedMode) ? model.suggestedMode : model.modes[0];
+        return { modelId: model.id, model: model.id, mode, label: model.id };
+      }),
+    }];
+    return;
+  }
   const chatIds = [];
   for (const pattern of [/^claude-haiku-4-5$/i, /claude.*sonnet/i, /gpt-5/i, /gemini.*flash/i]) {
     const match = state.models.find((model) => model.modes.includes('chat') && pattern.test(model.id) && !chatIds.includes(model.id)); if (match) chatIds.push(match.id);
@@ -3909,7 +4010,7 @@ async function sendMessage(queuedDraft = null) {
   const user = { id: randomId(), role: 'user', content, reasoning: '', attachments, images: [], createdAt: Date.now() };
   const assistant = { id: randomId(), role: 'assistant', replyToId: user.id, modelId: requestSelection.modelId, mode: requestSelection.mode, content: '', reasoning: '', attachments: [], images: [], usage: null, variants: [], variantIndex: 0, streaming: requestSelection.mode === 'chat' && requestStream, createdAt: Date.now() };
   conversation.messages.push(user, assistant); conversation.updatedAt = Date.now();
-  if (!conversation.titleCustomized && conversation.title === '新对话') conversation.title = (content || user.attachments[0]?.fileName || '文件对话').slice(0, 34);
+  assignAutomaticConversationTitle(conversation, content, user.attachments);
   if (!queuedDraft) clearComposerDraft();
   resumeOutputFollow(); setConversationBusy(conversationId, true);
   const requestController = new AbortController();
@@ -3992,6 +4093,7 @@ function isReusableEntryGlobalConversation(conversation) {
     && conversation.title === '新对话'
     && conversation.titleCustomized !== true
     && !conversation.roleId
+    && !conversation.workflowId
     && !conversation.folderId
     && !isFavoriteConversation(conversation)
   );
@@ -4513,8 +4615,13 @@ function bindEvents() {
   elements.openRolesDrawer.addEventListener('click', () => openSidebarDrawer('roles'));
   elements.openRecentFilesDrawer.addEventListener('click', () => { openSidebarDrawer('recent-files'); void loadRecentFiles(); });
   elements.openWorkflowsDrawer.addEventListener('click', () => { openSidebarDrawer('workflows'); void loadWorkflows(); });
-  elements.exitWorkflow.addEventListener('click', exitWorkflow);
+  elements.workflowsToggle.addEventListener('click', () => handleSidebarDrawerHeader('workflows'));
+  elements.exitWorkflow.addEventListener('click', () => {
+    const leftWorkflow = exitWorkflow();
+    if (leftWorkflow && currentConversation()?.workflowId) createGlobalConversation();
+  });
   elements.openHistoryDrawer.addEventListener('click', () => openSidebarDrawer('history'));
+  elements.historySearch.addEventListener('input', () => { state.historySearch = elements.historySearch.value; renderHistory(); });
   elements.recentFilesToggle.addEventListener('click', () => handleSidebarDrawerHeader('recent-files'));
   elements.refreshRecentFiles.addEventListener('click', (event) => { event.stopPropagation(); void loadRecentFiles(); });
   elements.translateInput.addEventListener('input', () => { state.translationOutput = ''; renderTranslator(); });

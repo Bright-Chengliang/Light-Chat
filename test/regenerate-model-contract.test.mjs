@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const appSource = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+const [appSource, styles] = await Promise.all([
+  readFile(new URL('../public/app.js', import.meta.url), 'utf8'),
+  readFile(new URL('../public/styles.css', import.meta.url), 'utf8'),
+]);
 
 test('assistant regenerate button uses the currently active model instead of the original response model', () => {
   assert.match(appSource, /function regenerateAssistantWithCurrentModel\(messageId\)/);
@@ -26,4 +29,11 @@ test('regeneration keeps an in-place pending variant so earlier responses remain
   assert.match(appSource, /message\.regeneration\?\.pendingIndex === index && isConversationBusy\(conversation\.id\)/);
   assert.doesNotMatch(appSource, /previous\.disabled = message\.variantIndex <= 0 \|\| isConversationBusy\(\)/);
   assert.doesNotMatch(appSource, /next\.disabled = message\.variantIndex >= message\.variants\.length - 1 \|\| isConversationBusy\(\)/);
+});
+
+test('response model image-size choices remain readable in the @ model menu', () => {
+  assert.match(appSource, /sizeButton\.setAttribute\('role', 'menuitem'\)/);
+  assert.match(styles, /\.variant-model-menu \{ width: min\(320px, calc\(100vw - 16px\)\);/);
+  assert.match(styles, /\.variant-image-size-menu \{[^}]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(styles, /\.variant-image-size-menu button \{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis/);
 });
