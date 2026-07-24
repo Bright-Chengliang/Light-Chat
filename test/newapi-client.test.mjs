@@ -42,7 +42,7 @@ test('chat first-token watchdog stops after the first generated token', async ()
   afterFirstToken.dispose();
 });
 
-test('Gemini Flash Images request preserves the prompt and returned JPEG bytes', async () => {
+test('Gemini Flash Images request preserves the prompt and sends its canonical aspect ratio', async () => {
   const fake = await createFakeNewApi({ imageMime: 'jpeg' });
   try {
     const client = new NewApiClient({ apiKey: 'test-api-key', baseUrl: fake.baseUrl });
@@ -53,7 +53,7 @@ test('Gemini Flash Images request preserves the prompt and returned JPEG bytes',
     assert.equal(images[0].buffer[1], 0xd8);
     const request = fake.requests.find((entry) => entry.url === '/v1/images/generations');
     assert.deepEqual(JSON.parse(request.bodyText), {
-      model: 'gemini-3.1-flash-image', prompt, n: 1, size: '1792x1024', quality: 'high', response_format: 'b64_json',
+      model: 'gemini-3.1-flash-image', prompt, n: 1, size: '16:9', quality: 'high', response_format: 'b64_json',
     });
   } finally {
     await fake.close();
@@ -119,6 +119,7 @@ test('Gemini Flash multimodal chat stays on the configured NewAPI route', async 
     const result = await client.chat({
       model: 'gemini-3.1-flash-image',
       messages: [{ role: 'user', content: [{ type: 'text', text: '融合两张图' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,aGVsbG8=' } }] }],
+      imageSize: '1152x1536',
       stream: true,
     });
     assert.equal(result.images.length, 1);
@@ -127,6 +128,7 @@ test('Gemini Flash multimodal chat stays on the configured NewAPI route', async 
     assert.equal(gatewayRequest.authorization, 'Bearer test-api-key');
     assert.equal(JSON.parse(gatewayRequest.bodyText).stream, false);
     assert.equal(JSON.parse(gatewayRequest.bodyText).stream_options, undefined);
+    assert.deepEqual(JSON.parse(gatewayRequest.bodyText).extra_body, { google: { image_config: { aspect_ratio: '3:4' } } });
     const imagePart = JSON.parse(gatewayRequest.bodyText).messages[0].content[1];
     assert.deepEqual(Object.keys(imagePart.image_url), ['url']);
   } finally {

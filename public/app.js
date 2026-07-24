@@ -1455,9 +1455,9 @@ function openVariantModelMenu(messageId, anchor) {
       }
       const row = document.createElement('div'); row.className = 'variant-image-model-row';
       const button = document.createElement('button'); button.type = 'button'; button.textContent = `@ ${item.label || modelId}`; button.title = `${modelId}（展开尺寸选项）`; button.setAttribute('aria-haspopup', 'true'); button.setAttribute('aria-expanded', 'false');
-      const sizes = orderedImageSizes(model?.imageOptions?.sizes || []);
+      const sizes = orderedImageSizes(model?.imageOptions?.sizes || [], modelId);
       const sizesMenu = document.createElement('div'); sizesMenu.className = 'variant-image-size-menu'; sizesMenu.id = `variant-image-size-${randomId()}`; button.setAttribute('aria-controls', sizesMenu.id);
-      for (const size of sizes) { const sizeButton = document.createElement('button'); sizeButton.type = 'button'; sizeButton.setAttribute('role', 'menuitem'); sizeButton.textContent = imageSizeLabel(size); sizeButton.title = `${modelId} · ${size}`; sizeButton.addEventListener('click', () => { const targetId = state.contextAssistantMessageId; closeVariantModelMenu(); setSelection(modelId, 'image'); regenerateImageAssistant(targetId, modelId, { imageSize: size }); }); sizesMenu.append(sizeButton); }
+      for (const size of sizes) { const sizeButton = document.createElement('button'); sizeButton.type = 'button'; sizeButton.setAttribute('role', 'menuitem'); sizeButton.textContent = imageSizeLabel(size, modelId); sizeButton.title = `${modelId} · ${imageSizeLabel(size, modelId)}`; sizeButton.addEventListener('click', () => { const targetId = state.contextAssistantMessageId; closeVariantModelMenu(); setSelection(modelId, 'image'); elements.imageSize.value = size; regenerateImageAssistant(targetId, modelId, { imageSize: size }); }); sizesMenu.append(sizeButton); }
       const setExpanded = (expanded) => { row.dataset.expanded = String(expanded); button.setAttribute('aria-expanded', String(expanded)); };
       button.addEventListener('click', () => setExpanded(row.dataset.expanded !== 'true'));
       button.addEventListener('keydown', (event) => { if (event.key === 'Escape') { setExpanded(false); button.focus(); } });
@@ -2710,11 +2710,11 @@ function imageSizeParts(size) {
   const divisor = gcd(width, height); return { width, height, left: width / divisor, right: height / divisor };
 }
 
-function orderedImageSizes(sizes) {
+function orderedImageSizes(sizes, modelId = '') {
   const preferred = ['16:9', '4:3', '3:2', '1:1'];
   return [...new Set(sizes)].sort((left, right) => {
     const a = imageSizeParts(left); const b = imageSizeParts(right); if (!a || !b) return left.localeCompare(right);
-    const aRatio = `${Math.max(a.left, a.right)}:${Math.min(a.left, a.right)}`; const bRatio = `${Math.max(b.left, b.right)}:${Math.min(b.left, b.right)}`;
+    const aRatio = geminiFlashAspectRatio(left, modelId) || `${Math.max(a.left, a.right)}:${Math.min(a.left, a.right)}`; const bRatio = geminiFlashAspectRatio(right, modelId) || `${Math.max(b.left, b.right)}:${Math.min(b.left, b.right)}`;
     const aIndex = preferred.indexOf(aRatio); const bIndex = preferred.indexOf(bRatio);
     if ((aIndex < 0 ? 99 : aIndex) !== (bIndex < 0 ? 99 : bIndex)) return (aIndex < 0 ? 99 : aIndex) - (bIndex < 0 ? 99 : bIndex);
     if ((a.width >= a.height) !== (b.width >= b.height)) return a.width >= a.height ? -1 : 1;
@@ -2722,19 +2722,24 @@ function orderedImageSizes(sizes) {
   });
 }
 
-function imageSizeLabel(size) {
+function geminiFlashAspectRatio(size, modelId = '') {
+  if (String(modelId || '').toLowerCase() !== 'gemini-3.1-flash-image') return '';
+  return { '1024x1024': '1:1', '1536x1024': '3:2', '1536x1152': '4:3', '1792x1024': '16:9', '1152x1536': '3:4', '1024x1536': '2:3', '1024x1792': '9:16' }[size] || '';
+}
+
+function imageSizeLabel(size, modelId = '') {
   const parts = imageSizeParts(size); if (!parts) return size;
   const orientation = parts.width === parts.height ? '方形' : parts.width > parts.height ? '横幅' : '竖屏';
-  return `${orientation} ${parts.left}:${parts.right} · ${size}`;
+  return `${orientation} ${geminiFlashAspectRatio(size, modelId) || `${parts.left}:${parts.right}`} · ${size}`;
 }
 
 function renderImageSizeOptions() {
   const model = state.models.find((item) => item.id === state.selected?.modelId);
   const imageOptions = model?.imageOptions || {};
   const sizes = Array.isArray(imageOptions.sizes) && imageOptions.sizes.length ? imageOptions.sizes : ['1024x1024'];
-  const ordered = orderedImageSizes(sizes); const previous = ordered.includes(elements.imageSize.value) ? elements.imageSize.value : imageOptions.defaultSize;
+  const ordered = orderedImageSizes(sizes, model?.id); const previous = ordered.includes(elements.imageSize.value) ? elements.imageSize.value : imageOptions.defaultSize;
   elements.imageSize.replaceChildren(...ordered.map((size) => {
-    const option = document.createElement('option'); option.value = size; option.textContent = imageSizeLabel(size); return option;
+    const option = document.createElement('option'); option.value = size; option.textContent = imageSizeLabel(size, model?.id); return option;
   }));
   elements.imageSize.value = ordered.includes(previous) ? previous : ordered[0];
 }
@@ -3994,7 +3999,7 @@ async function regenerateImageAssistant(messageId, modelId, { allowHistorical = 
       await requestGeneratedImages('/api/images/edits', { model: modelId, prompt: imagePrompt, imageIds: editImageIds, size: imageSize || elements.imageSize.value || requestModel.imageOptions?.defaultSize, quality: imageQualityForRequest(conversation, requestModel), count: 1 }, draft, conversation.id, requestController.signal);
       draft.content = draft.images.length ? '图片已按参考图修改。' : draft.content;
     } else if (useImageChat) {
-      const response = await fetch('/api/chat', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf }, body: JSON.stringify({ model: modelId, roleId: validRoleId(conversation.roleId) || undefined, messages: chatSubmissionMessages(submittedMessages), stream: false }), signal: requestController.signal });
+      const response = await fetch('/api/chat', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf }, body: JSON.stringify({ model: modelId, roleId: validRoleId(conversation.roleId) || undefined, messages: chatSubmissionMessages(submittedMessages), imageSize: imageSize || elements.imageSize.value || requestModel.imageOptions?.defaultSize, stream: false }), signal: requestController.signal });
       if (response.status === 401) { location.replace('/'); throw new Error('登录已失效'); }
       if (!response.ok) { const failure = await response.json().catch(() => ({})); throw new Error(failure.error || '模型请求失败'); }
       payload = await response.json(); draft.reasoning = payload.reasoning || ''; draft.images = (payload.images || []).map(sanitizeAttachment).filter(Boolean); draft.usage = sanitizeUsage(payload.usage); draft.content = payload.text || (draft.images.length ? '图片已生成。' : '');
@@ -4113,7 +4118,7 @@ async function sendMessage(queuedDraft = null) {
       const submitted = conversation.messages.slice(0, -1);
       const messages = chatSubmissionMessages(submitted);
       const stream = requestSelection.mode === 'chat' ? requestStream : false;
-      const response = await fetch('/api/chat', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf }, body: JSON.stringify({ model: requestSelection.modelId, roleId: validRoleId(conversation.roleId) || undefined, messages, stream }), signal: requestController.signal });
+      const response = await fetch('/api/chat', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf }, body: JSON.stringify({ model: requestSelection.modelId, roleId: validRoleId(conversation.roleId) || undefined, messages, imageSize: useImageChat ? (messageDraft.imageSize || requestModel?.imageOptions?.defaultSize) : undefined, stream }), signal: requestController.signal });
       if (response.status === 401) { location.replace('/'); return; }
       if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error || '模型请求失败'); }
       if ((response.headers.get('content-type') || '').includes('text/event-stream')) { await consumeSse(response, assistant, conversationId); assistant.streaming = false; updateMessage(assistant, conversationId); }
@@ -4551,7 +4556,7 @@ function renderWorkflowGraphInspector(workflow, rerender) {
   } else if (node.type === 'merge') {
     const mode = workflowEditorSelect([{ value: 'join', label: '按顺序拼接' }, { value: 'template', label: '按引用名套用模板' }], node.mergeMode, '合并方式'); mode.addEventListener('change', () => { node.mergeMode = mode.value; rerender(); }); const separator = document.createElement('textarea'); separator.rows = 2; separator.maxLength = 1000; separator.value = node.separator || '\n\n'; separator.placeholder = '拼接分隔符'; separator.addEventListener('input', () => { node.separator = separator.value; }); body.append(workflowEditorField('合并方式', mode), workflowEditorField('分隔符', separator)); if (node.mergeMode === 'template') { const template = document.createElement('textarea'); template.rows = 6; template.maxLength = 4000; template.value = node.template || '{{all}}'; template.placeholder = '例如：主体：{{brief}}\n风格：{{style}}\n全部：{{all}}'; template.addEventListener('input', () => { node.template = template.value; }); body.append(workflowEditorField('合并模板', template)); }
   } else {
-    const imageModels = workflowEditorSelect(workflowModelOptions('image').map((model) => ({ value: model.id, label: model.id })), node.model, '生图模型'); imageModels.addEventListener('change', () => { node.model = imageModels.value; const selected = state.models.find((model) => model.id === node.model); node.size = selected?.imageOptions?.defaultSize || '1024x1024'; node.quality = selected?.imageOptions?.defaultQuality || 'high'; rerender(); }); const selected = state.models.find((model) => model.id === node.model); const size = workflowEditorSelect((selected?.imageOptions?.sizes || []).map((value) => ({ value, label: imageSizeLabel(value) })), node.size, '默认尺寸'); size.addEventListener('change', () => { node.size = size.value; }); const quality = workflowEditorSelect((selected?.imageOptions?.qualities || []).map((value) => ({ value, label: value })), node.quality, '默认质量'); quality.addEventListener('change', () => { node.quality = quality.value; }); body.append(workflowEditorField('生图模型', imageModels), workflowEditorField('默认尺寸', size), workflowEditorField('默认质量', quality)); renderWorkflowOutputEditor(node, body, rerender); for (const [key, label] of [['allowUserModelOverride', '用户可切换生图模型'], ['allowUserSizeOverride', '用户可切换尺寸'], ['allowUserQualityOverride', '用户可切换质量']]) { const field = document.createElement('label'); field.className = 'workflow-editor-check'; const input = document.createElement('input'); input.type = 'checkbox'; input.checked = node[key] !== false; input.addEventListener('change', () => { node[key] = input.checked; }); field.append(input, document.createTextNode(label)); body.append(field); }
+    const imageModels = workflowEditorSelect(workflowModelOptions('image').map((model) => ({ value: model.id, label: model.id })), node.model, '生图模型'); imageModels.addEventListener('change', () => { node.model = imageModels.value; const selected = state.models.find((model) => model.id === node.model); node.size = selected?.imageOptions?.defaultSize || '1024x1024'; node.quality = selected?.imageOptions?.defaultQuality || 'high'; rerender(); }); const selected = state.models.find((model) => model.id === node.model); const size = workflowEditorSelect((selected?.imageOptions?.sizes || []).map((value) => ({ value, label: imageSizeLabel(value, node.model) })), node.size, '默认尺寸'); size.addEventListener('change', () => { node.size = size.value; }); const quality = workflowEditorSelect((selected?.imageOptions?.qualities || []).map((value) => ({ value, label: value })), node.quality, '默认质量'); quality.addEventListener('change', () => { node.quality = quality.value; }); body.append(workflowEditorField('生图模型', imageModels), workflowEditorField('默认尺寸', size), workflowEditorField('默认质量', quality)); renderWorkflowOutputEditor(node, body, rerender); for (const [key, label] of [['allowUserModelOverride', '用户可切换生图模型'], ['allowUserSizeOverride', '用户可切换尺寸'], ['allowUserQualityOverride', '用户可切换质量']]) { const field = document.createElement('label'); field.className = 'workflow-editor-check'; const input = document.createElement('input'); input.type = 'checkbox'; input.checked = node[key] !== false; input.addEventListener('change', () => { node[key] = input.checked; }); field.append(input, document.createTextNode(label)); body.append(field); }
   }
   renderWorkflowConnectionInspector(workflow, node, body, rerender); inspector.append(body); const textCount = workflow.nodes.filter((candidate) => candidate.type === 'role' || candidate.type === 'temporary').length; const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'danger-action'; remove.textContent = '删除此节点'; remove.disabled = node.type === 'image' || ((node.type === 'role' || node.type === 'temporary') && textCount <= 1); remove.addEventListener('click', () => { workflow.nodes = workflow.nodes.filter((candidate) => candidate.id !== node.id); workflow.edges = workflowEdges(workflow).filter((edge) => edge.from !== node.id && edge.to !== node.id); state.workflowGraph.selectedNodeId = ''; state.workflowGraph.pendingSource = ''; rerender(); }); inspector.append(remove); return inspector;
 }

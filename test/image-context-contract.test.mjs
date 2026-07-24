@@ -14,10 +14,14 @@ test('dedicated Images API conversations retain textual history in their generat
   assert.match(appSource, /'\/api\/images\/generations'[\s\S]*prompt: imagePrompt/);
 });
 
-test('Gemini Flash image input keeps first-turn text and multiple attachments on the chat route', () => {
+test('Gemini Flash image input keeps first-turn text, references, and the selected size on the chat route', () => {
   assert.match(appSource, /const useImageChat = requestSelection\.mode === 'image' && requestModel\?\.modes\.includes\('chat'\) && \(conversation\.messages\.length > 0 \|\| attachments\.length > 0\)/);
   assert.match(appSource, /const messages = chatSubmissionMessages\(submitted\)/);
   assert.match(appSource, /attachmentIds: message\.role === 'user' \? \(message\.attachments \|\| \[\]\)\.map\(\(item\) => item\.id\) : \[\]/);
+  assert.match(appSource, /imageSize: useImageChat \? \(messageDraft\.imageSize \|\| requestModel\?\.imageOptions\?\.defaultSize\) : undefined/);
+  assert.match(clientSource, /extra_body: geminiFlashImageExtraBody\(model, imageSize\)/);
+  assert.match(clientSource, /'1536x1152': '4:3'/);
+  assert.match(clientSource, /'1152x1536': '3:4'/);
 });
 
 test('Light-Chat routes every Gemini Flash request through the configured 3002 NewAPI gateway', () => {

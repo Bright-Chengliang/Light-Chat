@@ -392,6 +392,8 @@ test('image model size choices expand in a stable in-menu panel', () => {
   assert.match(publicSource, /variant-image-size-menu \{[\s\S]*?flex-direction: column;/);
   assert.match(publicSource, /variant-image-size-menu button \{ width: 100%;/);
   assert.doesNotMatch(publicSource, /\.variant-image-size-menu \{ position: absolute;/);
+  assert.match(publicSource, /orderedImageSizes\(model\?\.imageOptions\?\.sizes \|\| \[\], modelId\)/);
+  assert.match(publicSource, /function geminiFlashAspectRatio\(size, modelId = ''\)/);
 });
 
 test('lightbox navigates every image and upscale variant with keyboard and transient controls', () => {
