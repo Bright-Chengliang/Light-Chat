@@ -324,6 +324,13 @@ test('administrators can configure private node graphs while the user surface st
   assert.match(backendSource, /systemPrompt/);
 });
 
+test('workflow graph editing expands into a viewport-sized workspace without changing other account panels', () => {
+  assert.match(publicSource, /accountDialog\.classList\.toggle\('workflow-workspace-active', requested === 'workflows'\)/);
+  assert.match(publicSource, /accountDialog\.addEventListener\('close', \(\) => elements\.accountDialog\.classList\.remove\('workflow-workspace-active'\)\)/);
+  assert.match(publicSource, /\.account-dialog\.workflow-workspace-active \{ width: calc\(100vw - 24px\); max-width: none; max-height: calc\(100dvh - 24px\); \}/);
+  assert.match(publicSource, /\.account-dialog\.workflow-workspace-active \.workflow-graph-scroll, \.account-dialog\.workflow-workspace-active \.workflow-graph-inspector \{ min-height: 0; height: 100%; max-height: none; \}/);
+});
+
 test('history search input uses the sidebar visual language', () => {
   assert.match(publicSource, /id="historySearchInput"/);
   assert.match(publicSource, /elements\.historySearch\.addEventListener\('input'/);

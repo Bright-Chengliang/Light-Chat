@@ -634,6 +634,25 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 .add-group-button { width: 100%; margin-top: 10px; border: 1px dashed rgba(166,75,55,.35); }
 .account-dialog { width: min(96vw, 920px); }
 .account-center-shell { min-height: min(82dvh, 720px); }
+.account-dialog.workflow-workspace-active { width: calc(100vw - 24px); max-width: none; max-height: calc(100dvh - 24px); }
+.account-dialog.workflow-workspace-active .account-center-shell { height: calc(100dvh - 24px); min-height: 0; max-height: calc(100dvh - 24px); }
+.account-dialog.workflow-workspace-active .account-center-header { position: absolute; top: 12px; right: 12px; z-index: 2; }
+.account-dialog.workflow-workspace-active .account-center-heading { display: none; }
+.account-dialog.workflow-workspace-active .account-tabs { margin-top: 0; margin-right: 48px; }
+.account-dialog.workflow-workspace-active .account-panels { display: flex; min-height: 0; overflow: hidden; }
+.account-dialog.workflow-workspace-active [data-account-panel-content="workflows"] { position: relative; min-height: 0; padding: 4px 2px; display: flex; flex: 1; flex-direction: column; }
+.account-dialog.workflow-workspace-active [data-account-panel-content="workflows"] > .account-panel-actions { position: absolute; top: 4px; right: 112px; margin: 0; }
+.account-dialog.workflow-workspace-active .workflow-editor { min-height: 0; flex: 1; display: flex; flex-direction: column; }
+.account-dialog.workflow-workspace-active .workflow-editor-card[open] { min-height: 0; flex: 1; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.account-dialog.workflow-workspace-active .workflow-editor-card[open] > .workflow-editor-body { height: 100%; min-height: 0; grid-template-columns: minmax(150px, .65fr) minmax(220px, 1fr) auto minmax(290px, 1.35fr); grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.account-dialog.workflow-workspace-active .workflow-editor-card[open] > .workflow-editor-body > .workflow-editor-field:nth-child(1) { grid-column: 1; grid-row: 1; }
+.account-dialog.workflow-workspace-active .workflow-editor-card[open] > .workflow-editor-body > .workflow-editor-field:nth-child(2) { grid-column: 2; grid-row: 1; }
+.account-dialog.workflow-workspace-active .workflow-editor-card[open] > .workflow-editor-body > .workflow-editor-check { grid-column: 3; grid-row: 1; }
+.account-dialog.workflow-workspace-active .workflow-graph-card .workflow-editor-body > .workflow-graph-actions { grid-column: 4; grid-row: 1; justify-content: flex-end; align-self: end; }
+.account-dialog.workflow-workspace-active .workflow-graph-card .workflow-editor-body > .workflow-graph-layout { grid-column: 1 / -1; grid-row: 2; }
+.account-dialog.workflow-workspace-active .workflow-graph-card .workflow-editor-body > .danger-action { grid-column: 1 / -1; grid-row: 3; }
+.account-dialog.workflow-workspace-active .workflow-graph-layout { min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.account-dialog.workflow-workspace-active .workflow-graph-scroll, .account-dialog.workflow-workspace-active .workflow-graph-inspector { min-height: 0; height: 100%; max-height: none; }
 .account-center-header { padding-bottom: 2px; }
 .account-center-heading { min-width: 0; display: flex; align-items: center; gap: 13px; }
 .account-center-mark { width: 43px; height: 43px; display: grid; place-items: center; flex: 0 0 auto; color: #fff; background: linear-gradient(145deg, #b95d47, var(--accent)); border: 1px solid rgba(113,43,29,.2); border-radius: 13px; box-shadow: 0 7px 16px rgba(126,54,38,.16), inset 0 1px rgba(255,255,255,.28); font: 700 1rem/1 Georgia, "Songti SC", serif; }
@@ -784,7 +803,22 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
   .sidebar-close, .menu-button { display: grid; }
   .sidebar-backdrop { position: fixed; inset: 0; display: block; background: rgba(37,35,31,.28); z-index: 19; }
   .main-panel { grid-column: 1; }
+  .account-dialog.workflow-workspace-active { width: calc(100vw - 12px); max-height: calc(100dvh - 12px); }
+  .account-dialog.workflow-workspace-active .account-center-shell { height: calc(100dvh - 12px); max-height: calc(100dvh - 12px); }
+  .account-dialog.workflow-workspace-active .account-center-header { position: static; }
+  .account-dialog.workflow-workspace-active .account-center-heading { display: flex; }
+  .account-dialog.workflow-workspace-active .account-tabs { margin-top: 10px; margin-right: 0; }
+  .account-dialog.workflow-workspace-active .account-panels { overflow: auto; }
+  .account-dialog.workflow-workspace-active [data-account-panel-content="workflows"] { display: block; min-height: 100%; }
+  .account-dialog.workflow-workspace-active [data-account-panel-content="workflows"] > .account-panel-actions { position: static; margin-top: 15px; }
+  .account-dialog.workflow-workspace-active .workflow-editor { min-height: 0; display: grid; }
+  .account-dialog.workflow-workspace-active .workflow-editor-card[open] { display: block; }
+  .account-dialog.workflow-workspace-active .workflow-editor-card[open] > .workflow-editor-body { height: auto; display: grid; grid-template-columns: 1fr; grid-template-rows: none; overflow: visible; }
+  .account-dialog.workflow-workspace-active .workflow-editor-card[open] > .workflow-editor-body > .workflow-editor-field:nth-child(1), .account-dialog.workflow-workspace-active .workflow-editor-card[open] > .workflow-editor-body > .workflow-editor-field:nth-child(2), .account-dialog.workflow-workspace-active .workflow-editor-card[open] > .workflow-editor-body > .workflow-editor-check, .account-dialog.workflow-workspace-active .workflow-graph-card .workflow-editor-body > .workflow-graph-actions, .account-dialog.workflow-workspace-active .workflow-graph-card .workflow-editor-body > .workflow-graph-layout, .account-dialog.workflow-workspace-active .workflow-graph-card .workflow-editor-body > .danger-action { grid-column: auto; grid-row: auto; }
   .workflow-graph-layout { grid-template-columns: 1fr; }
+  .account-dialog.workflow-workspace-active .workflow-graph-layout { grid-template-rows: none; }
+  .account-dialog.workflow-workspace-active .workflow-graph-scroll { height: auto; min-height: 520px; }
+  .account-dialog.workflow-workspace-active .workflow-graph-inspector { height: auto; }
   .workflow-graph-inspector { max-height: none; }
 }
 

@@ -4415,6 +4415,7 @@ function bindSidebarRolesResize() {
 
 function switchAccountPanel(panelName) {
   const requested = state.userRole !== 'admin' && ['users', 'groups', 'workflows'].includes(panelName) ? 'quota' : panelName;
+  elements.accountDialog.classList.toggle('workflow-workspace-active', requested === 'workflows');
   for (const button of $$('[data-account-panel]', elements.accountTabs)) {
     const active = button.dataset.accountPanel === requested;
     button.classList.toggle('active', active);
@@ -5050,6 +5051,7 @@ function bindEvents() {
   elements.imageLightboxPrevious.addEventListener('click', () => switchImageLightbox(-1));
   elements.imageLightboxNext.addEventListener('click', () => switchImageLightbox(1));
   elements.imageLightbox.addEventListener('close', () => { closeContextMenu(elements.imageLightboxContextMenu); if (lightboxControlsTimer) clearTimeout(lightboxControlsTimer); if (lightboxLoadFeedbackTimer) clearTimeout(lightboxLoadFeedbackTimer); lightboxControlsTimer = 0; lightboxLoadFeedbackTimer = 0; lightboxImageRequestId += 1; lightboxImages = []; lightboxImageIndex = 0; elements.imageLightboxLoading.hidden = true; elements.imageLightboxImage.classList.remove('is-loading'); elements.imageLightbox.classList.remove('controls-visible', 'has-image-navigation'); elements.imageLightboxImage.removeAttribute('src'); });
+  elements.accountDialog.addEventListener('close', () => elements.accountDialog.classList.remove('workflow-workspace-active'));
   document.addEventListener('click', (event) => {
     if (!elements.headerModelMenu.hidden && !elements.headerModelPicker.contains(event.target)) closeHeaderModelMenu();
     if (!elements.headerRoleMenu.hidden && !elements.headerRolePicker.contains(event.target)) closeHeaderRoleMenu();
