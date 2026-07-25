@@ -980,7 +980,7 @@ test('image edits reject missing, unsupported, non-image, foreign, and invalid-m
   }
 });
 
-test('Gemini Flash image generation uses model defaults and preserves the prompt', async () => {
+test('Gemini Flash image generation preserves all eight ordered reference images', async () => {
   const context = await fixture();
   try {
     const signedIn = await authenticated(context);
@@ -1004,8 +1004,21 @@ test('Gemini Flash image generation uses model defaults and preserves the prompt
     const quota = await fetch(`${context.baseUrl}/api/quota`, { headers: { Cookie: signedIn.cookie } });
     assert.equal((await quota.json()).usagePoints, 1);
 
-    const firstReference = await uploadFile(context, signedIn, { buffer: tinyPng(9, 7), mimeType: 'image/png', fileName: 'first.png' });
-    const secondReference = await uploadFile(context, signedIn, { buffer: tinyJpeg(8, 8), mimeType: 'image/jpeg', fileName: 'second.jpg' });
+    const referenceSources = [
+      { buffer: tinyPng(9, 7), mimeType: 'image/png', fileName: 'first.png' },
+      { buffer: tinyJpeg(8, 8), mimeType: 'image/jpeg', fileName: 'second.jpg' },
+      ...Array.from({ length: 6 }, (_, index) => ({
+        buffer: tinyPng(10 + index, 8 + index),
+        mimeType: 'image/png',
+        fileName: `reference-${index + 3}.png`,
+      })),
+    ];
+    const references = [];
+    for (const source of referenceSources) {
+      const uploaded = await uploadFile(context, signedIn, source);
+      assert.equal(uploaded.response.status, 201);
+      references.push(uploaded.body.attachment);
+    }
     const continued = await fetch(`${context.baseUrl}/api/chat`, {
       method: 'POST',
       headers: {
@@ -1018,7 +1031,7 @@ test('Gemini Flash image generation uses model defaults and preserves the prompt
         model: 'gemini-3.1-flash-image',
         stream: false,
         imageSize: '1536x1152',
-        messages: [{ role: 'user', content: '融合两张参考图生成新图片', attachmentIds: [firstReference.body.attachment.id, secondReference.body.attachment.id] }],
+        messages: [{ role: 'user', content: '融合全部八张参考图生成新图片', attachmentIds: references.map((reference) => reference.id) }],
       }),
     });
     assert.equal(continued.status, 200);
@@ -1029,9 +1042,13 @@ test('Gemini Flash image generation uses model defaults and preserves the prompt
     const continuedMessages = JSON.parse(continuedUpstream.bodyText).messages;
     assert.equal(continuedMessages.length, 1);
     const imageParts = continuedMessages[0].content.filter((part) => part.type === 'image_url');
-    assert.equal(imageParts.length, 2);
+    assert.equal(imageParts.length, 8);
     assert.equal(imageParts.every((part) => Object.keys(part.image_url).length === 1 && typeof part.image_url.url === 'string'), true);
-    assert.equal(continuedMessages[0].content.some((part) => part.type === 'text' && part.text === '融合两张参考图生成新图片'), true);
+    assert.deepEqual(
+      imageParts.map((part) => part.image_url.url),
+      referenceSources.map((source) => `data:${source.mimeType};base64,${source.buffer.toString('base64')}`),
+    );
+    assert.equal(continuedMessages[0].content.some((part) => part.type === 'text' && part.text === '融合全部八张参考图生成新图片'), true);
 
     const beforeInvalid = context.fake.requests.length;
     const invalid = await fetch(`${context.baseUrl}/api/images/generations`, {
