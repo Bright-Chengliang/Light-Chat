@@ -490,6 +490,7 @@ function loadConversations() {
         folderId: typeof item.folderId === 'string' && /^[A-Za-z0-9_-]{3,64}$/.test(item.folderId) ? item.folderId : '',
         copiedFromConversationId: typeof item.copiedFromConversationId === 'string' && /^[A-Za-z0-9_-]{3,80}$/.test(item.copiedFromConversationId) ? item.copiedFromConversationId : '',
         favoriteOrder: Number.isSafeInteger(item.favoriteOrder) && item.favoriteOrder >= 0 && item.favoriteOrder < conversationStorageLimit() ? item.favoriteOrder : null,
+        favoritedAt: Number.isFinite(item.favoritedAt) && item.favoritedAt > 0 ? item.favoritedAt : null,
         lastRequest: sanitizeConversationRequest(item.lastRequest),
         messages,
       }];
@@ -530,11 +531,25 @@ function currentConversation() {
 }
 
 function isFavoriteConversation(conversation) {
-  return Number.isSafeInteger(conversation?.favoriteOrder) && conversation.favoriteOrder >= 0;
+  return (Number.isFinite(conversation?.favoritedAt) && conversation.favoritedAt > 0)
+    || (Number.isSafeInteger(conversation?.favoriteOrder) && conversation.favoriteOrder >= 0);
+}
+
+function favoriteConversationActivityAt(conversation) {
+  return Math.max(
+    Number.isFinite(conversation?.favoritedAt) ? conversation.favoritedAt : 0,
+    Number.isFinite(conversation?.updatedAt) ? conversation.updatedAt : 0,
+    Number.isFinite(conversation?.createdAt) ? conversation.createdAt : 0,
+  );
 }
 
 function favoriteConversations() {
-  return state.conversations.filter(isFavoriteConversation).sort((left, right) => left.favoriteOrder - right.favoriteOrder || left.createdAt - right.createdAt);
+  return state.conversations.filter(isFavoriteConversation).sort((left, right) => (
+    favoriteConversationActivityAt(right) - favoriteConversationActivityAt(left)
+    || right.updatedAt - left.updatedAt
+    || right.createdAt - left.createdAt
+    || left.id.localeCompare(right.id)
+  ));
 }
 
 function normalizeFavoriteConversationOrder() {
@@ -544,23 +559,15 @@ function normalizeFavoriteConversationOrder() {
 function setConversationFavorite(conversationId, favorite) {
   const conversation = state.conversations.find((item) => item.id === conversationId);
   if (!conversation) return false;
-  if (favorite) conversation.favoriteOrder = favoriteConversations().length;
-  else conversation.favoriteOrder = null;
+  if (favorite) {
+    conversation.favoritedAt = Date.now();
+    conversation.favoriteOrder = 0;
+  } else {
+    conversation.favoritedAt = null;
+    conversation.favoriteOrder = null;
+  }
   saveConversations();
   return true;
-}
-
-function reorderFavoriteConversation(conversationId, targetConversationId, before = false) {
-  const favorites = favoriteConversations();
-  const sourceIndex = favorites.findIndex((conversation) => conversation.id === conversationId);
-  if (sourceIndex < 0) return;
-  const [source] = favorites.splice(sourceIndex, 1);
-  const targetIndex = targetConversationId ? favorites.findIndex((conversation) => conversation.id === targetConversationId) : -1;
-  const insertAt = targetIndex < 0 ? favorites.length : targetIndex + (before ? 0 : 1);
-  favorites.splice(insertAt, 0, source);
-  favorites.forEach((conversation, index) => { conversation.favoriteOrder = index; });
-  saveConversations();
-  setStatus('已更新收藏对话排序', 'success');
 }
 
 function conversationBottomDistance() {
@@ -1194,32 +1201,15 @@ function renderFavoriteConversations() {
 
 function createFavoriteConversationItem(conversation) {
   const busy = isConversationBusy(conversation.id);
-  const item = document.createElement('button'); item.type = 'button'; item.draggable = true;
+  const item = document.createElement('button'); item.type = 'button';
   item.className = `favorite-conversation-item${conversation.id === state.currentId ? ' active' : ''}${busy ? ' busy' : ''}`;
   item.dataset.conversationId = conversation.id;
-  item.title = '打开对话；拖动调整收藏排序；右键管理';
-  const handle = document.createElement('span'); handle.className = 'favorite-conversation-handle'; handle.setAttribute('aria-hidden', 'true'); handle.textContent = '⠿';
+  item.title = '打开对话；右键管理';
   const title = document.createElement('span'); title.className = 'favorite-conversation-title'; title.textContent = conversation.title;
   const time = document.createElement('time'); time.textContent = busy ? '生成中…' : formatTime(conversation.updatedAt);
-  item.append(handle, title, time);
+  item.append(title, time);
   item.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true }));
   bindContextMenuTrigger(item, 'historyContextMenu', (x, y, trigger) => openHistoryContextMenu(conversation.id, x, y, trigger));
-  item.addEventListener('dragstart', (event) => {
-    event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/x-light-chat-favorite-conversation', conversation.id); event.dataTransfer.setData('text/plain', conversation.id); item.classList.add('dragging');
-  });
-  item.addEventListener('dragend', () => $$('.favorite-conversation-item.dragging, .favorite-conversation-item.drag-over', elements.favoriteConversations).forEach((node) => node.classList.remove('dragging', 'drag-over')));
-  item.addEventListener('dragover', (event) => {
-    if (!event.dataTransfer.types.includes('text/x-light-chat-favorite-conversation')) return;
-    event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; item.classList.add('drag-over');
-  });
-  item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
-  item.addEventListener('drop', (event) => {
-    const sourceId = event.dataTransfer.getData('text/x-light-chat-favorite-conversation');
-    if (!sourceId || sourceId === conversation.id) return;
-    event.preventDefault(); event.stopPropagation();
-    const bounds = item.getBoundingClientRect();
-    reorderFavoriteConversation(sourceId, conversation.id, event.clientY < bounds.top + bounds.height / 2);
-  });
   return item;
 }
 
@@ -5052,17 +5042,6 @@ function bindEvents() {
   for (const [toggle, base] of [[elements.sidebarFavoritesToggle, 'favorites'], [elements.favoriteConversationsToggle, 'favorite-conversations'], [elements.sidebarRolesToggle, 'roles'], [elements.historyToggle, 'history'], [elements.favoriteMediaToggle, 'favorite-media']]) {
     toggle.closest('.sidebar-section-heading')?.addEventListener('click', (event) => { if (!event.target.closest('button')) handleSidebarDrawerHeader(base); });
   }
-  elements.favoriteConversations.addEventListener('dragover', (event) => {
-    if (!event.dataTransfer.types.includes('text/x-light-chat-favorite-conversation')) return;
-    event.preventDefault(); event.dataTransfer.dropEffect = 'move'; elements.favoriteConversations.classList.add('drag-over');
-  });
-  elements.favoriteConversations.addEventListener('dragleave', (event) => { if (!elements.favoriteConversations.contains(event.relatedTarget)) elements.favoriteConversations.classList.remove('drag-over'); });
-  elements.favoriteConversations.addEventListener('drop', (event) => {
-    const sourceId = event.dataTransfer.getData('text/x-light-chat-favorite-conversation');
-    if (!sourceId) return;
-    event.preventDefault(); elements.favoriteConversations.classList.remove('drag-over');
-    if (!event.target.closest('.favorite-conversation-item')) reorderFavoriteConversation(sourceId, '', false);
-  });
   elements.form.addEventListener('submit', (event) => { event.preventDefault(); sendMessage(); });
   elements.dismissErrorNotice.addEventListener('click', () => { elements.errorNotice.hidden = true; });
   elements.startUpscaleButton.addEventListener('click', startUpscale);

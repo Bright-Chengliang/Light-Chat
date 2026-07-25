@@ -8,13 +8,15 @@ const [appSource, appHtml, styles] = await Promise.all([
   readFile(new URL('../public/styles.css', import.meta.url), 'utf8'),
 ]);
 
-test('favorite conversations persist independent manual ordering', () => {
+test('favorite conversations put the latest favorite or interaction first', () => {
   assert.match(appSource, /favoriteOrder: Number\.isSafeInteger\(item\.favoriteOrder\)/);
+  assert.match(appSource, /favoritedAt: Number\.isFinite\(item\.favoritedAt\)/);
+  assert.match(appSource, /function favoriteConversationActivityAt\(conversation\)/);
   assert.match(appSource, /function favoriteConversations\(\)/);
   assert.match(appSource, /function normalizeFavoriteConversationOrder\(\)/);
-  assert.match(appSource, /function reorderFavoriteConversation\(conversationId, targetConversationId, before = false\)/);
-  assert.match(appSource, /text\/x-light-chat-favorite-conversation/);
-  assert.match(appSource, /favoriteOrder = index/);
+  assert.match(appSource, /favoriteConversationActivityAt\(right\) - favoriteConversationActivityAt\(left\)/);
+  assert.match(appSource, /conversation\.favoritedAt = Date\.now\(\)/);
+  assert.doesNotMatch(appSource, /text\/x-light-chat-favorite-conversation/);
 });
 
 test('favorite conversations are available from the sidebar and conversation context menu', () => {
@@ -25,5 +27,6 @@ test('favorite conversations are available from the sidebar and conversation con
   assert.match(appSource, /bindContextMenuTrigger\(conversationMenuTrigger, 'historyContextMenu'/);
   assert.match(appSource, /function toggleFavoriteConversationFromContext\(\)/);
   assert.match(styles, /\.favorite-conversation-item \{/);
-  assert.match(styles, /\.favorite-conversation-item\.drag-over/);
+  assert.match(styles, /grid-template-columns: minmax\(0, 1fr\) auto/);
+  assert.doesNotMatch(styles, /\.favorite-conversation-handle/);
 });
