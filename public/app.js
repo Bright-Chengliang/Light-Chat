@@ -30,12 +30,12 @@ const elements = {
   addModelAccessGroup: $('#addModelAccessGroupButton'), saveModelAccessGroups: $('#saveModelAccessGroupsButton'), modelAccessGroupsEditor: $('#modelAccessGroupsEditor'), workflowEditor: $('#workflowEditor'), addWorkflow: $('#addWorkflowButton'), saveWorkflows: $('#saveWorkflowsButton'),
   rolesDialog: $('#rolesDialog'), rolesEditor: $('#rolesEditor'), addRoleFolder: $('#addRoleFolderButton'), saveRoles: $('#saveRolesButton'), rolesStatus: $('#rolesStatus'),
   roleTransferDialog: $('#roleTransferDialog'), roleTransferTitle: $('#roleTransferDialogTitle'), roleTransferDescription: $('#roleTransferDescription'), roleTransferFolder: $('#roleTransferFolderSelect'), roleTransferStatus: $('#roleTransferStatus'), confirmRoleTransfer: $('#confirmRoleTransferButton'),
-  imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'), imageLightboxContextMenu: $('#imageLightboxContextMenu'), jumpToLightboxFileMessage: $('#jumpToLightboxFileMessage'), toggleLightboxFavoriteMediaButton: $('#toggleLightboxFavoriteMediaButton'), downloadLightboxFileButton: $('#downloadLightboxFileButton'),
+  imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'), imageLightboxContextMenu: $('#imageLightboxContextMenu'), jumpToLightboxFileMessage: $('#jumpToLightboxFileMessage'), toggleLightboxFavoriteMediaButton: $('#toggleLightboxFavoriteMediaButton'), copyLightboxImageButton: $('#copyLightboxImageButton'), downloadLightboxFileButton: $('#downloadLightboxFileButton'),
   upscaleDialog: $('#upscaleDialog'), upscaleMode: $('#upscaleMode'), upscaleWidth: $('#upscaleWidth'), upscaleHeight: $('#upscaleHeight'), upscaleStatus: $('#upscaleStatus'), startUpscaleButton: $('#startUpscaleButton'),
   historyContextMenu: $('#historyContextMenu'), renameConversation: $('#renameConversation'), toggleFavoriteConversation: $('#toggleFavoriteConversation'), jumpToRoleFromConversation: $('#jumpToRoleFromConversation'), jumpToSourceConversation: $('#jumpToSourceConversation'), exportTxt: $('#exportConversationTxt'), exportMarkdownText: $('#exportConversationMarkdownText'), exportMarkdown: $('#exportConversationMarkdown'), deleteConversation: $('#deleteConversation'),
   roleFolderContextMenu: $('#roleFolderContextMenu'), addRoleToFolder: $('#addRoleToFolder'), deleteRoleFolder: $('#deleteRoleFolder'),
   roleContextMenu: $('#roleContextMenu'), toggleRoleConversations: $('#toggleRoleConversations'), toggleRoleConversationsLabel: $('#toggleRoleConversationsLabel'), toggleRoleConversationsCount: $('#toggleRoleConversationsCount'), editRole: $('#editRole'), duplicateRole: $('#duplicateRole'), copyRoleToFolder: $('#copyRoleToFolder'), moveRoleToFolder: $('#moveRoleToFolder'), deleteRole: $('#deleteRole'),
-  favoriteContextMenu: $('#favoriteContextMenu'), editFavorite: $('#editFavorite'), deleteFavorite: $('#deleteFavorite'), recentFileContextMenu: $('#recentFileContextMenu'), jumpToRecentFileMessage: $('#jumpToRecentFileMessage'), toggleFavoriteMediaButton: $('#toggleFavoriteMediaButton'), downloadRecentFileButton: $('#downloadRecentFileButton'),
+  favoriteContextMenu: $('#favoriteContextMenu'), editFavorite: $('#editFavorite'), deleteFavorite: $('#deleteFavorite'), recentFileContextMenu: $('#recentFileContextMenu'), jumpToRecentFileMessage: $('#jumpToRecentFileMessage'), toggleFavoriteMediaButton: $('#toggleFavoriteMediaButton'), copyRecentFileImageButton: $('#copyRecentFileImageButton'), downloadRecentFileButton: $('#downloadRecentFileButton'),
   variantModelMenu: $('#variantModelMenu'), globalDropOverlay: $('#globalDropOverlay'), globalDropTitle: $('#globalDropOverlay strong'),
   translatorWorkspace: $('#translatorWorkspace'), translateHistoryButton: $('#translateHistoryButton'), translateHistoryPanel: $('#translateHistoryPanel'), translateSourceLanguage: $('#translateSourceLanguage'), translateTargetLanguage: $('#translateTargetLanguage'), translateSwapButton: $('#translateSwapButton'), translateButton: $('#translateButton'), translateModelButton: $('#translateModelButton'), translatorCurrentModel: $('#translatorCurrentModel'), translateInput: $('#translateInput'), translateInputCount: $('#translateInputCount'), translateClearButton: $('#translateClearButton'), translateCopyButton: $('#translateCopyButton'), translateOutput: $('#translateOutput'), translateStatus: $('#translateStatus'), translateModelLabel: $('#translateModelLabel'),
 };
@@ -935,6 +935,51 @@ function downloadRecentFileFromContext() {
   download.hidden = true; document.body.append(download); download.click(); download.remove();
 }
 
+async function imageBlobAsClipboardPng(blob) {
+  if (!blob.type.startsWith('image/')) throw new Error('该文件不是图片，无法复制');
+  if (blob.type === 'image/png') return blob;
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error('图片解码失败，无法复制'));
+      image.src = objectUrl;
+    });
+    if (!image.naturalWidth || !image.naturalHeight) throw new Error('图片尺寸无效，无法复制');
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('浏览器无法处理图片复制');
+    context.drawImage(image, 0, 0);
+    const png = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('图片转换失败，无法复制')), 'image/png'));
+    return png;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function copyRecentImageFromContext() {
+  const item = mediaItemById(state.contextRecentFileId);
+  if (!item?.url || !item.isImage) { setStatus('该文件不是图片，无法复制', 'error'); return; }
+  if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') { setStatus('当前浏览器不支持复制图片到剪切板', 'error'); return; }
+  try {
+    // ClipboardItem receives a promise so clipboard permission is checked while this menu click still has user activation.
+    const png = fetch(item.url, { credentials: 'same-origin', cache: 'no-store' }).then(async (response) => {
+      if (!response.ok) throw new Error(`图片加载失败（${response.status}）`);
+      return imageBlobAsClipboardPng(await response.blob());
+    });
+    const copy = navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+    closeAllContextMenus({ restoreFocus: true });
+    await copy;
+    setStatus('图片已复制到剪切板', 'success');
+  } catch (error) {
+    closeAllContextMenus({ restoreFocus: true });
+    const detail = `${error?.name || ''} ${error?.message || ''}`.toLowerCase();
+    setStatus(detail.includes('not focused') ? '复制图片需要先聚焦当前页面后重试' : (error.message || '复制图片失败，请检查浏览器剪切板权限'), 'error');
+  }
+}
+
 function renderFavoriteMedia() {
   elements.favoriteMedia.replaceChildren();
   if (state.favoriteMediaLoading) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '正在加载收藏图片…' })); return; }
@@ -1376,6 +1421,8 @@ function updateContextMenuAvailability(menu) {
     const favorite = item && isFavoriteMedia(item.id);
     const favoriteButtons = [elements.toggleFavoriteMediaButton, elements.toggleLightboxFavoriteMediaButton];
     favoriteButtons.forEach((button) => { button.textContent = favorite ? '♡ 取消收藏图片' : '♥ 收藏到图片'; button.disabled = !item || preferenceWritesInFlight > 0; });
+    const copyButtons = [elements.copyRecentFileImageButton, elements.copyLightboxImageButton];
+    copyButtons.forEach((button) => { button.disabled = !item?.isImage || !item?.url; button.title = item?.isImage && item?.url ? `复制“${recentFileName(item)}”到剪切板` : '仅图片支持复制到剪切板'; });
     const downloadButtons = [elements.downloadRecentFileButton, elements.downloadLightboxFileButton];
     downloadButtons.forEach((button) => { button.disabled = !item?.url; button.title = item?.url ? `下载“${recentFileName(item)}”` : '文件不存在或已过期'; });
   }
@@ -5068,6 +5115,7 @@ function bindEvents() {
   elements.jumpToRecentFileMessage.addEventListener('click', jumpToRecentFileMessage);
   elements.jumpToLightboxFileMessage.addEventListener('click', jumpToRecentFileMessage);
   for (const button of [elements.toggleFavoriteMediaButton, elements.toggleLightboxFavoriteMediaButton]) button.addEventListener('click', () => { const id = state.contextRecentFileId; closeAllContextMenus({ restoreFocus: true }); if (id) void toggleFavoriteMedia(id); });
+  for (const button of [elements.copyRecentFileImageButton, elements.copyLightboxImageButton]) button.addEventListener('click', () => { void copyRecentImageFromContext(); });
   elements.downloadRecentFileButton.addEventListener('click', downloadRecentFileFromContext);
   elements.downloadLightboxFileButton.addEventListener('click', downloadRecentFileFromContext);
   for (const menu of contextMenus()) menu.addEventListener('keydown', handleContextMenuKeydown);

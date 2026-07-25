@@ -437,14 +437,22 @@ test('lightbox navigates every image and upscale variant with keyboard and trans
   assert.match(publicSource, /\.image-lightbox-loading\[data-kind="complete"\]/);
 });
 
-test('lightbox image context actions match recent-file actions and include download', () => {
+test('image context menus copy authenticated image content to the clipboard', () => {
   assert.match(publicSource, /id="imageLightboxContextMenu"/);
   assert.match(publicSource, /id="jumpToLightboxFileMessage"/);
   assert.match(publicSource, /id="toggleLightboxFavoriteMediaButton"/);
+  assert.match(publicSource, /id="copyLightboxImageButton"/);
   assert.match(publicSource, /id="downloadLightboxFileButton"/);
+  assert.match(publicSource, /id="copyRecentFileImageButton"/);
   assert.match(publicSource, /function openLightboxRecentFileContextMenu\(x, y, trigger\)/);
   assert.match(publicSource, /bindContextMenuTrigger\(elements\.imageLightboxImage, 'imageLightboxContextMenu', openLightboxRecentFileContextMenu\)/);
   assert.match(publicSource, /function downloadRecentFileFromContext\(\)/);
+  assert.match(publicSource, /function copyRecentImageFromContext\(\)/);
+  assert.match(publicSource, /fetch\(item\.url, \{ credentials: 'same-origin', cache: 'no-store' \}\)/);
+  assert.match(publicSource, /new ClipboardItem\(\{ 'image\/png': png \}\)/);
+  assert.match(publicSource, /const copy = navigator\.clipboard\.write/);
+  assert.match(publicSource, /await copy;/);
+  assert.match(publicSource, /imageBlobAsClipboardPng/);
 });
 
 test('quick translation provides a protected two-panel workspace with local history and model selection', () => {
