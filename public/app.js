@@ -20,7 +20,7 @@ const elements = {
   streamButton: $('#streamButton'), streamText: $('#streamText'), headerModelPicker: $('#headerModelPicker'), headerModelMenu: $('#headerModelMenu'), modelButton: $('#modelButton'), modelButtonText: $('#modelButtonText'),
   settingsButton: $('#settingsButton'), modelDialog: $('#modelDialog'), modelSearch: $('#modelSearchInput'),
   modelMode: $('#modelModeSelect'), modelList: $('#modelList'), openSettingsFromModel: $('#openSettingsFromModel'),
-  settingsDialog: $('#settingsDialog'), groupsEditor: $('#groupsEditor'), addGroup: $('#addGroupButton'),
+  settingsDialog: $('#settingsDialog'), groupsEditor: $('#groupsEditor'), addGroup: $('#addGroupButton'), conversationTitleModel: $('#conversationTitleModelSelect'),
   saveSettings: $('#saveSettingsButton'), settingsStatus: $('#settingsStatus'), refreshModels: $('#refreshModelsButton'),
   renameConversationDialog: $('#renameConversationDialog'), renameConversationForm: $('#renameConversationForm'), renameConversationInput: $('#renameConversationInput'), renameConversationStatus: $('#renameConversationStatus'),
   accountDialog: $('#accountDialog'), accountForm: $('#accountForm'), currentUsername: $('#currentUsernameInput'),
@@ -32,7 +32,7 @@ const elements = {
   roleTransferDialog: $('#roleTransferDialog'), roleTransferTitle: $('#roleTransferDialogTitle'), roleTransferDescription: $('#roleTransferDescription'), roleTransferFolder: $('#roleTransferFolderSelect'), roleTransferStatus: $('#roleTransferStatus'), confirmRoleTransfer: $('#confirmRoleTransferButton'),
   imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'), imageLightboxContextMenu: $('#imageLightboxContextMenu'), jumpToLightboxFileMessage: $('#jumpToLightboxFileMessage'), toggleLightboxFavoriteMediaButton: $('#toggleLightboxFavoriteMediaButton'), copyLightboxImageButton: $('#copyLightboxImageButton'), downloadLightboxFileButton: $('#downloadLightboxFileButton'),
   upscaleDialog: $('#upscaleDialog'), upscaleMode: $('#upscaleMode'), upscaleWidth: $('#upscaleWidth'), upscaleHeight: $('#upscaleHeight'), upscaleStatus: $('#upscaleStatus'), startUpscaleButton: $('#startUpscaleButton'),
-  historyContextMenu: $('#historyContextMenu'), renameConversation: $('#renameConversation'), toggleFavoriteConversation: $('#toggleFavoriteConversation'), jumpToRoleFromConversation: $('#jumpToRoleFromConversation'), jumpToSourceConversation: $('#jumpToSourceConversation'), exportTxt: $('#exportConversationTxt'), exportMarkdownText: $('#exportConversationMarkdownText'), exportMarkdown: $('#exportConversationMarkdown'), deleteConversation: $('#deleteConversation'),
+  historyContextMenu: $('#historyContextMenu'), renameConversation: $('#renameConversation'), regenerateConversationTitle: $('#regenerateConversationTitle'), toggleFavoriteConversation: $('#toggleFavoriteConversation'), jumpToRoleFromConversation: $('#jumpToRoleFromConversation'), jumpToSourceConversation: $('#jumpToSourceConversation'), exportTxt: $('#exportConversationTxt'), exportMarkdownText: $('#exportConversationMarkdownText'), exportMarkdown: $('#exportConversationMarkdown'), deleteConversation: $('#deleteConversation'),
   roleFolderContextMenu: $('#roleFolderContextMenu'), addRoleToFolder: $('#addRoleToFolder'), deleteRoleFolder: $('#deleteRoleFolder'),
   roleContextMenu: $('#roleContextMenu'), toggleRoleConversations: $('#toggleRoleConversations'), toggleRoleConversationsLabel: $('#toggleRoleConversationsLabel'), toggleRoleConversationsCount: $('#toggleRoleConversationsCount'), editRole: $('#editRole'), duplicateRole: $('#duplicateRole'), copyRoleToFolder: $('#copyRoleToFolder'), moveRoleToFolder: $('#moveRoleToFolder'), deleteRole: $('#deleteRole'),
   favoriteContextMenu: $('#favoriteContextMenu'), editFavorite: $('#editFavorite'), deleteFavorite: $('#deleteFavorite'), recentFileContextMenu: $('#recentFileContextMenu'), jumpToRecentFileMessage: $('#jumpToRecentFileMessage'), toggleFavoriteMediaButton: $('#toggleFavoriteMediaButton'), copyRecentFileImageButton: $('#copyRecentFileImageButton'), downloadRecentFileButton: $('#downloadRecentFileButton'),
@@ -75,6 +75,7 @@ const MAX_CONTEXT_TOKENS = 16 * 1024 * 1024;
 const MAX_STORED_MESSAGE_CHARS = 4_000_000;
 const MAX_RESPONSE_VARIANTS = 8;
 const MAX_CONTINUATION_DEPTH = 12;
+const DEFAULT_CONVERSATION_TITLE_MODEL = 'gemini-3.5-flash-low-fan';
 const MAX_LOCAL_CONVERSATIONS = 40;
 const MAX_ADMIN_CONVERSATIONS = 200;
 const CONVERSATION_BOTTOM_THRESHOLD = 80;
@@ -88,12 +89,12 @@ if (localStorage.getItem(STREAM_KEY) === null && storedStreamPreference !== null
   localStorage.setItem(STREAM_KEY, storedStreamPreference); localStorage.removeItem(LEGACY_STREAM_KEY);
 }
 const state = {
-  csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {}, favoriteMediaIds: [] },
+  csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {}, favoriteMediaIds: [], conversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL },
   selected: null, stream: storedStreamPreference !== 'false', conversations: [], currentId: '',
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
   historyFolders: [], openHistoryFolders: new Set(), historySearch: '',
   contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextRecentFileId: '', contextAssistantMessageId: '', renamingConversationId: '',
-  pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', pendingRoleTransfer: null,
+  pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingConversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', pendingRoleTransfer: null,
   followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationOutput: '', recentFiles: [], recentFilesLoading: false, favoriteMedia: [], favoriteMediaLoading: false, workflows: [], workflowRunning: false, selectedWorkflow: null,
 };
 let globalFileDragDepth = 0;
@@ -604,23 +605,26 @@ function fallbackConversationTitle(content, attachments = [], fallback = '文件
   return (String(content || '').trim() || attachments[0]?.fileName || fallback).slice(0, 34);
 }
 
-function requestGeneratedConversationTitle(conversation, source) {
-  if (!conversation || conversation.titleCustomized || titleGenerationConversationIds.has(conversation.id)) return;
+function requestGeneratedConversationTitle(conversation, source, { force = false } = {}) {
+  if (!conversation || (!force && conversation.titleCustomized) || titleGenerationConversationIds.has(conversation.id)) return false;
   const fallbackTitle = conversation.title;
   const normalizedSource = String(source || '').trim().slice(0, 600);
-  if (!normalizedSource) return;
+  if (!normalizedSource) return false;
   titleGenerationConversationIds.add(conversation.id);
   void jsonRequest('/api/conversations/title', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: normalizedSource }),
   }).then((payload) => {
     const target = state.conversations.find((item) => item.id === conversation.id);
     const title = typeof payload.title === 'string' ? payload.title.trim().slice(0, 80) : '';
-    if (!target || target.titleCustomized || target.title !== fallbackTitle || !title) return;
-    target.title = title; target.updatedAt = Date.now(); saveConversations();
+    if (!target || (!force && target.titleCustomized) || target.title !== fallbackTitle || !title) return;
+    target.title = title; target.titleCustomized = false; target.updatedAt = Date.now(); saveConversations();
     if (state.currentId === target.id) renderConversation();
-  }).catch(() => {
+    if (force) setStatus(`已使用 ${payload.model || '当前模型'} 重新生成会话标题`, 'success');
+  }).catch((error) => {
+    if (force) setStatus(error.message || '会话标题生成失败，已保留原标题', 'error');
     // Keep the already-visible first-message fallback title when the title model is unavailable.
   }).finally(() => titleGenerationConversationIds.delete(conversation.id));
+  return true;
 }
 
 function assignAutomaticConversationTitle(conversation, content, attachments = [], fallback = '文件对话') {
@@ -628,6 +632,16 @@ function assignAutomaticConversationTitle(conversation, content, attachments = [
   const title = fallbackConversationTitle(content, attachments, fallback);
   conversation.title = title;
   requestGeneratedConversationTitle(conversation, String(content || '').trim() || attachments[0]?.fileName || fallback);
+}
+
+function conversationTitleSource(conversation) {
+  return (conversation?.messages || [])
+    .filter((message) => message.role === 'user')
+    .map((message) => [String(message.content || '').trim(), ...(message.attachments || []).map((attachment) => attachment.fileName || attachment.alt || '').filter(Boolean)].filter(Boolean).join(' '))
+    .filter(Boolean)
+    .slice(0, 4)
+    .join('\n')
+    .slice(0, 600);
 }
 
 function formatTime(timestamp) {
@@ -1373,9 +1387,12 @@ function updateContextMenuAvailability(menu) {
     const roleId = validRoleId(conversation?.roleId);
     const sourceConversation = state.conversations.find((item) => item.id === conversation?.copiedFromConversationId);
     const favorite = isFavoriteConversation(conversation);
+    const titleSource = conversationTitleSource(conversation);
     elements.toggleFavoriteConversation.textContent = favorite ? '★ 取消收藏对话' : '✦ 收藏对话';
     elements.toggleFavoriteConversation.title = favorite ? '从收藏对话中移除' : '添加到收藏对话';
     elements.toggleFavoriteConversation.disabled = !conversation;
+    elements.regenerateConversationTitle.disabled = !titleSource || titleGenerationConversationIds.has(conversation?.id);
+    elements.regenerateConversationTitle.title = titleSource ? '使用当前默认标题模型重新生成会话标题' : '对话中还没有可用于生成标题的用户消息';
     elements.jumpToRoleFromConversation.disabled = !roleId;
     elements.jumpToRoleFromConversation.title = roleId ? '打开该对话关联的角色卡' : '该对话使用默认助手，没有自定义角色卡';
     elements.jumpToSourceConversation.hidden = !sourceConversation;
@@ -1624,6 +1641,16 @@ function renameConversationFromContext() {
   const conversationId = state.contextConversationId;
   closeHistoryContextMenu({ restoreFocus: true });
   renameConversationById(conversationId);
+}
+
+function regenerateConversationTitleFromContext() {
+  const conversation = state.conversations.find((item) => item.id === state.contextConversationId);
+  const source = conversationTitleSource(conversation);
+  closeHistoryContextMenu({ restoreFocus: true });
+  if (!conversation || !source) { setStatus('对话中还没有可用于生成标题的用户消息', 'error'); return; }
+  if (titleGenerationConversationIds.has(conversation.id)) { setStatus('会话标题正在生成，请稍候', 'pending'); return; }
+  if (!requestGeneratedConversationTitle(conversation, source, { force: true })) { setStatus('会话标题生成未启动，请稍后重试', 'error'); return; }
+  setStatus('正在重新生成会话标题…', 'pending');
 }
 
 function toggleFavoriteConversationFromContext() {
@@ -2961,10 +2988,11 @@ async function savePreferences(nextPreferences = state.preferences) {
   preferenceWritesInFlight += 1;
   try {
     const requestedContextLimits = sanitizeContextLimits(nextPreferences.modelContextLimits);
+    const requestedTitleModel = availableConversationTitleModel(nextPreferences.conversationTitleModel);
     for (const [modelId, limit] of Object.entries(requestedContextLimits)) if (limit === DEFAULT_CONTEXT_TOKENS) delete requestedContextLimits[modelId];
     const payload = await jsonRequest('/api/preferences', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ favoriteGroups: nextPreferences.favoriteGroups, selected: state.selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: nextPreferences.favoriteMediaIds || [] }),
+      body: JSON.stringify({ favoriteGroups: nextPreferences.favoriteGroups, selected: state.selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: nextPreferences.favoriteMediaIds || [], conversationTitleModel: requestedTitleModel || undefined }),
     });
     if (!Object.prototype.hasOwnProperty.call(payload, 'modelContextLimits') && Object.keys(requestedContextLimits).length) {
       throw new Error('当前服务端尚未加载模型上下文持久化功能，请重启服务后重试');
@@ -2975,7 +3003,7 @@ async function savePreferences(nextPreferences = state.preferences) {
     const contextLimitsMatch = requestedEntries.length === persistedEntries.length
       && requestedEntries.every(([modelId, limit]) => persistedContextLimits[modelId] === limit);
     if (!contextLimitsMatch) throw new Error('服务器未完整保存模型上下文配置，请重试');
-    state.preferences = { favoriteGroups: payload.favoriteGroups || [], selected: payload.selected || state.selected, modelContextLimits: persistedContextLimits, favoriteMediaIds: Array.isArray(payload.favoriteMediaIds) ? payload.favoriteMediaIds : [] };
+    state.preferences = { favoriteGroups: payload.favoriteGroups || [], selected: payload.selected || state.selected, modelContextLimits: persistedContextLimits, favoriteMediaIds: Array.isArray(payload.favoriteMediaIds) ? payload.favoriteMediaIds : [], conversationTitleModel: typeof payload.conversationTitleModel === 'string' ? payload.conversationTitleModel : requestedTitleModel };
     state.selected = normalizeSelection(state.preferences.selected);
     renderFavorites(); renderConversation();
   } finally { preferenceWritesInFlight = Math.max(0, preferenceWritesInFlight - 1); }
@@ -2988,6 +3016,29 @@ function openModelDialog() {
 
 function cloneGroups() {
   return state.preferences.favoriteGroups.map((group) => ({ id: group.id, name: group.name, items: group.items.map((item) => ({ modelId: item.modelId || item.model, model: item.modelId || item.model, mode: item.mode, label: item.label || '' })) }));
+}
+
+function availableConversationTitleModel(preferred = state.preferences.conversationTitleModel) {
+  const chatModels = state.models.filter((model) => model.modes.includes('chat'));
+  if (chatModels.some((model) => model.id === preferred)) return preferred;
+  return chatModels.find((model) => model.id === DEFAULT_CONVERSATION_TITLE_MODEL)?.id || chatModels[0]?.id || '';
+}
+
+function renderConversationTitleModelSelect() {
+  const select = elements.conversationTitleModel;
+  const chatModels = state.models.filter((model) => model.modes.includes('chat'));
+  const selected = availableConversationTitleModel(state.editingConversationTitleModel);
+  state.editingConversationTitleModel = selected;
+  select.replaceChildren();
+  if (!chatModels.length) {
+    select.append(Object.assign(document.createElement('option'), { value: '', textContent: '没有可用的对话模型' }));
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  for (const model of chatModels) {
+    const option = document.createElement('option'); option.value = model.id; option.textContent = model.id; option.selected = model.id === selected; select.append(option);
+  }
 }
 
 function nextFavoriteCandidate(group) {
@@ -3099,7 +3150,7 @@ function renderGroupsEditor(options = {}) {
 function openSettings(options = {}) {
   if (preferenceContextMutationInFlight) { setStatus('收藏设置正在更新，请稍候', 'error'); return; }
   const focusFavorite = options?.focusFavorite;
-  state.editingGroups = cloneGroups(); state.editingModelContextLimits = { ...(state.preferences.modelContextLimits || {}) }; state.editingReadingMode = state.readingMode; applyReadingMode(state.editingReadingMode); setDialogStatus(elements.settingsStatus, ''); renderGroupsEditor({ preserveScroll: false, focusFavorite }); elements.settingsDialog.showModal();
+  state.editingGroups = cloneGroups(); state.editingModelContextLimits = { ...(state.preferences.modelContextLimits || {}) }; state.editingConversationTitleModel = availableConversationTitleModel(); state.editingReadingMode = state.readingMode; applyReadingMode(state.editingReadingMode); setDialogStatus(elements.settingsStatus, ''); renderConversationTitleModelSelect(); renderGroupsEditor({ preserveScroll: false, focusFavorite }); elements.settingsDialog.showModal();
 }
 
 function editFavoriteFromContext() {
@@ -5046,8 +5097,9 @@ function bindEvents() {
   elements.saveRoles.addEventListener('click', saveRoleLibrary);
   for (const input of $$('input[name="readingMode"]', elements.settingsDialog)) input.addEventListener('change', () => { if (!input.checked) return; state.editingReadingMode = applyReadingMode(input.value); });
   elements.settingsDialog.addEventListener('close', () => applyReadingMode(state.readingMode));
-  elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
-  elements.refreshModels.addEventListener('click', async () => { elements.refreshModels.disabled = true; setDialogStatus(elements.settingsStatus, '正在刷新模型…'); try { const payload = await jsonRequest('/api/models?refresh=1'); state.models = payload.models || []; state.selected = normalizeSelection(state.selected); renderGroupsEditor(); updateSelectionUi(); setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型`, 'success'); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } finally { elements.refreshModels.disabled = false; } });
+  elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits, conversationTitleModel: state.editingConversationTitleModel }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
+  elements.conversationTitleModel.addEventListener('change', () => { state.editingConversationTitleModel = elements.conversationTitleModel.value; });
+  elements.refreshModels.addEventListener('click', async () => { elements.refreshModels.disabled = true; setDialogStatus(elements.settingsStatus, '正在刷新模型…'); try { const payload = await jsonRequest('/api/models?refresh=1'); state.models = payload.models || []; state.selected = normalizeSelection(state.selected); renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi(); setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型`, 'success'); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } finally { elements.refreshModels.disabled = false; } });
   elements.accountButton.addEventListener('click', openAccountCenter);
   elements.accountTabs.addEventListener('click', (event) => { const button = event.target.closest('[data-account-panel]'); if (button && !button.hidden) switchAccountPanel(button.dataset.accountPanel); });
   elements.createUserForm.addEventListener('submit', async (event) => {
@@ -5093,6 +5145,7 @@ function bindEvents() {
   elements.accountForm.addEventListener('submit', async (event) => { event.preventDefault(); setDialogStatus(elements.accountStatus, '正在验证并保存…'); try { const payload = await jsonRequest('/api/account', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: elements.currentUsername.value.trim(), currentPassword: elements.currentPassword.value, newUsername: elements.newUsername.value.trim(), newPassword: elements.newPassword.value }) }); state.user = payload.username; state.userUid = payload.uid; state.userRole = payload.role || state.userRole; state.credits = payload.credits; state.csrf = payload.csrfToken; updateAccountUi(); setDialogStatus(elements.accountStatus, '账户已更新，会话已安全轮换', 'success'); elements.currentPassword.value = ''; elements.newPassword.value = ''; } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); } });
   elements.logout.addEventListener('click', async () => { try { await jsonRequest('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } finally { location.replace('/'); } });
   elements.renameConversation.addEventListener('click', renameConversationFromContext);
+  elements.regenerateConversationTitle.addEventListener('click', regenerateConversationTitleFromContext);
   elements.toggleFavoriteConversation.addEventListener('click', toggleFavoriteConversationFromContext);
   elements.jumpToRoleFromConversation.addEventListener('click', jumpToRoleFromConversationContext);
   elements.jumpToSourceConversation.addEventListener('click', jumpToSourceConversationContext);
@@ -5171,7 +5224,7 @@ async function initialize() {
     state.openRoleConversationIds = new Set([...state.openRoleConversationIds].filter((id) => id === DEFAULT_ROLE_CONVERSATIONS_ID || validRoleIds.has(id)));
     persistOpenRoleConversations();
     state.selectedRoleId = validRoleId(state.selectedRoleId);
-    state.preferences = { favoriteGroups: preferencesPayload.favoriteGroups || [], selected: preferencesPayload.selected || null, modelContextLimits: sanitizeContextLimits(preferencesPayload.modelContextLimits), favoriteMediaIds: Array.isArray(preferencesPayload.favoriteMediaIds) ? preferencesPayload.favoriteMediaIds : [] };
+    state.preferences = { favoriteGroups: preferencesPayload.favoriteGroups || [], selected: preferencesPayload.selected || null, modelContextLimits: sanitizeContextLimits(preferencesPayload.modelContextLimits), favoriteMediaIds: Array.isArray(preferencesPayload.favoriteMediaIds) ? preferencesPayload.favoriteMediaIds : [], conversationTitleModel: typeof preferencesPayload.conversationTitleModel === 'string' ? preferencesPayload.conversationTitleModel : DEFAULT_CONVERSATION_TITLE_MODEL };
     seedFavoriteGroups(); state.selected = normalizeSelection(state.preferences.selected); state.preferences.selected = state.selected;
     if (state.selected) rememberModeSelection(state.selected.modelId, state.selected.mode);
     if (!preferencesPayload.favoriteGroups?.length && state.preferences.favoriteGroups.length) await savePreferences().catch(() => {});

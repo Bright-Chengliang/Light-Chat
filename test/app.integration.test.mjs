@@ -340,7 +340,7 @@ test('workflow prompt processing uses only the poster Chinese prompt and keeps p
   assert.deepEqual(workflowImagePromptCandidates('', 'epic-poster-v3'), { primary: '', fallback: '' });
 });
 
-test('conversation titles use Gemini Flash and normalize its concise title response', async () => {
+test('conversation title model defaults to Gemini Flash and can be saved per account', async () => {
   const context = await fixture({ fakeOptions: { chatResponseText: '标题：极地探险家少女设定图' } });
   try {
     const signedIn = await authenticated(context);
@@ -355,6 +355,26 @@ test('conversation titles use Gemini Flash and normalize its concise title respo
     assert.equal(body.model, 'gemini-3.5-flash-low-fan');
     const request = context.fake.requests.find((item) => item.url === '/v1/chat/completions');
     assert.equal(JSON.parse(request.bodyText).model, 'gemini-3.5-flash-low-fan');
+
+    const saved = await fetch(`${context.baseUrl}/api/preferences`, {
+      method: 'PUT',
+      headers: { Cookie: signedIn.cookie, Origin: context.baseUrl, 'X-CSRF-Token': signedIn.body.csrfToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ favoriteGroups: [], selected: null, modelContextLimits: {}, conversationTitleModel: 'chat-test' }),
+    });
+    const preferences = await saved.json();
+    assert.equal(saved.status, 200, JSON.stringify(preferences));
+    assert.equal(preferences.conversationTitleModel, 'chat-test');
+
+    const regenerated = await fetch(`${context.baseUrl}/api/conversations/title`, {
+      method: 'POST',
+      headers: { Cookie: signedIn.cookie, Origin: context.baseUrl, 'X-CSRF-Token': signedIn.body.csrfToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: '重新根据当前会话生成标题' }),
+    });
+    const regeneratedBody = await regenerated.json();
+    assert.equal(regenerated.status, 200, JSON.stringify(regeneratedBody));
+    assert.equal(regeneratedBody.model, 'chat-test');
+    const titleRequests = context.fake.requests.filter((item) => item.url === '/v1/chat/completions');
+    assert.equal(JSON.parse(titleRequests.at(-1).bodyText).model, 'chat-test');
   } finally {
     await context.close();
   }
@@ -1142,6 +1162,7 @@ test('favorite model groups persist validated modes and stale models are rejecte
         }],
         selected: { model: 'chat-test', mode: 'chat' },
         modelContextLimits: { 'chat-test': 131072 },
+        conversationTitleModel: 'chat-test',
       }),
     });
     assert.equal(saved.status, 200);
@@ -1152,6 +1173,7 @@ test('favorite model groups persist validated modes and stale models are rejecte
     const loadedPayload = await loaded.json();
     assert.deepEqual(loadedPayload.favoriteGroups, payload.favoriteGroups);
     assert.deepEqual(loadedPayload.modelContextLimits, { 'chat-test': 131072 });
+    assert.equal(loadedPayload.conversationTitleModel, 'chat-test');
     assert.equal(loadedPayload.defaultContextTokens, 262144);
 
     const stale = await fetch(`${context.baseUrl}/api/chat`, {

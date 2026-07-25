@@ -346,11 +346,18 @@ test('history search input uses the sidebar visual language', () => {
   assert.match(publicSource, /\.history-search::before/);
 });
 
-test('conversation titles request Gemini Flash and retain the first-message fallback on failure', () => {
+test('conversation titles can be regenerated with a saved chat-model preference', () => {
   assert.match(publicSource, /function requestGeneratedConversationTitle\(/);
+  assert.match(publicSource, /function regenerateConversationTitleFromContext\(\)/);
+  assert.match(publicSource, /id="regenerateConversationTitle"/);
+  assert.match(publicSource, /id="conversationTitleModelSelect"/);
+  assert.match(publicSource, /function renderConversationTitleModelSelect\(\)/);
+  assert.match(publicSource, /conversationTitleModel/);
   assert.match(publicSource, /\/api\/conversations\/title/);
   assert.match(publicSource, /Keep the already-visible first-message fallback title/);
   assert.match(backendSource, /CONVERSATION_TITLE_MODEL = 'gemini-3\.5-flash-low-fan'/);
+  assert.match(backendSource, /function validateConversationTitleModel\(/);
+  assert.match(backendSource, /model: titleModel/);
   assert.match(backendSource, /根据用户输入生成一个简洁的中文对话标题/);
 });
 

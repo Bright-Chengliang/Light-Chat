@@ -48,6 +48,13 @@ test('history context menus can jump directly to an associated role card', () =>
   assert.match(appSource, /该对话使用默认助手，没有可跳转的自定义角色卡/);
 });
 
+test('history context menus can regenerate a title from existing user messages', () => {
+  assert.match(appHtml, /id="regenerateConversationTitle"/);
+  assert.match(appSource, /function regenerateConversationTitleFromContext\(\)/);
+  assert.match(appSource, /function conversationTitleSource\(conversation\)/);
+  assert.match(appSource, /elements\.regenerateConversationTitle\.disabled = !titleSource/);
+});
+
 test('role-card conversation history reuses the full conversation context menu', () => {
   const bindings = appSource.match(/bindContextMenuTrigger\(conversationButton, 'historyContextMenu', \(x, y, trigger\) => openHistoryContextMenu\(conversation\.id, x, y, trigger\)\)/g) || [];
   assert.ok(bindings.length >= 2);

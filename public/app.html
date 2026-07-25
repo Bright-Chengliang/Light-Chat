@@ -8,10 +8,10 @@
   <title>Light-Chat</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/vendor/katex/katex.min.css?v=0.18.0">
-  <link rel="stylesheet" href="/styles.css?v=20260725-workflow-workspace4">
+  <link rel="stylesheet" href="/styles.css?v=20260725-conversation-title-model">
   <script src="/vendor/katex/katex.min.js?v=0.18.0" defer></script>
   <script src="/vendor/katex/auto-render.min.js?v=0.18.0" defer></script>
-  <script src="/app.js?v=20260725-copy-image2" defer></script>
+  <script src="/app.js?v=20260725-conversation-title-model" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -196,6 +196,7 @@
         <label><input type="radio" name="readingMode" value="fluid"><span><strong>动态宽屏</strong><small>随窗口在舒适范围内自动扩展，充分利用两侧空间</small></span></label>
         <label><input type="radio" name="readingMode" value="classic"><span><strong>经典窄栏</strong><small>保持当前紧凑阅读宽度，适合专注阅读</small></span></label>
       </fieldset>
+      <label class="conversation-title-model-setting" for="conversationTitleModelSelect"><span><strong>会话标题生成模型</strong><small>用于自动生成及“重新生成会话标题”；默认使用 Gemini 3.5 Flash Low Fan。</small></span><select id="conversationTitleModelSelect" aria-label="会话标题生成模型"></select></label>
       <div class="settings-status"><span class="status-dot online"></span><span>模型服务已安全连接</span><button id="refreshModelsButton" type="button">刷新模型</button></div>
       <div class="groups-editor" id="groupsEditor"></div>
       <button class="add-group-button" id="addGroupButton" type="button">＋ 添加收藏组</button>
@@ -320,6 +321,7 @@
 
   <div class="context-menu" id="historyContextMenu" hidden role="menu" aria-label="对话操作" aria-orientation="vertical">
     <button id="renameConversation" type="button" role="menuitem" tabindex="-1">✏️ 重命名对话</button>
+    <button id="regenerateConversationTitle" type="button" role="menuitem" tabindex="-1">↻ 重新生成会话标题</button>
     <button id="toggleFavoriteConversation" type="button" role="menuitem" tabindex="-1">✦ 收藏对话</button>
     <button id="jumpToRoleFromConversation" type="button" role="menuitem" tabindex="-1">🧭 跳转角色卡</button>
     <button id="jumpToSourceConversation" type="button" role="menuitem" tabindex="-1" hidden>↩️ 跳转到原会话</button>

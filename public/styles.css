@@ -611,6 +611,12 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 .reading-mode-settings label > span { min-width: 0; display: grid; gap: 3px; }
 .reading-mode-settings strong { font-size: .67rem; }
 .reading-mode-settings small { color: var(--text-faint); font-size: .56rem; line-height: 1.45; }
+.conversation-title-model-setting { margin: 0 0 12px; padding: 11px 12px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, .8fr); align-items: center; gap: 14px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 11px; }
+.conversation-title-model-setting > span { min-width: 0; display: grid; gap: 3px; }
+.conversation-title-model-setting strong { color: var(--text-soft); font-size: .67rem; }
+.conversation-title-model-setting small { color: var(--text-faint); font-size: .56rem; line-height: 1.45; }
+.conversation-title-model-setting select { min-width: 0; height: 40px; padding: 0 11px; color: var(--text); background: #fff; border: 1px solid var(--border); border-radius: 9px; font-size: .68rem; }
+.conversation-title-model-setting select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(166,75,55,.1); outline: 0; }
 .settings-status { margin: 0 0 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; color: var(--text-soft); background: var(--surface-soft); border-radius: 10px; font-size: .65rem; }
 .settings-status button { margin-left: auto; color: var(--accent); background: transparent; font-size: .63rem; }
 .groups-editor { min-height: 120px; max-height: 440px; display: grid; gap: 10px; overflow: auto; }
@@ -824,7 +830,7 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 
 @media (max-width: 720px) {
   html { font-size: 18px; }
-  .reading-mode-settings { grid-template-columns: 1fr; }
+  .reading-mode-settings, .conversation-title-model-setting { grid-template-columns: 1fr; }
   .login-shell { min-height: 100dvh; padding: 18px; display: block; }
   .login-story { display: none; }
   .login-card { max-width: 460px; margin: max(22px, 4dvh) auto 18px; padding: 26px 22px; border-radius: 22px; }
