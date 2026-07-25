@@ -143,6 +143,15 @@ test('entering the platform opens a fresh global conversation without accumulati
   assert.doesNotMatch(publicSource, /state\.conversations = loadConversations\(\); if \(!state\.conversations\.length\).*state\.conversations\[0\]\.id/);
 });
 
+test('administrator history uses the server as the only persistent store and clears browser conversation copies', () => {
+  assert.match(publicSource, /function clearAdministratorBrowserConversationData\(\)/);
+  assert.match(publicSource, /localStorage\.removeItem\(STORAGE_KEY\);/);
+  assert.match(publicSource, /if \(state\.userRole === 'admin'\) \{ clearAdministratorBrowserConversationData\(\); return; \}/);
+  assert.match(publicSource, /const payload = await jsonRequest\('\/api\/conversations'\);/);
+  assert.match(publicSource, /const merged = mergeConversations\(\[\], payload\.conversations\);\s+state\.conversations = merged;\s+clearAdministratorBrowserConversationData\(\);/);
+  assert.doesNotMatch(publicSource, /ADMIN_CONVERSATION_RECOVERY_KEY|loadAdministratorBrowserRecovery|saveAdministratorBrowserRecovery/);
+});
+
 test('the global new-conversation action exits an active packaged workflow', () => {
   assert.match(publicSource, /function exitWorkflow\(\{ force = false, announce = true \} = \{\}\)/);
   assert.match(publicSource, /const leftWorkflow = exitWorkflow\(\{ force: true, announce: false \}\);/);

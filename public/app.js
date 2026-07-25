@@ -152,7 +152,14 @@ function mergeConversations(localConversations, serverConversations) {
   return [...merged.values()].sort((left, right) => right.updatedAt - left.updatedAt).slice(0, conversationStorageLimit());
 }
 
+function clearAdministratorBrowserConversationData() {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
+  localStorage.removeItem('light-chat-admin-conversation-recovery-v1');
+}
+
 function saveConversationsToBrowser() {
+  if (state.userRole === 'admin') { clearAdministratorBrowserConversationData(); return; }
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.conversations)); localStorage.removeItem(LEGACY_STORAGE_KEY); }
   catch { setStatus('浏览器存储空间不足，本次对话可能无法长期保存', 'error'); }
 }
@@ -170,7 +177,7 @@ function scheduleAdministratorConversationSync() {
       });
       if (!Array.isArray(payload.conversations) || revision !== adminConversationRevision) return;
       state.conversations = mergeConversations(state.conversations, payload.conversations);
-      saveConversationsToBrowser(); renderHistory(); renderFavoriteConversations(); renderRoles(); renderWorkflows();
+      clearAdministratorBrowserConversationData(); renderHistory(); renderFavoriteConversations(); renderRoles(); renderWorkflows();
       adminConversationSyncFailed = false;
     }).catch((error) => {
       if (!adminConversationSyncFailed) setStatus(`管理员会话未同步到服务器：${error.message}`, 'error');
@@ -180,20 +187,17 @@ function scheduleAdministratorConversationSync() {
 }
 
 async function loadPersistedConversations() {
-  const localConversations = loadConversations();
-  if (state.userRole !== 'admin') return localConversations;
+  if (state.userRole !== 'admin') return loadConversations();
   try {
-    const payload = await jsonRequest('/api/conversations', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, conversations: localConversations }),
-    });
+    const payload = await jsonRequest('/api/conversations');
     if (!Array.isArray(payload.conversations)) throw new Error('服务器返回的管理员会话记录无效');
-    const merged = mergeConversations(localConversations, payload.conversations);
+    const merged = mergeConversations([], payload.conversations);
     state.conversations = merged;
-    saveConversationsToBrowser();
+    clearAdministratorBrowserConversationData();
     return merged;
   } catch (error) {
-    setStatus(`管理员会话读取失败，已保留本机记录：${error.message}`, 'error');
-    return localConversations;
+    setStatus(`管理员会话读取失败，无法从服务器恢复历史：${error.message}`, 'error');
+    return [];
   }
 }
 
