@@ -4606,6 +4606,33 @@ function bindWorkflowNodeDrag(header, frame, workflow, node, svg) {
     document.addEventListener('pointermove', move); document.addEventListener('pointerup', finish, { once: true });
   });
 }
+function bindWorkflowGraphPan(scroll) {
+  let pan = null;
+  const finish = (event) => {
+    if (!pan || (event?.pointerId !== undefined && event.pointerId !== pan.pointerId)) return;
+    if (scroll.hasPointerCapture(pan.pointerId)) scroll.releasePointerCapture(pan.pointerId);
+    pan = null; scroll.classList.remove('panning');
+  };
+  scroll.addEventListener('pointerdown', (event) => {
+    if (event.button !== 1 && event.button !== 2) return;
+    if (event.target.closest('button, input, select, textarea, label, a')) return;
+    event.preventDefault();
+    pan = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, scrollLeft: scroll.scrollLeft, scrollTop: scroll.scrollTop };
+    scroll.setPointerCapture(event.pointerId); scroll.classList.add('panning');
+  });
+  scroll.addEventListener('pointermove', (event) => {
+    if (!pan || event.pointerId !== pan.pointerId) return;
+    event.preventDefault();
+    scroll.scrollLeft = Math.max(0, pan.scrollLeft - (event.clientX - pan.startX));
+    scroll.scrollTop = Math.max(0, pan.scrollTop - (event.clientY - pan.startY));
+  });
+  scroll.addEventListener('pointerup', finish);
+  scroll.addEventListener('pointercancel', finish);
+  scroll.addEventListener('lostpointercapture', finish);
+  scroll.addEventListener('contextmenu', (event) => {
+    if (!event.target.closest('button, input, select, textarea, label, a')) event.preventDefault();
+  });
+}
 function workflowGraphPort(label, className, action) { const port = document.createElement('button'); port.type = 'button'; port.className = `workflow-graph-port ${className}`; port.textContent = label; port.addEventListener('click', (event) => { event.stopPropagation(); action(); }); return port; }
 function renderWorkflowGraphFrame(workflow, node, svg) {
   const position = workflowNodePosition(node.position); node.position = position; const frame = document.createElement('article'); frame.className = `workflow-graph-node ${node.type}${state.workflowGraph.selectedWorkflowId === workflow.id && state.workflowGraph.selectedNodeId === node.id ? ' selected' : ''}`; frame.style.left = `${position.x}px`; frame.style.top = `${position.y}px`; frame.dataset.workflowNodeId = node.id;
@@ -4614,6 +4641,7 @@ function renderWorkflowGraphFrame(workflow, node, svg) {
 }
 function renderWorkflowGraphCanvas(workflow) {
   const scroll = document.createElement('div'); scroll.className = 'workflow-graph-scroll'; const canvas = document.createElement('div'); canvas.className = `workflow-graph-canvas${state.workflowGraph.pendingSource ? ' connecting' : ''}`; const maxX = Math.max(1_040, ...workflow.nodes.map((node) => workflowNodePosition(node.position).x + WORKFLOW_GRAPH_NODE_WIDTH + 80)); const maxY = Math.max(620, ...workflow.nodes.map((node) => workflowNodePosition(node.position).y + 280)); canvas.style.width = `${maxX}px`; canvas.style.height = `${maxY}px`;
+  scroll.title = '按住鼠标中键或右键拖拽平移画布'; bindWorkflowGraphPan(scroll);
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.classList.add('workflow-graph-edges'); svg.setAttribute('width', String(maxX)); svg.setAttribute('height', String(maxY)); renderWorkflowGraphEdges(svg, workflow); canvas.append(svg);
   const userNode = document.createElement('section'); userNode.className = `workflow-graph-user-node${state.workflowGraph.pendingSource === 'user' ? ' selected' : ''}`; userNode.style.left = '32px'; userNode.style.top = '280px'; userNode.append(Object.assign(document.createElement('strong'), { textContent: '用户输入' }), workflowGraphPort('输出', 'output', () => { state.workflowGraph.pendingSource = 'user'; setStatus('已选择用户输入，请点击一个节点的输入端连接', 'pending'); renderWorkflowEditor(); })); canvas.append(userNode);
   for (const node of workflow.nodes) canvas.append(renderWorkflowGraphFrame(workflow, node, svg)); scroll.append(canvas); return scroll;

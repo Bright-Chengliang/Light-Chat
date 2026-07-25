@@ -311,6 +311,9 @@ test('administrators can configure private node graphs while the user surface st
   assert.match(publicSource, /function renderWorkflowGraphCanvas\(workflow\)/);
   assert.match(publicSource, /function connectWorkflowNodes\(workflow, from, to\)/);
   assert.match(publicSource, /function workflowGraphWouldCycle\(workflow, from, to\)/);
+  assert.match(publicSource, /function bindWorkflowGraphPan\(scroll\)/);
+  assert.match(publicSource, /event\.button !== 1 && event\.button !== 2/);
+  assert.match(publicSource, /按住鼠标中键或右键拖拽平移画布/);
   assert.match(publicSource, /newWorkflowMergeNode/);
   assert.match(publicSource, /workflow-graph-edge/);
   assert.match(publicSource, /临时系统提示词/);
