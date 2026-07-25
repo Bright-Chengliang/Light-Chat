@@ -258,6 +258,93 @@ test('administrator conversation history merges device-local records on the serv
   }
 });
 
+test('administrator history restores a missing image ID only from a unique owned media equivalent', async () => {
+  const context = await fixture();
+  try {
+    const admin = await signIn(context);
+    const image = tinyPng(4, 4);
+    const uploaded = await api(context, admin, 'POST', '/api/uploads', image, {
+      'Content-Type': 'image/png',
+      'X-File-Name': encodeURIComponent('history-reference.png'),
+    });
+    assert.equal(uploaded.response.status, 201, JSON.stringify(uploaded.body));
+    const source = uploaded.body.attachment;
+    const sent = await api(context, admin, 'POST', '/api/chat', {
+      model: 'chat-basic', stream: false,
+      messages: [{ role: 'user', content: '保留历史图片', attachmentIds: [source.id] }],
+    });
+    assert.equal(sent.response.status, 200, JSON.stringify(sent.body));
+
+    const legacyId = 'L'.repeat(32);
+    const conversation = {
+      id: 'restore-history-media', title: '恢复历史图片', titleCustomized: true, createdAt: 100, updatedAt: 100, roleId: '', workflowId: '', folderId: '', copiedFromConversationId: '', favoriteOrder: null, lastRequest: null,
+      messages: [{
+        id: 'restore-history-message', role: 'user', content: '旧历史消息', reasoning: '', modelId: '', mode: 'chat', replyToId: '',
+        attachments: [{ ...source, id: legacyId, url: `/api/media/${legacyId}` }], images: [], usage: null, variants: [], variantIndex: 0, createdAt: 100,
+      }],
+    };
+    const saved = await api(context, admin, 'PUT', '/api/conversations', { version: 1, conversations: [conversation] });
+    assert.equal(saved.response.status, 200, JSON.stringify(saved.body));
+    assert.equal(saved.body.conversations[0].messages[0].attachments[0].url, `/api/media/${legacyId}`);
+
+    const recovered = await api(context, admin, 'GET', `/api/media/${legacyId}`);
+    assert.equal(recovered.response.status, 200);
+    assert.deepEqual(Buffer.from(recovered.body), image);
+  } finally {
+    await context.close();
+  }
+});
+
+test('server startup restores recoverable historical administrator images before serving conversations', async () => {
+  const context = await fixture();
+  let restarted;
+  try {
+    const admin = await signIn(context);
+    const image = tinyPng(4, 4);
+    const uploaded = await api(context, admin, 'POST', '/api/uploads', image, {
+      'Content-Type': 'image/png',
+      'X-File-Name': encodeURIComponent('startup-history.png'),
+    });
+    assert.equal(uploaded.response.status, 201, JSON.stringify(uploaded.body));
+    const source = uploaded.body.attachment;
+    await api(context, admin, 'POST', '/api/chat', {
+      model: 'chat-basic', stream: false,
+      messages: [{ role: 'user', content: '保留启动恢复图片', attachmentIds: [source.id] }],
+    });
+
+    await context.app.close();
+    const legacyId = 'S'.repeat(32);
+    await writeFile(join(context.root, '.data', 'conversations-00000.json'), `${JSON.stringify({
+      version: 1,
+      conversations: [{
+        id: 'startup-history-media', title: '启动恢复图片', titleCustomized: true, createdAt: 100, updatedAt: 100, roleId: '', workflowId: '', folderId: '', copiedFromConversationId: '', favoriteOrder: null, lastRequest: null,
+        messages: [{ id: 'startup-history-message', role: 'user', content: '旧图片', reasoning: '', modelId: '', mode: 'chat', replyToId: '', attachments: [{ ...source, id: legacyId, url: `/api/media/${legacyId}` }], images: [], usage: null, variants: [], variantIndex: 0, createdAt: 100 }],
+      }],
+    }, null, 2)}\n`);
+
+    restarted = await createChatApp({
+      rootDir: context.root,
+      apiKey: 'test-api-key',
+      bootstrapUsername: 'test-admin',
+      bootstrapPassword: 'temporary-test-password',
+      sessionSecret: 'test-session-secret-that-is-long-enough',
+      newApiBaseUrl: 'http://newapi.test/v1',
+      fetchImpl: context.upstream.fetch,
+      port: 0,
+    });
+    const baseUrl = await listen(restarted.server);
+    const initial = await session(baseUrl);
+    const restartedAdmin = await login(baseUrl, { ...initial, username: 'test-admin', password: 'temporary-test-password' });
+    const recovered = await fetch(`${baseUrl}/api/media/${legacyId}`, { headers: { Cookie: restartedAdmin.cookie } });
+    assert.equal(recovered.status, 200);
+    assert.deepEqual(Buffer.from(await recovered.arrayBuffer()), image);
+  } finally {
+    await restarted?.close().catch(() => undefined);
+    await context.app.close().catch(() => undefined);
+    await rm(context.root, { recursive: true, force: true });
+  }
+});
+
 test('successful chat and image calls charge points while upstream failures refund reservations', async () => {
   const context = await fixture();
   try {

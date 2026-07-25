@@ -74,6 +74,24 @@ test('media metadata persists across restarts and remains UID-scoped', async () 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('historical image recovery accepts byte-identical duplicates but rejects different candidates', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'chat-media-recovery-'));
+  try {
+    const store = new MediaStore(root, { defaultOwnerId: '00000' }); await store.initialize();
+    const image = tinyPng(12, 9);
+    const source = await store.save(image, { sessionId: '00000', kind: 'output', alt: 'source' });
+    const legacy = 'R'.repeat(32);
+    await store.restoreImageAlias(legacy, store.get(source.id, '00000'), { sessionId: '00000', kind: 'output' });
+    const recovered = await store.findRecoverableImage({ size: image.length, mimeType: 'image/png' }, '00000');
+    assert.ok(recovered);
+
+    const different = Buffer.from(image); different[different.length - 1] ^= 1;
+    await store.save(different, { sessionId: '00000', kind: 'output', alt: 'different' });
+    assert.equal(await store.findRecoverableImage({ size: image.length, mimeType: 'image/png' }, '00000'), null);
+    store.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('login throttling blocks at the configured threshold and survives reload', async () => {
   const root = await mkdtemp(join(tmpdir(), 'chat-login-limit-'));
   const path = join(root, 'limits.json');
