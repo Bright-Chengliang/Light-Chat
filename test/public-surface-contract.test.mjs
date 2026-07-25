@@ -398,6 +398,9 @@ test('editing a historical message can add and remove multimedia attachments saf
   assert.match(publicSource, /variant\.images = structuredClone\(nextImages\)/);
   assert.match(publicSource, /if \(state\.editingMessageId === message\.id\) \{\s*body\.append\(createMessageEditor\(message\)\);\s*\} else \{/);
   assert.match(publicSource, /editingAttachmentDropHandler = uploadEditorFiles/);
+  assert.match(publicSource, /function uploadEditorClipboardAttachments\(event\)/);
+  assert.match(publicSource, /textarea\.addEventListener\('paste', uploadEditorClipboardAttachments\)/);
+  assert.match(publicSource, /void uploadEditorFiles\(files\);/);
   assert.match(publicSource, /state\.editingMessageId && editingAttachmentDropHandler/);
   assert.match(publicSource, /松开以添加到当前历史消息/);
   assert.match(publicSource, /editor\.scrollIntoView\(\{ behavior: 'instant', block: 'center' \}\)/);

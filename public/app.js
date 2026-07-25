@@ -2524,7 +2524,15 @@ function createMessageEditor(message) {
     else if (uploadedCount) setEditorMediaStatus(`已添加 ${uploadedCount} 个附件，点击保存后生效`, 'success');
   }
 
+  function uploadEditorClipboardAttachments(event) {
+    const files = clipboardAttachmentFiles(event.clipboardData);
+    if (!files.length) return;
+    event.preventDefault();
+    void uploadEditorFiles(files);
+  }
+
   fileInput.addEventListener('change', () => { const selectedFiles = [...fileInput.files]; fileInput.value = ''; uploadEditorFiles(selectedFiles); });
+  textarea.addEventListener('paste', uploadEditorClipboardAttachments);
   editingAttachmentDropHandler = uploadEditorFiles;
 
   footer.append(hint, cancel, save); editor.append(textarea, media, footer); renderEditorMedia(); requestAnimationFrame(() => { textarea.focus(); textarea.setSelectionRange(textarea.value.length, textarea.value.length); }); return editor;
