@@ -16,3 +16,12 @@ test('display math exposes a one-click LaTeX copy action', () => {
   assert.match(styles, /\.math-copy-shell/);
   assert.match(styles, /\.math-copy-button/);
 });
+
+test('multiline display math is kept in one text node before KaTeX auto-rendering', () => {
+  assert.match(appSource, /function standaloneDisplayMath\(lines, startIndex\)/);
+  assert.match(appSource, /const opening = .*\.exec\(lines\[startIndex\]\);/);
+  assert.match(appSource, /const closing = opening\[1\] === '\$\$'/);
+  assert.match(appSource, /lines\.slice\(startIndex, endIndex \+ 1\)\.join\('\\n'\)/);
+  assert.match(appSource, /math\.className = 'math-display-source'; math\.textContent = displayMath\.source;/);
+  assert.match(appSource, /\{ left: '\\\\\[', right: '\\\\]', display: true \}/);
+});

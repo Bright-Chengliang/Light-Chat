@@ -1899,6 +1899,18 @@ function renderMarkdownTable(container, definition) {
   container.append(table);
 }
 
+function standaloneDisplayMath(lines, startIndex) {
+  const opening = /^\s*(\\\[|\$\$)\s*$/.exec(lines[startIndex]);
+  if (!opening) return null;
+  const closing = opening[1] === '$$' ? /^\s*\$\$\s*$/ : /^\s*\\\]\s*$/;
+  for (let endIndex = startIndex + 1; endIndex < lines.length; endIndex += 1) {
+    if (closing.test(lines[endIndex])) {
+      return { source: lines.slice(startIndex, endIndex + 1).join('\n'), endIndex };
+    }
+  }
+  return null;
+}
+
 function renderMarkdownOnly(container, source) {
   const lines = source.split(/\n/);
   let list = null;
@@ -1910,6 +1922,12 @@ function renderMarkdownOnly(container, source) {
   };
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex];
+    const displayMath = standaloneDisplayMath(lines, lineIndex);
+    if (displayMath) {
+      flush();
+      const math = document.createElement('div'); math.className = 'math-display-source'; math.textContent = displayMath.source;
+      container.append(math); lineIndex = displayMath.endIndex; continue;
+    }
     const table = markdownTableDefinition(lines, lineIndex);
     if (table) { flush(); renderMarkdownTable(container, table); lineIndex = table.endIndex; continue; }
     const heading = /^(#{1,4})\s+(.+)$/.exec(line);
