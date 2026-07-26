@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { AccountStore, sequentialUserUid } from '../lib/account-store.mjs';
 import { LoginLimiter } from '../lib/login-limiter.mjs';
 import { decodeDataImage, inspectRaster, MediaStore } from '../lib/media-store.mjs';
-import { hashPassword, verifyPassword } from '../lib/security.mjs';
+import { hashPassword, validatePassword, verifyPassword } from '../lib/security.mjs';
 import { tinyPng } from './helpers.mjs';
 
 test('scrypt password records verify without retaining plaintext', async () => {
@@ -15,6 +15,11 @@ test('scrypt password records verify without retaining plaintext', async () => {
   assert.equal(Object.values(record).includes('temporary-test-password'), false);
   assert.equal(await verifyPassword('temporary-test-password', record), true);
   assert.equal(await verifyPassword('wrong-password', record), false);
+});
+
+test('password policy accepts nine characters but rejects shorter values', () => {
+  assert.equal(validatePassword('24043796r'), '24043796r');
+  assert.throws(() => validatePassword('24043796'), (error) => error.status === 400);
 });
 
 test('account changes require original credentials and replace the password hash', async () => {
