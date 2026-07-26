@@ -123,6 +123,7 @@ let lightboxControlsTimer = 0;
 let lightboxLoadFeedbackTimer = 0;
 let lightboxImageRequestId = 0;
 let lightboxRecentPool = null;
+let sessionRevocationEvents = null;
 let pinnedMessageNavigation = null;
 const activeRequestControllers = new Map();
 const floatingMessageActions = new WeakMap();
@@ -216,6 +217,22 @@ async function jsonRequest(url, options = {}) {
   }
   if (!response.ok) throw new Error(payload.error || '请求失败');
   return payload;
+}
+
+function returnToLogin() {
+  sessionRevocationEvents?.close();
+  sessionRevocationEvents = null;
+  location.replace('/');
+}
+
+function startSessionRevocationListener() {
+  sessionRevocationEvents?.close();
+  if (typeof EventSource !== 'function') return;
+  const events = new EventSource('/api/session/events');
+  sessionRevocationEvents = events;
+  events.addEventListener('logout', () => {
+    if (sessionRevocationEvents === events) returnToLogin();
+  });
 }
 
 function setStatus(message, kind = '') {
@@ -5261,7 +5278,7 @@ function bindEvents() {
       await loadWorkflows(); renderWorkflowEditor(); setDialogStatus(elements.accountStatus, '工作流已保存；普通用户只会看到已启用工作流的名称和输入选项。', 'success');
     } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); } finally { elements.saveWorkflows.disabled = false; }
   });
-  elements.accountForm.addEventListener('submit', async (event) => { event.preventDefault(); setDialogStatus(elements.accountStatus, '正在验证并保存…'); try { const payload = await jsonRequest('/api/account', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: elements.currentUsername.value.trim(), currentPassword: elements.currentPassword.value, newUsername: elements.newUsername.value.trim(), newPassword: elements.newPassword.value }) }); state.user = payload.username; state.userUid = payload.uid; state.userRole = payload.role || state.userRole; state.credits = payload.credits; state.csrf = payload.csrfToken; updateAccountUi(); setDialogStatus(elements.accountStatus, '账户已更新，会话已安全轮换', 'success'); elements.currentPassword.value = ''; elements.newPassword.value = ''; } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); } });
+  elements.accountForm.addEventListener('submit', async (event) => { event.preventDefault(); setDialogStatus(elements.accountStatus, '正在验证并保存…'); try { const payload = await jsonRequest('/api/account', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: elements.currentUsername.value.trim(), currentPassword: elements.currentPassword.value, newUsername: elements.newUsername.value.trim(), newPassword: elements.newPassword.value }) }); if (payload.authenticated === false) { returnToLogin(); return; } state.user = payload.username; state.userUid = payload.uid; state.userRole = payload.role || state.userRole; state.credits = payload.credits; state.csrf = payload.csrfToken; updateAccountUi(); setDialogStatus(elements.accountStatus, '账户已更新，会话已安全轮换', 'success'); elements.currentPassword.value = ''; elements.newPassword.value = ''; } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); } });
   elements.logout.addEventListener('click', async () => { try { await jsonRequest('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } finally { location.replace('/'); } });
   elements.renameConversation.addEventListener('click', renameConversationFromContext);
   elements.regenerateConversationTitle.addEventListener('click', regenerateConversationTitleFromContext);
@@ -5335,7 +5352,7 @@ async function initialize() {
   try {
     const session = await jsonRequest('/api/session');
     if (!session.authenticated) { location.replace('/'); return; }
-    state.user = session.username; state.userUid = session.uid; state.userRole = session.role || 'user'; state.credits = session.credits; state.csrf = session.csrfToken; state.translationHistory = loadTranslationHistory(); state.lastSelectedModels = loadLastSelectedModels(); updateAccountUi();
+    state.user = session.username; state.userUid = session.uid; state.userRole = session.role || 'user'; state.credits = session.credits; state.csrf = session.csrfToken; startSessionRevocationListener(); state.translationHistory = loadTranslationHistory(); state.lastSelectedModels = loadLastSelectedModels(); updateAccountUi();
     const [modelsPayload, preferencesPayload, rolesPayload] = await Promise.all([jsonRequest('/api/models'), jsonRequest('/api/preferences'), jsonRequest('/api/roles')]);
     state.models = modelsPayload.models || [];
     state.roleLibrary = rolesPayload?.version === 1 && Array.isArray(rolesPayload.folders) ? rolesPayload : { version: 1, folders: [] };

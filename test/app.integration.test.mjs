@@ -1292,10 +1292,16 @@ test('role folders persist order and inject only server-stored system prompts', 
   }
 });
 
-test('changing password requires the original password and revokes the old session', async () => {
+test('changing password immediately signals every active session and revokes all of them', async () => {
   const context = await fixture();
   try {
     const signedIn = await authenticated(context);
+    const otherSignedIn = await authenticated(context);
+    const events = await fetch(`${context.baseUrl}/api/session/events`, { headers: { Cookie: otherSignedIn.cookie } });
+    assert.equal(events.status, 200);
+    const reader = events.body.getReader();
+    const decoder = new TextDecoder();
+    assert.match(decoder.decode((await reader.read()).value), /event: ready/);
     const rejected = await fetch(`${context.baseUrl}/api/account`, {
       method: 'PUT',
       headers: {
@@ -1319,11 +1325,16 @@ test('changing password requires the original password and revokes the old sessi
       body: JSON.stringify({ username: 'test-admin', currentPassword: 'temporary-test-password', newPassword: 'replacement-test-password' }),
     });
     assert.equal(changed.status, 200);
-    const rotatedCookie = cookieFrom(changed);
+    assert.equal((await changed.json()).authenticated, false);
+    assert.match(decoder.decode((await reader.read()).value), /event: logout/);
     const oldStatus = await fetch(`${context.baseUrl}/api/status`, { headers: { Cookie: signedIn.cookie } });
     assert.equal(oldStatus.status, 401);
-    const newStatus = await fetch(`${context.baseUrl}/api/status`, { headers: { Cookie: rotatedCookie } });
-    assert.equal(newStatus.status, 200);
+    const otherStatus = await fetch(`${context.baseUrl}/api/status`, { headers: { Cookie: otherSignedIn.cookie } });
+    assert.equal(otherStatus.status, 401);
+    await reader.cancel();
+    const fresh = await session(context.baseUrl);
+    const relogin = await login(context.baseUrl, { ...fresh, password: 'replacement-test-password' });
+    assert.equal(relogin.response.status, 200);
   } finally {
     await context.close();
   }

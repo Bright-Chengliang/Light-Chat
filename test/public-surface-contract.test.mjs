@@ -79,6 +79,15 @@ test('remember login uses an origin-scoped username and a server-issued session 
   assert.match(backendSource, /storagePath: join\(dataDir, 'sessions\.json'\)/);
 });
 
+test('credential changes push an immediate logout event to every active session', () => {
+  assert.match(backendSource, /pathname === '\/api\/session\/events'/);
+  assert.match(backendSource, /sendSse\(stream\.res, 'logout', \{ reason \}\)/);
+  assert.match(backendSource, /await invalidateUidSessions\(found\.user\.uid, 'credentials_changed'\)/);
+  assert.match(publicSource, /function startSessionRevocationListener\(\)/);
+  assert.match(publicSource, /new EventSource\('\/api\/session\/events'\)/);
+  assert.match(publicSource, /events\.addEventListener\('logout'/);
+});
+
 test('streaming Markdown updates a stable message body at a capped frame rate', () => {
   assert.match(publicSource, /const STREAM_RENDER_FPS = 30/);
   assert.match(publicSource, /function streamingMarkdownSource\(value\)/);
