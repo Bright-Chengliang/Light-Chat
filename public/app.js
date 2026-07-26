@@ -122,6 +122,7 @@ let lightboxImageIndex = 0;
 let lightboxControlsTimer = 0;
 let lightboxLoadFeedbackTimer = 0;
 let lightboxImageRequestId = 0;
+let lightboxRecentPool = null;
 let pinnedMessageNavigation = null;
 const activeRequestControllers = new Map();
 const floatingMessageActions = new WeakMap();
@@ -895,7 +896,7 @@ function renderRecentFiles() {
   for (const item of state.recentFiles) {
     const row = document.createElement('div'); row.className = `recent-file-item${isFavoriteMedia(item.id) ? ' favorited' : ''}`;
     const open = document.createElement(item.isImage ? 'button' : 'a'); open.className = 'recent-file-open';
-    if (item.isImage) { open.type = 'button'; open.addEventListener('click', () => void openRecentFile(item, images)); }
+    if (item.isImage) { open.type = 'button'; open.addEventListener('click', () => void openRecentFile(item, images, { traverseRecentPool: true })); }
     else { open.href = item.url; open.target = '_blank'; open.rel = 'noopener'; }
     const preview = document.createElement('span'); preview.className = 'recent-file-preview';
     if (item.isImage) {
@@ -1049,14 +1050,17 @@ async function toggleFavoriteMedia(itemId) {
   } catch (error) { setStatus(error.message || '收藏图片保存失败', 'error'); }
 }
 
-async function openRecentFile(item, images) {
+async function openRecentFile(item, images, { traverseRecentPool = false } = {}) {
   try {
     const response = await fetch(item.url, { credentials: 'same-origin', cache: 'no-store' });
     if (!response.ok) throw new Error(`文件加载失败（${response.status}）`);
     const blobUrl = URL.createObjectURL(await response.blob());
     const loaded = { ...item, url: blobUrl };
-    openImageLightbox(images.map((candidate) => candidate.id === item.id ? loaded : candidate), loaded);
-    elements.imageLightbox.addEventListener('close', () => URL.revokeObjectURL(blobUrl), { once: true });
+    if (traverseRecentPool) openRecentPoolLightbox(item, loaded, blobUrl);
+    else {
+      openImageLightbox(images.map((candidate) => candidate.id === item.id ? loaded : candidate), loaded);
+      elements.imageLightbox.addEventListener('close', () => URL.revokeObjectURL(blobUrl), { once: true });
+    }
   } catch (error) {
     setStatus(error.message || '文件加载失败，请刷新后重试', 'error');
   }
@@ -2200,6 +2204,72 @@ function setImageLightboxLoadStatus(message, kind = 'loading') {
   }
 }
 
+function resetRecentPoolLightbox() {
+  if (lightboxRecentPool?.blobUrl) URL.revokeObjectURL(lightboxRecentPool.blobUrl);
+  lightboxRecentPool = null;
+}
+
+function renderImageLightboxNavigation(total = lightboxImages.length) {
+  const pool = lightboxRecentPool;
+  if (pool) {
+    elements.imageLightboxPrevious.disabled = pool.loading || !pool.previous;
+    elements.imageLightboxNext.disabled = pool.loading || !pool.next;
+    elements.imageLightbox.classList.toggle('has-image-navigation', pool.loading || Boolean(pool.previous || pool.next));
+    return;
+  }
+  elements.imageLightboxPrevious.disabled = lightboxImageIndex === 0;
+  elements.imageLightboxNext.disabled = lightboxImageIndex >= total - 1;
+  elements.imageLightbox.classList.toggle('has-image-navigation', total > 1);
+}
+
+async function loadRecentPoolNeighbors(id) {
+  const pool = lightboxRecentPool;
+  if (!pool || pool.currentId !== id) return;
+  try {
+    const payload = await jsonRequest(`/api/media/recent/neighbors?id=${encodeURIComponent(id)}`);
+    if (!lightboxRecentPool || lightboxRecentPool.currentId !== id) return;
+    lightboxRecentPool.previous = sanitizeAttachment(payload.previous);
+    lightboxRecentPool.next = sanitizeAttachment(payload.next);
+  } catch (error) {
+    if (!lightboxRecentPool || lightboxRecentPool.currentId !== id) return;
+    lightboxRecentPool.previous = null; lightboxRecentPool.next = null;
+    setImageLightboxLoadStatus(error.message || '无法加载相邻图片', 'error');
+  } finally {
+    if (lightboxRecentPool?.currentId === id) { lightboxRecentPool.loading = false; renderImageLightboxNavigation(); }
+  }
+}
+
+function openRecentPoolLightbox(source, loaded, blobUrl) {
+  resetRecentPoolLightbox();
+  lightboxRecentPool = { currentId: source.id, previous: null, next: null, loading: true, blobUrl };
+  lightboxImages = [{ item: loaded, isUpscale: false }]; lightboxImageIndex = 0;
+  renderImageLightbox();
+  if (!elements.imageLightbox.open) elements.imageLightbox.showModal();
+  revealImageLightboxControls();
+  void loadRecentPoolNeighbors(source.id);
+}
+
+async function switchRecentPoolLightbox(direction) {
+  const pool = lightboxRecentPool;
+  const target = direction < 0 ? pool?.previous : pool?.next;
+  if (!pool || pool.loading || !target) return;
+  pool.loading = true; renderImageLightboxNavigation(); setImageLightboxLoadStatus('正在加载相邻图片…');
+  try {
+    const response = await fetch(target.url, { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) throw new Error(`图片加载失败（${response.status}）`);
+    const blobUrl = URL.createObjectURL(await response.blob());
+    if (!lightboxRecentPool || lightboxRecentPool !== pool) { URL.revokeObjectURL(blobUrl); return; }
+    URL.revokeObjectURL(pool.blobUrl);
+    pool.currentId = target.id; pool.previous = null; pool.next = null; pool.blobUrl = blobUrl;
+    lightboxImages = [{ item: { ...target, url: blobUrl }, isUpscale: false }]; lightboxImageIndex = 0;
+    renderImageLightbox(); revealImageLightboxControls();
+    void loadRecentPoolNeighbors(target.id);
+  } catch (error) {
+    if (!lightboxRecentPool || lightboxRecentPool !== pool) return;
+    pool.loading = false; renderImageLightboxNavigation(); setImageLightboxLoadStatus(error.message || '相邻图片加载失败', 'error');
+  }
+}
+
 function renderImageLightbox() {
   const entry = lightboxImages[lightboxImageIndex];
   if (!entry) return;
@@ -2208,29 +2278,30 @@ function renderImageLightbox() {
   const total = lightboxImages.length;
   const requestId = ++lightboxImageRequestId;
   const position = `${lightboxImageIndex + 1}/${total}`;
+  const recentPool = Boolean(lightboxRecentPool);
   const image = elements.imageLightboxImage;
   image.alt = caption;
-  image.onload = () => { if (requestId === lightboxImageRequestId) setImageLightboxLoadStatus(`已切换至第 ${position} 张`, 'complete'); };
+  image.onload = () => { if (requestId === lightboxImageRequestId) setImageLightboxLoadStatus(recentPool ? '已切换至最近图片' : `已切换至第 ${position} 张`, 'complete'); };
   image.onerror = () => { if (requestId === lightboxImageRequestId) setImageLightboxLoadStatus(`第 ${position} 张图片加载失败`, 'error'); };
-  setImageLightboxLoadStatus(`正在加载第 ${position} 张图片…`);
+  setImageLightboxLoadStatus(recentPool ? '正在加载最近图片…' : `正在加载第 ${position} 张图片…`);
   image.src = item.url;
-  if (image.complete && image.naturalWidth > 0) queueMicrotask(() => { if (requestId === lightboxImageRequestId) setImageLightboxLoadStatus(`已切换至第 ${position} 张`, 'complete'); });
-  elements.imageLightboxCaption.textContent = `${isUpscale ? '超分 · ' : ''}${caption}${total > 1 ? ` · ${lightboxImageIndex + 1}/${total}` : ''}`;
+  if (image.complete && image.naturalWidth > 0) queueMicrotask(() => { if (requestId === lightboxImageRequestId) setImageLightboxLoadStatus(recentPool ? '已切换至最近图片' : `已切换至第 ${position} 张`, 'complete'); });
+  elements.imageLightboxCaption.textContent = `${isUpscale ? '超分 · ' : ''}${caption}${recentPool ? ' · 最近图片池' : (total > 1 ? ` · ${lightboxImageIndex + 1}/${total}` : '')}`;
   elements.imageLightboxCaption.title = caption;
   elements.imageLightboxDownload.href = item.url;
   elements.imageLightboxDownload.download = imageDownloadName(item);
-  elements.imageLightboxPrevious.disabled = lightboxImageIndex === 0;
-  elements.imageLightboxNext.disabled = lightboxImageIndex >= total - 1;
-  elements.imageLightbox.classList.toggle('has-image-navigation', total > 1);
+  renderImageLightboxNavigation(total);
 }
 
 function switchImageLightbox(direction) {
+  if (lightboxRecentPool) { void switchRecentPoolLightbox(direction); return; }
   const next = Math.max(0, Math.min(lightboxImages.length - 1, lightboxImageIndex + direction));
   if (next === lightboxImageIndex) return;
   lightboxImageIndex = next; renderImageLightbox(); revealImageLightboxControls();
 }
 
 function openImageLightbox(items, selectedItem) {
+  resetRecentPoolLightbox();
   lightboxImages = imageLightboxEntries(Array.isArray(items) ? items : [selectedItem || items]);
   const selectedIndex = lightboxImages.findIndex((entry) => entry.item.id === selectedItem?.id);
   lightboxImageIndex = selectedIndex >= 0 ? selectedIndex : 0;
@@ -5215,7 +5286,7 @@ function bindEvents() {
   elements.imageLightboxStage.addEventListener('touchstart', revealImageLightboxControls, { passive: true });
   elements.imageLightboxPrevious.addEventListener('click', () => switchImageLightbox(-1));
   elements.imageLightboxNext.addEventListener('click', () => switchImageLightbox(1));
-  elements.imageLightbox.addEventListener('close', () => { closeContextMenu(elements.imageLightboxContextMenu); if (lightboxControlsTimer) clearTimeout(lightboxControlsTimer); if (lightboxLoadFeedbackTimer) clearTimeout(lightboxLoadFeedbackTimer); lightboxControlsTimer = 0; lightboxLoadFeedbackTimer = 0; lightboxImageRequestId += 1; lightboxImages = []; lightboxImageIndex = 0; elements.imageLightboxLoading.hidden = true; elements.imageLightboxImage.classList.remove('is-loading'); elements.imageLightbox.classList.remove('controls-visible', 'has-image-navigation'); elements.imageLightboxImage.removeAttribute('src'); });
+  elements.imageLightbox.addEventListener('close', () => { closeContextMenu(elements.imageLightboxContextMenu); if (lightboxControlsTimer) clearTimeout(lightboxControlsTimer); if (lightboxLoadFeedbackTimer) clearTimeout(lightboxLoadFeedbackTimer); lightboxControlsTimer = 0; lightboxLoadFeedbackTimer = 0; lightboxImageRequestId += 1; resetRecentPoolLightbox(); lightboxImages = []; lightboxImageIndex = 0; elements.imageLightboxLoading.hidden = true; elements.imageLightboxImage.classList.remove('is-loading'); elements.imageLightbox.classList.remove('controls-visible', 'has-image-navigation'); elements.imageLightboxImage.removeAttribute('src'); });
   elements.accountDialog.addEventListener('close', () => elements.accountDialog.classList.remove('workflow-workspace-active'));
   document.addEventListener('click', (event) => {
     if (!elements.headerModelMenu.hidden && !elements.headerModelPicker.contains(event.target)) closeHeaderModelMenu();

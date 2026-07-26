@@ -440,6 +440,12 @@ test('lightbox navigates every image and upscale variant with keyboard and trans
   assert.match(publicSource, /id="imageLightboxNext"/);
   assert.match(publicSource, /function imageLightboxEntries\(items\)/);
   assert.match(publicSource, /openImageLightbox\(images, variants\[selectedVariant\]\)/);
+  assert.match(publicSource, /traverseRecentPool: true/);
+  assert.match(publicSource, /function openRecentPoolLightbox\(source, loaded, blobUrl\)/);
+  assert.match(publicSource, /\/api\/media\/recent\/neighbors\?id=\$\{encodeURIComponent\(id\)\}/);
+  assert.match(publicSource, /function switchRecentPoolLightbox\(direction\)/);
+  assert.match(backendSource, /pathname === '\/api\/media\/recent\/neighbors'/);
+  assert.match(backendSource, /mediaStore\.recentImageNeighbors/);
   assert.match(publicSource, /function switchImageLightbox\(direction\)/);
   assert.match(publicSource, /function setImageLightboxLoadStatus\(message, kind = 'loading'\)/);
   assert.match(publicSource, /image\.onload = \(\) =>/);
