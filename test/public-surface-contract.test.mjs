@@ -293,7 +293,8 @@ test('the sidebar exposes server-orchestrated packaged workflows without exposin
   assert.match(publicSource, /jsonRequest\('\/api\/workflows'\)/);
   assert.match(publicSource, /jsonRequest\('\/api\/workflows\/run'/);
   assert.match(publicSource, /id="workflowComposerBanner"/);
-  assert.match(publicSource, /imageModel: messageDraft\.selection\.modelId/);
+  assert.match(publicSource, /function effectiveWorkflowImageRequest\(workflow, draft\)/);
+  assert.match(publicSource, /imageModel: request\.selection\.modelId/);
   assert.match(publicSource, /state\.selectedWorkflow && !queuedDraft\) return runWorkflowMessage\(\);/);
   assert.doesNotMatch(publicSource, /id="workflowDialog"/);
   assert.match(publicSource, /工作流正在运行中，请稍候/);

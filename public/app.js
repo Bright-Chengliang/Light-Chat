@@ -733,11 +733,37 @@ function workflowImageModel(workflow) {
     : lastAvailableModel('image');
 }
 
+function effectiveWorkflowImageRequest(workflow, draft) {
+  const selected = draft?.selection;
+  const modelId = workflow.allowImageModelOverride === false
+    ? workflowImageModel(workflow)
+    : selected?.modelId;
+  const model = state.models.find((item) => item.id === modelId && item.modes.includes('image'));
+  if (!model) return null;
+  const sizes = model.imageOptions?.sizes || [];
+  const qualities = model.imageOptions?.qualities || [];
+  const requestedSize = workflow.allowImageSizeOverride === false ? workflow.defaultSize : draft.imageSize;
+  const requestedQuality = workflow.allowImageQualityOverride === false
+    ? workflow.defaultQuality
+    : imageQualityForRequest(currentConversation(), model);
+  const size = sizes.includes(requestedSize) ? requestedSize : model.imageOptions?.defaultSize;
+  const quality = qualities.includes(requestedQuality) ? requestedQuality : model.imageOptions?.defaultQuality;
+  if (!size || !quality) return null;
+  return { model, selection: { modelId, mode: 'image' }, size, quality };
+}
+
 function renderWorkflowComposer() {
   const workflow = state.selectedWorkflow;
   elements.workflowComposerBanner.hidden = !workflow;
   elements.workflowComposerName.textContent = workflow?.name || '';
   elements.exitWorkflow.disabled = state.workflowRunning;
+  const sizeLocked = Boolean(workflow && workflow.allowImageSizeOverride === false);
+  const selectedImageModel = state.models.find((model) => model.id === state.selected?.modelId && model.modes.includes('image'));
+  if (sizeLocked && selectedImageModel?.imageOptions?.sizes?.includes(workflow.defaultSize)) {
+    elements.imageSize.value = workflow.defaultSize;
+  }
+  elements.imageSize.disabled = sizeLocked;
+  elements.imageSize.title = sizeLocked ? `此工作流固定使用 ${workflow.defaultSize} 尺寸` : '';
   elements.input.placeholder = workflow ? `输入“${workflow.name}”的创作需求…` : '给 Light-Chat 发消息……';
   if (workflow) elements.input.maxLength = 12000;
   else elements.input.removeAttribute('maxlength');
@@ -789,10 +815,12 @@ async function runWorkflowMessage() {
   if (!messageDraft) return false;
   if (messageDraft.selection.mode !== 'image') { setStatus('打包工作流仅支持生图模型，请从上方选择一个生图模型', 'error'); return false; }
   if (messageDraft.attachments.length) { setStatus('打包工作流暂不支持附件，请直接输入创作需求', 'error'); return false; }
-  const requestModel = state.models.find((item) => item.id === messageDraft.selection.modelId && item.modes.includes('image'));
+  const request = effectiveWorkflowImageRequest(workflow, messageDraft);
+  if (!request) { setStatus('当前工作流的生图模型或尺寸不可用，请刷新模型列表后重试', 'error'); return false; }
+  const requestModel = request.model;
   const conversationId = conversation.id;
   const user = { id: randomId(), role: 'user', content: messageDraft.content, reasoning: '', attachments: [], images: [], createdAt: Date.now() };
-  const assistant = { id: randomId(), role: 'assistant', replyToId: user.id, modelId: messageDraft.selection.modelId, mode: 'image', content: '工作流正在运行中，请稍候…', reasoning: '', attachments: [], images: [], usage: null, variants: [], variantIndex: 0, streaming: false, createdAt: Date.now() };
+  const assistant = { id: randomId(), role: 'assistant', replyToId: user.id, modelId: request.selection.modelId, mode: 'image', content: '工作流正在运行中，请稍候…', reasoning: '', attachments: [], images: [], usage: null, variants: [], variantIndex: 0, streaming: false, createdAt: Date.now() };
   conversation.messages.push(user, assistant); conversation.updatedAt = Date.now();
   assignAutomaticConversationTitle(conversation, messageDraft.content, [], workflow.name);
   clearComposerDraft(); resumeOutputFollow(); setConversationBusy(conversationId, true); state.workflowRunning = true;
@@ -802,15 +830,15 @@ async function runWorkflowMessage() {
     const payload = await waitForWorkflowJob({
       workflowId: workflow.id,
       prompt: messageDraft.content,
-      imageModel: messageDraft.selection.modelId,
-      size: messageDraft.imageSize || requestModel?.imageOptions?.defaultSize,
-      quality: imageQualityForRequest(conversation, requestModel),
+      imageModel: request.selection.modelId,
+      size: request.size,
+      quality: request.quality,
     }, requestController.signal);
     assistant.images = (payload.images || []).map(sanitizeAttachment).filter(Boolean);
     assistant.content = assistant.images.length ? '工作流已完成。' : '工作流没有返回图片。';
     state.recentFiles = [...assistant.images, ...state.recentFiles.filter((item) => !assistant.images.some((image) => image.id === item.id))];
     updateMessage(assistant, conversationId);
-    rememberConversationRequest(conversation, messageDraft.selection, { imageSize: messageDraft.imageSize || elements.imageSize.value, imageQuality: imageQualityForRequest(conversation, requestModel), stream: false });
+    rememberConversationRequest(conversation, request.selection, { imageSize: request.size, imageQuality: request.quality, stream: false });
     conversation.updatedAt = Date.now(); saveConversations(); setStatus('工作流已完成', 'success');
   } catch (error) {
     const cancelled = requestController.signal.aborted;
@@ -2902,6 +2930,19 @@ function setSelection(modelId, mode, { persist = true, close = false } = {}) {
   if (state.selectedWorkflow && mode !== 'image') { setStatus('打包工作流仅可选择生图模型', 'error'); return; }
   if (persist && preferenceContextMutationInFlight) { setStatus('收藏设置正在更新，请稍候再切换模型', 'error'); return; }
   if (!state.models.some((item) => item.id === modelId && item.modes.includes(mode))) return;
+  if (state.selectedWorkflow) {
+    const workflow = state.selectedWorkflow;
+    const lockedModel = workflowImageModel(workflow);
+    if (workflow.allowImageModelOverride === false && modelId !== lockedModel) {
+      setStatus(`“${workflow.name}”已固定使用 ${lockedModel}，不能切换生图模型`, 'error');
+      return;
+    }
+    const model = state.models.find((item) => item.id === modelId && item.modes.includes('image'));
+    if (workflow.allowImageSizeOverride === false && !model?.imageOptions?.sizes?.includes(workflow.defaultSize)) {
+      setStatus(`所选模型不支持工作流固定尺寸 ${workflow.defaultSize}`, 'error');
+      return;
+    }
+  }
   state.selected = { modelId, mode };
   state.preferences.selected = { modelId, model: modelId, mode };
   rememberModeSelection(modelId, mode, { persist });
@@ -3923,6 +3964,11 @@ function reportDraftError(conversationId, message) {
   return false;
 }
 
+function requiresMultimodalImageChat(model, attachments = [], earlierMessages = []) {
+  if (!model?.modes?.includes('chat')) return false;
+  return attachments.length > 0 || historicalReferenceImageIds(earlierMessages).length > 0;
+}
+
 function validateMessageDraft(conversation, draft) {
   if (!conversation || !draft?.selection) return reportDraftError(conversation?.id, '请先选择可用模型');
   const requestModel = state.models.find((model) => model.id === draft.selection.modelId && model.modes.includes(draft.selection.mode));
@@ -3936,7 +3982,7 @@ function validateMessageDraft(conversation, draft) {
   const historicalImageIds = historicalReferenceImageIds(conversation.messages);
   const editImageIds = [...new Set([...pendingImageIds, ...historicalImageIds])].slice(0, maxReferenceImages);
   const useImageEdit = draft.selection.mode === 'image' && requestModel.imageOptions?.supportsEdits === true && editImageIds.length > 0;
-  const useImageChat = draft.selection.mode === 'image' && requestModel.modes.includes('chat') && (conversation.messages.length > 0 || attachments.length > 0);
+  const useImageChat = draft.selection.mode === 'image' && requiresMultimodalImageChat(requestModel, attachments, conversation.messages);
   if (draft.selection.mode === 'image' && content) {
     const imagePrompt = imageConversationPrompt([...conversation.messages, { role: 'user', content, attachments }]);
     const estimatedTokens = estimateTextTokens(imagePrompt);
@@ -4297,7 +4343,7 @@ async function regenerateImageAssistant(messageId, modelId, { allowHistorical = 
   const maxReferenceImages = requestModel.imageOptions?.maxReferenceImages || 0;
   const editImageIds = [...new Set([...directImageIds, ...historicalImageIds])].slice(0, maxReferenceImages);
   const useImageEdit = requestModel.imageOptions?.supportsEdits === true && editImageIds.length > 0;
-  const useImageChat = requestModel.modes.includes('chat') && (earlierMessages.length > 0 || (userMessage.attachments || []).length > 0);
+  const useImageChat = requiresMultimodalImageChat(requestModel, userMessage.attachments || [], earlierMessages);
   const imagePrompt = imageConversationPrompt(submittedMessages);
   const variants = ensureAssistantVariants(message);
   const previousIndex = Math.max(0, Math.min(variants.length - 1, message.variantIndex || 0));
@@ -4407,7 +4453,7 @@ async function sendMessage(queuedDraft = null) {
   const historicalImageIds = historicalReferenceImageIds(conversation.messages);
   const editImageIds = [...new Set([...pendingImageIds, ...historicalImageIds])].slice(0, maxReferenceImages);
   const useImageEdit = requestSelection.mode === 'image' && requestModel?.imageOptions?.supportsEdits === true && editImageIds.length > 0;
-  const useImageChat = requestSelection.mode === 'image' && requestModel?.modes.includes('chat') && (conversation.messages.length > 0 || attachments.length > 0);
+  const useImageChat = requestSelection.mode === 'image' && requiresMultimodalImageChat(requestModel, attachments, conversation.messages);
   const content = messageDraft.content;
   const prospectiveImagePrompt = requestSelection.mode === 'image'
     ? imageConversationPrompt([...conversation.messages, { role: 'user', content, attachments }])

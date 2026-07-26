@@ -42,19 +42,21 @@ test('chat first-token watchdog stops after the first generated token', async ()
   afterFirstToken.dispose();
 });
 
-test('Gemini Flash Images request preserves the prompt and forwards its selected canvas size', async () => {
+test('Gemini Flash Images requests preserve every selected canvas size', async () => {
   const fake = await createFakeNewApi({ imageMime: 'jpeg' });
   try {
     const client = new NewApiClient({ apiKey: 'test-api-key', baseUrl: fake.baseUrl });
     const prompt = '  保留首尾空格  ';
-    const images = await client.generateImages({ model: 'gemini-3.1-flash-image', prompt, size: '1792x1024', quality: 'high', count: 1 });
-    assert.equal(images[0].mimeType, 'image/jpeg');
-    assert.equal(images[0].buffer[0], 0xff);
-    assert.equal(images[0].buffer[1], 0xd8);
-    const request = fake.requests.find((entry) => entry.url === '/v1/images/generations');
-    assert.deepEqual(JSON.parse(request.bodyText), {
-      model: 'gemini-3.1-flash-image', prompt, n: 1, size: '1792x1024', quality: 'high', response_format: 'b64_json',
-    });
+    for (const size of ['1024x1024', '1536x1024', '1536x1152', '1792x1024', '1152x1536', '1024x1536', '1024x1792']) {
+      const images = await client.generateImages({ model: 'gemini-3.1-flash-image', prompt, size, quality: 'high', count: 1 });
+      assert.equal(images[0].mimeType, 'image/jpeg');
+      assert.equal(images[0].buffer[0], 0xff);
+      assert.equal(images[0].buffer[1], 0xd8);
+      const request = fake.requests.findLast((entry) => entry.url === '/v1/images/generations');
+      assert.deepEqual(JSON.parse(request.bodyText), {
+        model: 'gemini-3.1-flash-image', prompt, n: 1, size, quality: 'high', response_format: 'b64_json',
+      });
+    }
   } finally {
     await fake.close();
   }
@@ -109,28 +111,34 @@ test('NewAPI client parses Gemini markdown data images without exposing base64 a
   }
 });
 
-test('Gemini Flash multimodal chat stays on the configured NewAPI route', async () => {
+test('Gemini Flash multimodal chat keeps each selected aspect ratio on the configured NewAPI route', async () => {
   const gateway = await createFakeNewApi();
   try {
     const client = new NewApiClient({
       apiKey: 'test-api-key',
       baseUrl: gateway.baseUrl,
     });
-    const result = await client.chat({
-      model: 'gemini-3.1-flash-image',
-      messages: [{ role: 'user', content: [{ type: 'text', text: '融合两张图' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,aGVsbG8=' } }] }],
-      imageSize: '1152x1536',
-      stream: true,
-    });
-    assert.equal(result.images.length, 1);
-    const gatewayRequest = gateway.requests.find((request) => request.url === '/v1/chat/completions');
-    assert.ok(gatewayRequest);
-    assert.equal(gatewayRequest.authorization, 'Bearer test-api-key');
-    assert.equal(JSON.parse(gatewayRequest.bodyText).stream, false);
-    assert.equal(JSON.parse(gatewayRequest.bodyText).stream_options, undefined);
-    assert.deepEqual(JSON.parse(gatewayRequest.bodyText).extra_body, { google: { image_config: { aspect_ratio: '3:4' } } });
-    const imagePart = JSON.parse(gatewayRequest.bodyText).messages[0].content[1];
-    assert.deepEqual(Object.keys(imagePart.image_url), ['url']);
+    const expectedAspectRatios = {
+      '1024x1024': '1:1', '1536x1024': '3:2', '1536x1152': '4:3', '1792x1024': '16:9',
+      '1152x1536': '3:4', '1024x1536': '2:3', '1024x1792': '9:16',
+    };
+    for (const [imageSize, aspectRatio] of Object.entries(expectedAspectRatios)) {
+      const result = await client.chat({
+        model: 'gemini-3.1-flash-image',
+        messages: [{ role: 'user', content: [{ type: 'text', text: '融合两张图' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,aGVsbG8=' } }] }],
+        imageSize,
+        stream: true,
+      });
+      assert.equal(result.images.length, 1);
+      const gatewayRequest = gateway.requests.findLast((request) => request.url === '/v1/chat/completions');
+      assert.ok(gatewayRequest);
+      assert.equal(gatewayRequest.authorization, 'Bearer test-api-key');
+      assert.equal(JSON.parse(gatewayRequest.bodyText).stream, false);
+      assert.equal(JSON.parse(gatewayRequest.bodyText).stream_options, undefined);
+      assert.deepEqual(JSON.parse(gatewayRequest.bodyText).extra_body, { google: { image_config: { aspect_ratio: aspectRatio } } });
+      const imagePart = JSON.parse(gatewayRequest.bodyText).messages[0].content[1];
+      assert.deepEqual(Object.keys(imagePart.image_url), ['url']);
+    }
   } finally {
     await gateway.close();
   }
