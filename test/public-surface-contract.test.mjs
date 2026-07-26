@@ -244,7 +244,10 @@ test('the sidebar exposes recent uploaded and generated files with preview and r
   assert.match(publicSource, /id="openRecentFilesDrawer"/);
   assert.match(publicSource, /data-sidebar-drawer-panel="recent-files"/);
   assert.match(publicSource, /id="recentFilesList"/);
-  assert.match(publicSource, /jsonRequest\('\/api\/media\/recent'\)/);
+  assert.match(publicSource, /id="previousRecentFilesPage"/);
+  assert.match(publicSource, /id="nextRecentFilesPage"/);
+  assert.match(publicSource, /jsonRequest\(`\/api\/media\/recent\?page=\$\{requestedPage\}&limit=\$\{MEDIA_PAGE_SIZE\}`\)/);
+  assert.match(publicSource, /function renderMediaPageControls\(/);
   assert.match(publicSource, /fetch\(item\.url, \{ credentials: 'same-origin', cache: 'no-store' \}\)/);
   assert.match(publicSource, /openImageLightbox\(images\.map\(\(candidate\) => candidate\.id === item\.id \? loaded : candidate\), loaded\)/);
   assert.match(publicSource, /open\.target = '_blank'; open\.rel = 'noopener'/);
@@ -258,6 +261,8 @@ test('the sidebar exposes favorite media and recent-file context actions without
   assert.match(publicSource, /id="openFavoriteMediaDrawer"/);
   assert.match(publicSource, /data-sidebar-drawer-panel="favorite-media"/);
   assert.match(publicSource, /id="favoriteMediaList"/);
+  assert.match(publicSource, /id="previousFavoriteMediaPage"/);
+  assert.match(publicSource, /id="nextFavoriteMediaPage"/);
   assert.match(publicSource, /id="recentFileContextMenu"/);
   assert.match(publicSource, /id="jumpToRecentFileMessage"/);
   assert.match(publicSource, /function toggleFavoriteMedia\(itemId\)/);
@@ -270,6 +275,7 @@ test('the sidebar exposes favorite media and recent-file context actions without
   assert.match(backendSource, /favoriteMediaIds/);
   assert.match(backendSource, /\/api\/media\/favorites/);
   assert.match(backendSource, /mediaStore\.listOwned/);
+  assert.match(backendSource, /page: query\.get\('page'\), limit: query\.get\('limit'\)/);
 });
 
 test('the sidebar exposes server-orchestrated packaged workflows without exposing ordinary-user internals', () => {

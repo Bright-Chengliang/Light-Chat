@@ -4,7 +4,7 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const elements = {
   appShell: $('.app-shell'), sidebar: $('#sidebar'), sidebarResizer: $('#sidebarResizer'), sidebarBackdrop: $('#sidebarBackdrop'), sidebarClose: $('#sidebarCloseButton'), menu: $('#menuButton'),
   sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openFavoriteMediaDrawer: $('#openFavoriteMediaDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
-  recentFiles: $('#recentFilesList'), recentFilesToggle: $('#recentFilesToggle'), refreshRecentFiles: $('#refreshRecentFilesButton'), favoriteMedia: $('#favoriteMediaList'), favoriteMediaToggle: $('#favoriteMediaToggle'), refreshFavoriteMedia: $('#refreshFavoriteMediaButton'),
+  recentFiles: $('#recentFilesList'), recentFilesToggle: $('#recentFilesToggle'), recentFilesPagination: $('#recentFilesPagination'), previousRecentFilesPage: $('#previousRecentFilesPage'), nextRecentFilesPage: $('#nextRecentFilesPage'), recentFilesPageStatus: $('#recentFilesPageStatus'), refreshRecentFiles: $('#refreshRecentFilesButton'), favoriteMedia: $('#favoriteMediaList'), favoriteMediaToggle: $('#favoriteMediaToggle'), favoriteMediaPagination: $('#favoriteMediaPagination'), previousFavoriteMediaPage: $('#previousFavoriteMediaPage'), nextFavoriteMediaPage: $('#nextFavoriteMediaPage'), favoriteMediaPageStatus: $('#favoriteMediaPageStatus'), refreshFavoriteMedia: $('#refreshFavoriteMediaButton'),
   newConversation: $('#newConversationButton'), currentModelNewConversation: $('#currentModelNewConversationButton'), addHistoryFolder: $('#addHistoryFolderButton'), clearHistory: $('#clearHistoryButton'), history: $('#historyList'), historyToggle: $('#historyToggle'), historySearch: $('#historySearchInput'), favoriteConversations: $('#favoriteConversations'), favoriteConversationsToggle: $('#favoriteConversationsToggle'),
   sidebarFavorites: $('#sidebarFavorites'), sidebarFavoritesToggle: $('#sidebarFavoritesToggle'),
   quickModelPicker: $('#quickModelPicker'), quickChatPicker: $('#quickChatPicker'), quickImagePicker: $('#quickImagePicker'), quickChatCurrent: $('#quickChatCurrent'), quickImageCurrent: $('#quickImageCurrent'), quickChatModels: $('#quickChatModels'), quickImageModels: $('#quickImageModels'), manageFavorites: $('#manageFavoritesButton'),
@@ -78,6 +78,7 @@ const MAX_CONTINUATION_DEPTH = 12;
 const DEFAULT_CONVERSATION_TITLE_MODEL = 'gemini-3.5-flash-low-fan';
 const MAX_LOCAL_CONVERSATIONS = 40;
 const MAX_ADMIN_CONVERSATIONS = 200;
+const MEDIA_PAGE_SIZE = 50;
 const CONVERSATION_BOTTOM_THRESHOLD = 80;
 const STREAM_RENDER_FPS = 30;
 const STREAM_RENDER_INTERVAL_MS = 1000 / STREAM_RENDER_FPS;
@@ -95,7 +96,7 @@ const state = {
   historyFolders: [], openHistoryFolders: new Set(), historySearch: '',
   contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextRecentFileId: '', contextAssistantMessageId: '', renamingConversationId: '',
   pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingConversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', pendingRoleTransfer: null,
-  followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationOutput: '', recentFiles: [], recentFilesLoading: false, favoriteMedia: [], favoriteMediaLoading: false, workflows: [], workflowRunning: false, selectedWorkflow: null,
+  followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationOutput: '', recentFiles: [], recentFilesLoading: false, recentFilesPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, favoriteMedia: [], favoriteMediaLoading: false, favoriteMediaPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, workflows: [], workflowRunning: false, selectedWorkflow: null,
 };
 let globalFileDragDepth = 0;
 let editingAttachmentDropHandler = null;
@@ -868,8 +869,26 @@ function recentFileName(item) {
   return `${item.kind === 'output' ? '生成图片' : '上传图片'}-${new Date(item.createdAt).toLocaleString('zh-CN').replace(/[\s/:]/g, '-')}.${extension}`;
 }
 
+function normalizeMediaPage(payload, requestedPage) {
+  const pageSize = Math.max(1, Math.min(MEDIA_PAGE_SIZE, Number.parseInt(payload?.pageSize, 10) || MEDIA_PAGE_SIZE));
+  const total = Math.max(0, Number.parseInt(payload?.total, 10) || 0);
+  const totalPages = Math.max(1, Number.parseInt(payload?.totalPages, 10) || Math.ceil(total / pageSize) || 1);
+  const page = Math.min(Math.max(1, Number.parseInt(payload?.page, 10) || requestedPage || 1), totalPages);
+  return { page, pageSize, total, totalPages };
+}
+
+function renderMediaPageControls(controls, previous, next, status, page, loading) {
+  const show = page.total > 0;
+  controls.hidden = !show;
+  if (!show) { status.textContent = ''; previous.disabled = true; next.disabled = true; return; }
+  status.textContent = `第 ${page.page}/${page.totalPages} 页 · ${page.total}`;
+  previous.disabled = loading || page.page <= 1;
+  next.disabled = loading || page.page >= page.totalPages;
+}
+
 function renderRecentFiles() {
   elements.recentFiles.replaceChildren();
+  renderMediaPageControls(elements.recentFilesPagination, elements.previousRecentFilesPage, elements.nextRecentFilesPage, elements.recentFilesPageStatus, state.recentFilesPage, state.recentFilesLoading);
   if (state.recentFilesLoading) { const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '正在加载最近文件…'; elements.recentFiles.append(empty); return; }
   if (!state.recentFiles.length) { const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '暂无最近文件。上传附件或生成图片后会显示在这里。'; elements.recentFiles.append(empty); return; }
   const images = state.recentFiles.filter((item) => item.isImage);
@@ -1003,6 +1022,7 @@ async function copyRecentImageFromContext() {
 
 function renderFavoriteMedia() {
   elements.favoriteMedia.replaceChildren();
+  renderMediaPageControls(elements.favoriteMediaPagination, elements.previousFavoriteMediaPage, elements.nextFavoriteMediaPage, elements.favoriteMediaPageStatus, state.favoriteMediaPage, state.favoriteMediaLoading);
   if (state.favoriteMediaLoading) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '正在加载收藏图片…' })); return; }
   if (!state.favoriteMedia.length) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '还没有收藏图片。可在“最近文件”中右键任意文件后选择收藏。' })); return; }
   const images = state.favoriteMedia.filter((item) => item.isImage);
@@ -1023,10 +1043,9 @@ async function toggleFavoriteMedia(itemId) {
   if (adding) nextPreferences.favoriteMediaIds.unshift(itemId); else nextPreferences.favoriteMediaIds.splice(index, 1);
   try {
     await savePreferences(nextPreferences);
-    state.favoriteMedia = adding ? [item, ...state.favoriteMedia.filter((candidate) => candidate.id !== itemId)] : state.favoriteMedia.filter((candidate) => candidate.id !== itemId);
-    renderRecentFiles(); renderFavoriteMedia();
+    renderRecentFiles();
     if (adding) setStatus(`已收藏“${recentFileName(item)}”`, 'success'); else setStatus(`已取消收藏“${recentFileName(item)}”`, 'success');
-    if (adding) void loadFavoriteMedia();
+    void loadFavoriteMedia(adding ? 1 : state.favoriteMediaPage.page);
   } catch (error) { setStatus(error.message || '收藏图片保存失败', 'error'); }
 }
 
@@ -1043,17 +1062,25 @@ async function openRecentFile(item, images) {
   }
 }
 
-async function loadRecentFiles() {
+async function loadRecentFiles(page = state.recentFilesPage.page) {
+  const requestedPage = Math.max(1, Number.parseInt(page, 10) || 1);
   state.recentFilesLoading = true; renderRecentFiles();
-  try { const payload = await jsonRequest('/api/media/recent'); state.recentFiles = Array.isArray(payload.files) ? payload.files : []; }
-  catch (error) { state.recentFiles = []; setStatus(error.message || '最近文件加载失败', 'error'); }
+  try {
+    const payload = await jsonRequest(`/api/media/recent?page=${requestedPage}&limit=${MEDIA_PAGE_SIZE}`);
+    state.recentFiles = Array.isArray(payload.files) ? payload.files : [];
+    state.recentFilesPage = normalizeMediaPage(payload, requestedPage);
+  } catch (error) { state.recentFiles = []; state.recentFilesPage = { page: requestedPage, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }; setStatus(error.message || '最近文件加载失败', 'error'); }
   finally { state.recentFilesLoading = false; renderRecentFiles(); }
 }
 
-async function loadFavoriteMedia() {
+async function loadFavoriteMedia(page = state.favoriteMediaPage.page) {
+  const requestedPage = Math.max(1, Number.parseInt(page, 10) || 1);
   state.favoriteMediaLoading = true; renderFavoriteMedia();
-  try { const payload = await jsonRequest('/api/media/favorites'); state.favoriteMedia = Array.isArray(payload.files) ? payload.files : []; }
-  catch (error) { state.favoriteMedia = []; setStatus(error.message || '收藏图片加载失败', 'error'); }
+  try {
+    const payload = await jsonRequest(`/api/media/favorites?page=${requestedPage}&limit=${MEDIA_PAGE_SIZE}`);
+    state.favoriteMedia = Array.isArray(payload.files) ? payload.files : [];
+    state.favoriteMediaPage = normalizeMediaPage(payload, requestedPage);
+  } catch (error) { state.favoriteMedia = []; state.favoriteMediaPage = { page: requestedPage, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }; setStatus(error.message || '收藏图片加载失败', 'error'); }
   finally { state.favoriteMediaLoading = false; renderFavoriteMedia(); }
 }
 
@@ -5039,9 +5066,13 @@ function bindEvents() {
   elements.openHistoryDrawer.addEventListener('click', () => openSidebarDrawer('history'));
   elements.historySearch.addEventListener('input', () => { state.historySearch = elements.historySearch.value; renderHistory(); });
   elements.recentFilesToggle.addEventListener('click', () => handleSidebarDrawerHeader('recent-files'));
-  elements.refreshRecentFiles.addEventListener('click', (event) => { event.stopPropagation(); void loadRecentFiles(); });
+  elements.previousRecentFilesPage.addEventListener('click', (event) => { event.stopPropagation(); void loadRecentFiles(state.recentFilesPage.page - 1); });
+  elements.nextRecentFilesPage.addEventListener('click', (event) => { event.stopPropagation(); void loadRecentFiles(state.recentFilesPage.page + 1); });
+  elements.refreshRecentFiles.addEventListener('click', (event) => { event.stopPropagation(); void loadRecentFiles(state.recentFilesPage.page); });
   elements.favoriteMediaToggle.addEventListener('click', () => handleSidebarDrawerHeader('favorite-media'));
-  elements.refreshFavoriteMedia.addEventListener('click', (event) => { event.stopPropagation(); void loadFavoriteMedia(); });
+  elements.previousFavoriteMediaPage.addEventListener('click', (event) => { event.stopPropagation(); void loadFavoriteMedia(state.favoriteMediaPage.page - 1); });
+  elements.nextFavoriteMediaPage.addEventListener('click', (event) => { event.stopPropagation(); void loadFavoriteMedia(state.favoriteMediaPage.page + 1); });
+  elements.refreshFavoriteMedia.addEventListener('click', (event) => { event.stopPropagation(); void loadFavoriteMedia(state.favoriteMediaPage.page); });
   elements.translateInput.addEventListener('input', () => { state.translationOutput = ''; renderTranslator(); });
   for (const select of [elements.translateSourceLanguage, elements.translateTargetLanguage]) select.addEventListener('change', () => { state.translationOutput = ''; renderTranslator(); });
   elements.translateSwapButton.addEventListener('click', () => { swapTranslationLanguages(); state.translationOutput = ''; renderTranslator(); });

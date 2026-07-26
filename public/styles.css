@@ -144,6 +144,11 @@ body.resizing-sidebar, body.resizing-sidebar * { cursor: col-resize !important; 
 .sidebar-section-heading .section-chevron { position: relative; width: 12px; height: 12px; flex: 0 0 12px; color: inherit; }
 .sidebar-section-heading .section-chevron::before { content: ""; position: absolute; inset: 2px auto auto 2px; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); transform-origin: center; transition: transform 140ms ease; }
 .sidebar-section-heading .section-toggle[aria-expanded="true"] .section-chevron::before { transform: rotate(225deg); }
+.media-page-controls { min-width: 0; display: inline-flex; align-items: center; gap: 1px; margin-left: auto; padding: 1px; color: var(--text-faint); background: rgba(255,255,255,.58); border: 1px solid rgba(220,217,209,.78); border-radius: 7px; }
+.media-page-controls[hidden] { display: none; }
+.media-page-controls > button { width: 23px; height: 24px; padding: 0; display: grid; place-items: center; font-size: .92rem; line-height: 1; }
+.media-page-controls > button:disabled { opacity: .32; cursor: default; }
+.media-page-controls > span { min-width: 48px; padding: 0 3px; overflow: hidden; color: var(--text-faint); font-size: .5rem; font-weight: 750; letter-spacing: 0; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-favorites, .history-list, .favorite-conversation-list { min-height: 0; padding-left: 3px; display: grid; grid-auto-rows: min-content; align-content: start; gap: 3px; overflow: auto; border-left: 1px solid rgba(166,75,55,.11); scrollbar-width: thin; }
 .sidebar-favorites { max-height: min(24vh, 190px); }
 .sidebar-favorites[hidden] + .sidebar-section-heading { margin-top: 4px; }

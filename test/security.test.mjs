@@ -74,6 +74,25 @@ test('media metadata persists across restarts and remains UID-scoped', async () 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('persisted media has no record-count or expiry limit while browsing stays paginated', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'chat-media-pages-'));
+  try {
+    const first = new MediaStore(root, { defaultOwnerId: '00000' }); await first.initialize();
+    for (let index = 0; index < 51; index += 1) await first.save(tinyPng(10 + index, 9), { sessionId: '00000', kind: 'output', alt: `image-${index}` });
+    const pageOne = first.listRecent('00000', { page: 1, limit: 50 });
+    const pageTwo = first.listRecent('00000', { page: 2, limit: 50 });
+    assert.deepEqual({ total: pageOne.total, totalPages: pageOne.totalPages, pageSize: pageOne.pageSize }, { total: 51, totalPages: 2, pageSize: 50 });
+    assert.equal(pageOne.files.length, 50);
+    assert.equal(pageTwo.files.length, 1);
+    assert.equal(first.get(pageOne.files[0].id, '00000').expiresAt, null);
+    first.close();
+
+    const second = new MediaStore(root, { defaultOwnerId: '00000' }); await second.initialize();
+    assert.equal(second.listRecent('00000', { page: 2, limit: 50 }).total, 51);
+    second.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('historical image recovery accepts byte-identical duplicates but rejects different candidates', async () => {
   const root = await mkdtemp(join(tmpdir(), 'chat-media-recovery-'));
   try {

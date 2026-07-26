@@ -556,6 +556,7 @@ test('recent media lists uploaded and generated files newest first for the signe
     const response = await fetch(`${context.baseUrl}/api/media/recent`, { headers: { Cookie: signedIn.cookie } });
     assert.equal(response.status, 200);
     const payload = await response.json();
+    assert.deepEqual({ page: payload.page, pageSize: payload.pageSize, total: payload.total, totalPages: payload.totalPages }, { page: 1, pageSize: 50, total: 2, totalPages: 1 });
     assert.equal(payload.files.length, 2);
     assert.deepEqual(payload.files.map((item) => item.kind), ['output', 'upload']);
     assert.equal(payload.files[1].fileName, 'reference.png');
@@ -587,6 +588,24 @@ test('favorite media persists per account and only returns owned authenticated f
     const payload = await listed.json();
     assert.deepEqual(payload.files.map((item) => item.id), favoriteIds);
     assert.ok(payload.files.every((item) => /^\/api\/media\/[A-Za-z0-9_-]{32}$/.test(item.url)));
+  } finally {
+    await context.close();
+  }
+});
+
+test('media favorites do not impose a collection-size cap', async () => {
+  const context = await fixture();
+  try {
+    const signedIn = await authenticated(context);
+    const preferences = await fetch(`${context.baseUrl}/api/preferences`, { headers: { Cookie: signedIn.cookie } }).then((response) => response.json());
+    const favoriteMediaIds = Array.from({ length: 121 }, (_, index) => `media-${String(index).padStart(26, '0')}`);
+    const saved = await fetch(`${context.baseUrl}/api/preferences`, {
+      method: 'PUT',
+      headers: { Cookie: signedIn.cookie, Origin: context.baseUrl, 'X-CSRF-Token': signedIn.body.csrfToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...preferences, favoriteMediaIds }),
+    });
+    assert.equal(saved.status, 200);
+    assert.equal((await saved.json()).favoriteMediaIds.length, 121);
   } finally {
     await context.close();
   }
