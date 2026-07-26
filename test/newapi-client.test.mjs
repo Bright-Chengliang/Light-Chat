@@ -42,7 +42,7 @@ test('chat first-token watchdog stops after the first generated token', async ()
   afterFirstToken.dispose();
 });
 
-test('Gemini Flash Images request preserves the prompt and sends its canonical aspect ratio', async () => {
+test('Gemini Flash Images request preserves the prompt and forwards its selected canvas size', async () => {
   const fake = await createFakeNewApi({ imageMime: 'jpeg' });
   try {
     const client = new NewApiClient({ apiKey: 'test-api-key', baseUrl: fake.baseUrl });
@@ -53,7 +53,7 @@ test('Gemini Flash Images request preserves the prompt and sends its canonical a
     assert.equal(images[0].buffer[1], 0xd8);
     const request = fake.requests.find((entry) => entry.url === '/v1/images/generations');
     assert.deepEqual(JSON.parse(request.bodyText), {
-      model: 'gemini-3.1-flash-image', prompt, n: 1, size: '16:9', quality: 'high', response_format: 'b64_json',
+      model: 'gemini-3.1-flash-image', prompt, n: 1, size: '1792x1024', quality: 'high', response_format: 'b64_json',
     });
   } finally {
     await fake.close();

@@ -999,7 +999,7 @@ test('Gemini Flash image generation preserves all eight ordered reference images
     await generated.json();
     const upstream = context.fake.requests.find((request) => request.url === '/v1/images/generations');
     assert.deepEqual(JSON.parse(upstream.bodyText), {
-      model: 'gemini-3.1-flash-image', prompt, n: 1, size: '16:9', quality: 'high', response_format: 'b64_json',
+      model: 'gemini-3.1-flash-image', prompt, n: 1, size: '1792x1024', quality: 'high', response_format: 'b64_json',
     });
     const quota = await fetch(`${context.baseUrl}/api/quota`, { headers: { Cookie: signedIn.cookie } });
     assert.equal((await quota.json()).usagePoints, 1);
@@ -1068,18 +1068,17 @@ test('Gemini Flash image generation preserves all eight ordered reference images
   }
 });
 
-test('Gemini Flash maps every supported portrait image size to the intended aspect ratio', async () => {
+test('Gemini Flash forwards every supported portrait canvas size unchanged', async () => {
   const context = await fixture();
   try {
     const signedIn = await authenticated(context);
-    const expectedRatios = { '1152x1536': '3:4', '1024x1536': '2:3', '1024x1792': '9:16' };
-    for (const [size, aspectRatio] of Object.entries(expectedRatios)) {
+    for (const size of ['1152x1536', '1024x1536', '1024x1792']) {
       const generated = await postJson(context, signedIn, '/api/images/generations', {
         model: 'gemini-3.1-flash-image', prompt: `竖图 ${size}`, size, quality: 'high', count: 1,
       });
       assert.equal(generated.response.status, 200);
       const upstream = context.fake.requests.findLast((request) => request.url === '/v1/images/generations');
-      assert.equal(JSON.parse(upstream.bodyText).size, aspectRatio);
+      assert.equal(JSON.parse(upstream.bodyText).size, size);
     }
   } finally {
     await context.close();
