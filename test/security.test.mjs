@@ -87,7 +87,8 @@ test('persisted media has no record-count or expiry limit while browsing stays p
     const neighbors = first.recentImageNeighbors('00000', pageOne.files[25].id);
     assert.equal(neighbors.previous.id, pageOne.files[24].id);
     assert.equal(neighbors.next.id, pageOne.files[26].id);
-    assert.equal(first.recentImageNeighbors('00000', pageTwo.files[0].id).next, null);
+    assert.deepEqual({ position: neighbors.position, total: neighbors.total }, { position: 26, total: 51 });
+    assert.deepEqual(first.recentImageNeighbors('00000', pageTwo.files[0].id), { previous: pageOne.files[49], next: null, position: 51, total: 51 });
     assert.equal(first.get(pageOne.files[0].id, '00000').expiresAt, null);
     first.close();
 

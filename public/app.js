@@ -30,7 +30,7 @@ const elements = {
   addModelAccessGroup: $('#addModelAccessGroupButton'), saveModelAccessGroups: $('#saveModelAccessGroupsButton'), modelAccessGroupsEditor: $('#modelAccessGroupsEditor'), workflowEditor: $('#workflowEditor'), addWorkflow: $('#addWorkflowButton'), saveWorkflows: $('#saveWorkflowsButton'),
   rolesDialog: $('#rolesDialog'), rolesEditor: $('#rolesEditor'), addRoleFolder: $('#addRoleFolderButton'), saveRoles: $('#saveRolesButton'), rolesStatus: $('#rolesStatus'),
   roleTransferDialog: $('#roleTransferDialog'), roleTransferTitle: $('#roleTransferDialogTitle'), roleTransferDescription: $('#roleTransferDescription'), roleTransferFolder: $('#roleTransferFolderSelect'), roleTransferStatus: $('#roleTransferStatus'), confirmRoleTransfer: $('#confirmRoleTransferButton'),
-  imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'), imageLightboxContextMenu: $('#imageLightboxContextMenu'), jumpToLightboxFileMessage: $('#jumpToLightboxFileMessage'), toggleLightboxFavoriteMediaButton: $('#toggleLightboxFavoriteMediaButton'), copyLightboxImageButton: $('#copyLightboxImageButton'), downloadLightboxFileButton: $('#downloadLightboxFileButton'),
+  imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxPosition: $('#imageLightboxPosition'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'), imageLightboxContextMenu: $('#imageLightboxContextMenu'), jumpToLightboxFileMessage: $('#jumpToLightboxFileMessage'), toggleLightboxFavoriteMediaButton: $('#toggleLightboxFavoriteMediaButton'), copyLightboxImageButton: $('#copyLightboxImageButton'), downloadLightboxFileButton: $('#downloadLightboxFileButton'),
   upscaleDialog: $('#upscaleDialog'), upscaleMode: $('#upscaleMode'), upscaleWidth: $('#upscaleWidth'), upscaleHeight: $('#upscaleHeight'), upscaleStatus: $('#upscaleStatus'), startUpscaleButton: $('#startUpscaleButton'),
   historyContextMenu: $('#historyContextMenu'), renameConversation: $('#renameConversation'), regenerateConversationTitle: $('#regenerateConversationTitle'), toggleFavoriteConversation: $('#toggleFavoriteConversation'), jumpToRoleFromConversation: $('#jumpToRoleFromConversation'), jumpToSourceConversation: $('#jumpToSourceConversation'), exportTxt: $('#exportConversationTxt'), exportMarkdownText: $('#exportConversationMarkdownText'), exportMarkdown: $('#exportConversationMarkdown'), deleteConversation: $('#deleteConversation'),
   roleFolderContextMenu: $('#roleFolderContextMenu'), addRoleToFolder: $('#addRoleToFolder'), deleteRoleFolder: $('#deleteRoleFolder'),
@@ -2209,6 +2209,13 @@ function resetRecentPoolLightbox() {
   lightboxRecentPool = null;
 }
 
+function renderImageLightboxPosition() {
+  const pool = lightboxRecentPool;
+  const position = Number(pool?.position);
+  const total = Number(pool?.total);
+  elements.imageLightboxPosition.textContent = Number.isInteger(position) && Number.isInteger(total) && position > 0 && total >= position ? `${position} / ${total}` : '';
+}
+
 function renderImageLightboxNavigation(total = lightboxImages.length) {
   const pool = lightboxRecentPool;
   if (pool) {
@@ -2230,6 +2237,9 @@ async function loadRecentPoolNeighbors(id) {
     if (!lightboxRecentPool || lightboxRecentPool.currentId !== id) return;
     lightboxRecentPool.previous = sanitizeAttachment(payload.previous);
     lightboxRecentPool.next = sanitizeAttachment(payload.next);
+    lightboxRecentPool.position = Number(payload.position);
+    lightboxRecentPool.total = Number(payload.total);
+    renderImageLightboxPosition();
   } catch (error) {
     if (!lightboxRecentPool || lightboxRecentPool.currentId !== id) return;
     lightboxRecentPool.previous = null; lightboxRecentPool.next = null;
@@ -2241,7 +2251,7 @@ async function loadRecentPoolNeighbors(id) {
 
 function openRecentPoolLightbox(source, loaded, blobUrl) {
   resetRecentPoolLightbox();
-  lightboxRecentPool = { currentId: source.id, previous: null, next: null, loading: true, blobUrl };
+  lightboxRecentPool = { currentId: source.id, previous: null, next: null, position: 0, total: 0, loading: true, blobUrl };
   lightboxImages = [{ item: loaded, isUpscale: false }]; lightboxImageIndex = 0;
   renderImageLightbox();
   if (!elements.imageLightbox.open) elements.imageLightbox.showModal();
@@ -2261,6 +2271,7 @@ async function switchRecentPoolLightbox(direction) {
     if (!lightboxRecentPool || lightboxRecentPool !== pool) { URL.revokeObjectURL(blobUrl); return; }
     URL.revokeObjectURL(pool.blobUrl);
     pool.currentId = target.id; pool.previous = null; pool.next = null; pool.blobUrl = blobUrl;
+    if (Number.isInteger(pool.position)) pool.position += direction;
     lightboxImages = [{ item: { ...target, url: blobUrl }, isUpscale: false }]; lightboxImageIndex = 0;
     renderImageLightbox(); revealImageLightboxControls();
     void loadRecentPoolNeighbors(target.id);
@@ -2288,6 +2299,7 @@ function renderImageLightbox() {
   if (image.complete && image.naturalWidth > 0) queueMicrotask(() => { if (requestId === lightboxImageRequestId) setImageLightboxLoadStatus(recentPool ? '已切换至最近图片' : `已切换至第 ${position} 张`, 'complete'); });
   elements.imageLightboxCaption.textContent = `${isUpscale ? '超分 · ' : ''}${caption}${recentPool ? ' · 最近图片池' : (total > 1 ? ` · ${lightboxImageIndex + 1}/${total}` : '')}`;
   elements.imageLightboxCaption.title = caption;
+  renderImageLightboxPosition();
   elements.imageLightboxDownload.href = item.url;
   elements.imageLightboxDownload.download = imageDownloadName(item);
   renderImageLightboxNavigation(total);
@@ -5286,7 +5298,7 @@ function bindEvents() {
   elements.imageLightboxStage.addEventListener('touchstart', revealImageLightboxControls, { passive: true });
   elements.imageLightboxPrevious.addEventListener('click', () => switchImageLightbox(-1));
   elements.imageLightboxNext.addEventListener('click', () => switchImageLightbox(1));
-  elements.imageLightbox.addEventListener('close', () => { closeContextMenu(elements.imageLightboxContextMenu); if (lightboxControlsTimer) clearTimeout(lightboxControlsTimer); if (lightboxLoadFeedbackTimer) clearTimeout(lightboxLoadFeedbackTimer); lightboxControlsTimer = 0; lightboxLoadFeedbackTimer = 0; lightboxImageRequestId += 1; resetRecentPoolLightbox(); lightboxImages = []; lightboxImageIndex = 0; elements.imageLightboxLoading.hidden = true; elements.imageLightboxImage.classList.remove('is-loading'); elements.imageLightbox.classList.remove('controls-visible', 'has-image-navigation'); elements.imageLightboxImage.removeAttribute('src'); });
+  elements.imageLightbox.addEventListener('close', () => { closeContextMenu(elements.imageLightboxContextMenu); if (lightboxControlsTimer) clearTimeout(lightboxControlsTimer); if (lightboxLoadFeedbackTimer) clearTimeout(lightboxLoadFeedbackTimer); lightboxControlsTimer = 0; lightboxLoadFeedbackTimer = 0; lightboxImageRequestId += 1; resetRecentPoolLightbox(); lightboxImages = []; lightboxImageIndex = 0; elements.imageLightboxPosition.textContent = ''; elements.imageLightboxLoading.hidden = true; elements.imageLightboxImage.classList.remove('is-loading'); elements.imageLightbox.classList.remove('controls-visible', 'has-image-navigation'); elements.imageLightboxImage.removeAttribute('src'); });
   elements.accountDialog.addEventListener('close', () => elements.accountDialog.classList.remove('workflow-workspace-active'));
   document.addEventListener('click', (event) => {
     if (!elements.headerModelMenu.hidden && !elements.headerModelPicker.contains(event.target)) closeHeaderModelMenu();

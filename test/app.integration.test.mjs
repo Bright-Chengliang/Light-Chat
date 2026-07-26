@@ -564,7 +564,7 @@ test('recent media lists uploaded and generated files newest first for the signe
     assert.match(payload.files[0].url, /^\/api\/media\/[A-Za-z0-9_-]{32}$/);
     const neighbors = await fetch(`${context.baseUrl}/api/media/recent/neighbors?id=${payload.files[0].id}`, { headers: { Cookie: signedIn.cookie } });
     assert.equal(neighbors.status, 200);
-    assert.equal((await neighbors.json()).next.id, payload.files[1].id);
+    assert.deepEqual(await neighbors.json(), { previous: null, next: payload.files[1], position: 1, total: 2 });
   } finally {
     await context.close();
   }

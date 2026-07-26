@@ -777,6 +777,7 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 .image-lightbox-shell { height: min(92dvh, 920px); display: grid; grid-template-rows: 58px minmax(0, 1fr); overflow: hidden; border-radius: inherit; }
 .image-lightbox header { min-width: 0; padding: 0 12px 0 18px; display: flex; align-items: center; gap: 16px; overflow: hidden; color: #f7f4ec; background: rgba(255,255,255,.05); border-bottom: 1px solid rgba(255,255,255,.1); }
 .image-lightbox header > span:first-child { min-width: 0; flex: 1 1 auto; display: block; overflow: hidden; font-size: .72rem; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.image-lightbox-position { flex: 0 0 auto; padding: 0 4px; color: rgba(247,244,236,.72); font: 700 .64rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: nowrap; }
 .image-lightbox header > span:last-child { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .image-lightbox header a { width: 44px; height: 44px; display: grid; place-items: center; color: #fff; background: rgba(255,255,255,.1); border-radius: 9px; text-decoration: none; font-size: .9rem; white-space: nowrap; }
 .image-lightbox header .icon-button { color: #fff; }

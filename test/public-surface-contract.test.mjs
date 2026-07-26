@@ -441,8 +441,11 @@ test('lightbox navigates every image and upscale variant with keyboard and trans
   assert.match(publicSource, /function imageLightboxEntries\(items\)/);
   assert.match(publicSource, /openImageLightbox\(images, variants\[selectedVariant\]\)/);
   assert.match(publicSource, /traverseRecentPool: true/);
+  assert.match(publicSource, /id="imageLightboxPosition"/);
   assert.match(publicSource, /function openRecentPoolLightbox\(source, loaded, blobUrl\)/);
   assert.match(publicSource, /\/api\/media\/recent\/neighbors\?id=\$\{encodeURIComponent\(id\)\}/);
+  assert.match(publicSource, /function renderImageLightboxPosition\(\)/);
+  assert.match(publicSource, /\$\{position\} \/ \$\{total\}/);
   assert.match(publicSource, /function switchRecentPoolLightbox\(direction\)/);
   assert.match(backendSource, /pathname === '\/api\/media\/recent\/neighbors'/);
   assert.match(backendSource, /mediaStore\.recentImageNeighbors/);
