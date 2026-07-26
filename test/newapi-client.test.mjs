@@ -135,6 +135,7 @@ test('Gemini Flash multimodal chat keeps each selected aspect ratio on the confi
       assert.equal(gatewayRequest.authorization, 'Bearer test-api-key');
       assert.equal(JSON.parse(gatewayRequest.bodyText).stream, false);
       assert.equal(JSON.parse(gatewayRequest.bodyText).stream_options, undefined);
+      assert.equal(JSON.parse(gatewayRequest.bodyText).size, imageSize);
       assert.deepEqual(JSON.parse(gatewayRequest.bodyText).extra_body, { google: { image_config: { aspect_ratio: aspectRatio } } });
       const imagePart = JSON.parse(gatewayRequest.bodyText).messages[0].content[1];
       assert.deepEqual(Object.keys(imagePart.image_url), ['url']);
