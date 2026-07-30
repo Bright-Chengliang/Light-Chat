@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -18,7 +19,7 @@ const WORKFLOW_ROLES = {
   }],
 };
 
-async function fixture({ imageUpscaler = null, fakeOptions = {} } = {}) {
+async function fixture({ imageUpscaler = null, fakeOptions = {}, opcPort = undefined } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'chat-app-'));
   await mkdir(join(root, 'public'), { recursive: true });
   await mkdir(join(root, '.data'), { recursive: true });
@@ -36,6 +37,7 @@ async function fixture({ imageUpscaler = null, fakeOptions = {} } = {}) {
     sessionSecret: 'test-session-secret-that-is-long-enough',
     port: 0,
     newApiBaseUrl: fake.baseUrl,
+    ...(opcPort === undefined ? {} : { opcPort }),
     pdfTextExtractor: { extract: async () => '[Page 1]\nLeft column first.\nRight column second.' },
     imageUpscaler,
   });
@@ -59,6 +61,82 @@ async function authenticated(context) {
   assert.equal(signedIn.response.status, 200);
   return signedIn;
 }
+
+test('OpenOPC is available only through an authenticated LightChat proxy session', async () => {
+  const requests = [];
+  const opcServer = createServer((req, res) => {
+    requests.push({ url: req.url, headers: { ...req.headers } });
+    if (req.url === '/') {
+      const html = '<!doctype html><html><head><title>OpenOPC</title></head><body><script type="module" src="./assets/app.js"></script></body></html>';
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': Buffer.byteLength(html), 'Set-Cookie': 'upstream-session=must-not-leak' });
+      res.end(html);
+      return;
+    }
+    if (req.url === '/assets/app.js') {
+      const bundle = 'window.location.hostname}:${window.location.port||"8765"}/ws; fetch("/api/model-catalog"); fetch(`/api/roles/x`);';
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
+      res.end(bundle);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ url: req.url }));
+  });
+  const opcBaseUrl = await listen(opcServer);
+  const context = await fixture({ opcPort: Number(new URL(opcBaseUrl).port) });
+  try {
+    const unauthenticated = await fetch(`${context.baseUrl}/opc/`, { redirect: 'manual' });
+    assert.equal(unauthenticated.status, 401);
+    assert.equal(requests.length, 0);
+
+    const signedIn = await authenticated(context);
+    const ordinaryUser = await context.app.stores.accountStore.createUser({
+      username: 'opc-ordinary-user', password: 'opc-ordinary-password', credits: 0, extraModels: [],
+    });
+    const ordinaryInitial = await session(context.baseUrl);
+    const ordinarySignedIn = await login(context.baseUrl, {
+      ...ordinaryInitial, username: ordinaryUser.username, password: 'opc-ordinary-password',
+    });
+    assert.equal(ordinarySignedIn.response.status, 200);
+    const ordinaryDenied = await fetch(`${context.baseUrl}/opc/`, { headers: { Cookie: ordinarySignedIn.cookie } });
+    assert.equal(ordinaryDenied.status, 403);
+    assert.equal(requests.length, 0);
+
+    const redirect = await fetch(`${context.baseUrl}/opc`, { headers: { Cookie: signedIn.cookie }, redirect: 'manual' });
+    assert.equal(redirect.status, 303);
+    assert.equal(redirect.headers.get('location'), '/opc/');
+
+    const document = await fetch(`${context.baseUrl}/opc/`, { headers: { Cookie: signedIn.cookie } });
+    assert.equal(document.status, 200);
+    assert.equal(document.headers.get('set-cookie'), null);
+    assert.doesNotMatch(await document.text(), /opc-bridge/);
+    assert.equal(requests.at(-1).url, '/');
+    assert.equal(requests.at(-1).headers.cookie, undefined);
+
+    const bundle = await fetch(`${context.baseUrl}/opc/assets/app.js`, { headers: { Cookie: signedIn.cookie } });
+    assert.equal(bundle.status, 200);
+    const rewrittenBundle = await bundle.text();
+    assert.match(rewrittenBundle, /window\.location\.host}\/?opc\/ws/);
+    assert.match(rewrittenBundle, /fetch\("\/opc\/api\/model-catalog"\)/);
+    assert.match(rewrittenBundle, /fetch\(`\/opc\/api\/roles\/x`\)/);
+
+    const rejectedMutation = await fetch(`${context.baseUrl}/opc/api/model-favorites`, {
+      method: 'PUT', headers: { Cookie: signedIn.cookie, 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(rejectedMutation.status, 403);
+
+    const proxiedMutation = await fetch(`${context.baseUrl}/opc/api/model-favorites`, {
+      method: 'PUT',
+      headers: { Cookie: signedIn.cookie, Origin: context.baseUrl, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    assert.equal(proxiedMutation.status, 200);
+    assert.equal((await proxiedMutation.json()).url, '/api/model-favorites');
+    assert.equal(requests.at(-1).headers.cookie, undefined);
+  } finally {
+    await context.close();
+    await new Promise((resolve) => opcServer.close(resolve));
+  }
+});
 
 async function uploadFile(context, signedIn, { buffer, mimeType, fileName }) {
   const response = await fetch(`${context.baseUrl}/api/uploads`, {

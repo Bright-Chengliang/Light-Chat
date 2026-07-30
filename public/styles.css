@@ -104,7 +104,7 @@ body.resizing-sidebar, body.resizing-sidebar * { cursor: col-resize !important; 
 .sidebar-drawer-panel { min-width: 0; min-height: 0; width: 100%; flex: 1; display: flex; flex-direction: column; overflow: hidden; animation: sidebar-drawer-in 150ms ease both; }
 .sidebar-drawer-panel[hidden] { display: none; }
 .sidebar-drawer-root { padding: 2px 1px; gap: 7px; align-content: start; }
-.sidebar-drawer-entry { width: 100%; min-height: 58px; padding: 9px 10px; display: grid; grid-template-columns: 34px minmax(0, 1fr) 18px; align-items: center; gap: 9px; color: var(--text-soft); background: rgba(255,255,255,.28); border: 1px solid transparent; border-radius: 12px; text-align: left; transition: 140ms ease; }
+.sidebar-drawer-entry { width: 100%; min-height: 58px; padding: 9px 10px; display: grid; grid-template-columns: 34px minmax(0, 1fr) 18px; align-items: center; gap: 9px; color: var(--text-soft); background: rgba(255,255,255,.28); border: 1px solid transparent; border-radius: 12px; text-align: left; text-decoration: none; transition: 140ms ease; }
 .sidebar-drawer-entry:hover, .sidebar-drawer-entry:focus-visible { color: var(--text); background: rgba(255,255,255,.68); border-color: var(--border); transform: translateX(2px); }
 .sidebar-drawer-entry > .drawer-entry-icon { width: 34px; height: 34px; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); border-radius: 9px; font-size: .76rem; }
 .sidebar-drawer-entry > span:nth-child(2) { min-width: 0; display: grid; gap: 4px; }
