@@ -73,6 +73,12 @@ test('unfiled conversation collections behave like collapsible folders', () => {
   assert.match(appSource, /id="light-chat-history-unfiled-collapsed"|HISTORY_UNFILED_COLLAPSED_KEY/);
 });
 
+test('conversation folder edit tools stay in the summary row without toggling it', () => {
+  assert.match(appSource, /tools\.append\(rename, remove\); summary\.append\(tools\); drawer\.append\(summary,/);
+  assert.match(appSource, /event\.preventDefault\(\); event\.stopPropagation\(\); renameHistoryFolder\(folder\.id\)/);
+  assert.match(appSource, /event\.preventDefault\(\); event\.stopPropagation\(\); deleteHistoryFolder\(folder\.id\)/);
+});
+
 test('role-card conversation history reuses the full conversation context menu', () => {
   const bindings = appSource.match(/bindContextMenuTrigger\(conversationButton, 'historyContextMenu', \(x, y, trigger\) => openHistoryContextMenu\(conversation\.id, x, y, trigger\)\)/g) || [];
   assert.ok(bindings.length >= 2);

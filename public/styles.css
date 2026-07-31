@@ -242,7 +242,7 @@ body.resizing-sidebar-roles, body.resizing-sidebar-roles * { cursor: row-resize 
 .favorite-conversation-folder > summary .favorite-conversation-folder-heading { min-height: 29px; }
 .favorite-conversation-folder-heading .favorite-group-title { min-width: 0; flex: 1; margin: 4px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .favorite-conversation-folder-heading .favorite-group-title small { min-width: 20px; padding: 2px 5px; color: var(--text-faint); background: rgba(255,255,255,.62); border: 1px solid rgba(220,217,209,.7); border-radius: 99px; font-size: .5rem; text-align: center; }
-.favorite-conversation-folder-tools { display: inline-flex; align-items: center; gap: 2px; }
+.favorite-conversation-folder-tools { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; }
 .favorite-conversation-folder-tools button { width: 27px; height: 27px; padding: 0; display: grid; place-items: center; color: var(--text-faint); background: transparent; border-radius: 7px; font-size: .58rem; }
 .favorite-conversation-folder-tools button:hover, .favorite-conversation-folder-tools button:focus-visible { color: var(--accent); background: rgba(255,255,255,.68); }
 .favorite-conversation-folder-list { display: grid; gap: 2px; }
@@ -267,9 +267,9 @@ body.resizing-sidebar-roles, body.resizing-sidebar-roles * { cursor: row-resize 
 .history-folder > summary::-webkit-details-marker { display: none; }
 .history-folder > summary::before { content: ""; width: 6px; height: 6px; flex: 0 0 6px; border-right: 1.5px solid var(--accent); border-bottom: 1.5px solid var(--accent); transform: rotate(-45deg); transform-origin: center; transition: transform 140ms ease; }
 .history-folder[open] > summary::before { transform: rotate(45deg); }
-.history-folder > summary span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-folder > summary > span:first-of-type { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .history-folder > summary small { min-width: 20px; padding: 2px 5px; text-align: center; background: rgba(255,255,255,.62); border: 1px solid rgba(220,217,209,.7); border-radius: 99px; }
-.history-folder-tools { padding: 0 6px 3px; display: flex; justify-content: flex-end; gap: 3px; }
+.history-folder-tools { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; }
 .history-folder-tools button { width: 30px; height: 30px; background: transparent; border-radius: 7px; font-size: .65rem; }
 .history-folder-tools button:hover { background: rgba(255,255,255,.58); }
 .history-drop-zone { min-height: 11px; padding: 2px; border: 1px dashed transparent; border-radius: 9px; transition: 140ms ease; }

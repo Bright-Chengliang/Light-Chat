@@ -36,6 +36,7 @@ test('favorite conversations reuse the shared conversation folder structure', ()
   assert.match(appSource, /function createFavoriteConversationFolder\(/);
   assert.match(appSource, /function createFavoriteConversationFolder\(folderId, name, conversations, \{ unfiled = false \} = \{\}\) \{\s*const section = document\.createElement\('details'\)/);
   assert.match(appSource, /section\.addEventListener\('toggle', \(\) =>/);
+  assert.match(appSource, /tools\.append\(rename, remove\);\s*heading\.append\(tools\);/);
   assert.match(appSource, /favorites\.filter\(\(conversation\) => conversation\.folderId === folder\.id\)/);
   assert.match(appSource, /createHistoryFolder\(\);\s*\}\);/);
   assert.match(appSource, /renderHistory\(\); renderFavoriteConversations\(\);/);

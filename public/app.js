@@ -1236,11 +1236,11 @@ function renderHistory() {
     const drawer = document.createElement('details'); drawer.className = 'history-folder'; drawer.dataset.folderId = folder.id; drawer.open = Boolean(searchQuery) || state.openHistoryFolders.has(folder.id);
     const summary = document.createElement('summary');
     const folderName = document.createElement('span'); folderName.textContent = folder.name;
-    const count = document.createElement('small'); count.textContent = String(conversations.length); summary.append(folderName, count); drawer.append(summary);
-    const tools = document.createElement('div'); tools.className = 'history-folder-tools';
-    const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = '✏️'; rename.title = '重命名文件夹'; rename.setAttribute('aria-label', '重命名文件夹'); rename.addEventListener('click', () => renameHistoryFolder(folder.id));
-    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '🗑️'; remove.title = '删除文件夹但保留对话'; remove.setAttribute('aria-label', '删除文件夹但保留对话'); remove.addEventListener('click', () => deleteHistoryFolder(folder.id));
-    tools.append(rename, remove); drawer.append(tools, createHistoryDropZone(folder.id, conversations));
+    const count = document.createElement('small'); count.textContent = String(conversations.length); summary.append(folderName, count);
+    const tools = document.createElement('span'); tools.className = 'history-folder-tools';
+    const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = '✏️'; rename.title = '重命名文件夹'; rename.setAttribute('aria-label', '重命名文件夹'); rename.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); renameHistoryFolder(folder.id); });
+    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '🗑️'; remove.title = '删除文件夹但保留对话'; remove.setAttribute('aria-label', '删除文件夹但保留对话'); remove.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); deleteHistoryFolder(folder.id); });
+    tools.append(rename, remove); summary.append(tools); drawer.append(summary, createHistoryDropZone(folder.id, conversations));
     drawer.addEventListener('toggle', () => { if (drawer.open) state.openHistoryFolders.add(folder.id); else state.openHistoryFolders.delete(folder.id); saveHistoryFolders(); });
     elements.history.append(drawer);
   }
@@ -1285,17 +1285,17 @@ function createFavoriteConversationFolder(folderId, name, conversations, { unfil
   heading.append(label);
   if (!unfiled) {
     const tools = document.createElement('span'); tools.className = 'favorite-conversation-folder-tools';
-    const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = '✏️'; rename.title = `重命名文件夹“${name}”`; rename.setAttribute('aria-label', `重命名文件夹“${name}”`); rename.addEventListener('click', () => renameHistoryFolder(folderId));
-    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '🗑️'; remove.title = `删除文件夹“${name}”`; remove.setAttribute('aria-label', `删除文件夹“${name}”`); remove.addEventListener('click', () => deleteHistoryFolder(folderId));
+    const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = '✏️'; rename.title = `重命名文件夹“${name}”`; rename.setAttribute('aria-label', `重命名文件夹“${name}”`); rename.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); renameHistoryFolder(folderId); });
+    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '🗑️'; remove.title = `删除文件夹“${name}”`; remove.setAttribute('aria-label', `删除文件夹“${name}”`); remove.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); deleteHistoryFolder(folderId); });
     tools.append(rename, remove);
-    section.append(heading, tools);
+    heading.append(tools);
   }
   const list = document.createElement('div'); list.className = 'favorite-conversation-folder-list';
   for (const conversation of conversations) list.append(createFavoriteConversationItem(conversation));
   if (!conversations.length) {
     const empty = document.createElement('p'); empty.className = 'favorite-conversation-folder-empty'; empty.textContent = unfiled ? '没有未归档的收藏对话' : '这个文件夹还没有收藏对话'; list.append(empty);
   }
-  if (unfiled) section.append(heading);
+  section.append(heading);
   section.append(list);
   section.addEventListener('toggle', () => {
     if (unfiled) state.favoriteUnfiledCollapsed = !section.open;
