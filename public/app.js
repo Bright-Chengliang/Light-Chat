@@ -686,7 +686,6 @@ function formatTime(timestamp) {
 function sidebarDrawerBase(view) {
   if (view?.startsWith('role:')) return 'roles';
   if (view?.startsWith('workflow:')) return 'workflows';
-  if (view?.startsWith('history-folder:')) return 'history';
   return ['favorites', 'favorite-conversations', 'roles', 'recent-files', 'favorite-media', 'workflows', 'history'].includes(view) ? view : 'root';
 }
 
@@ -1146,9 +1145,6 @@ function renderSidebarDrawerState() {
   if (active.startsWith('workflow:') && !findWorkflowById(active.slice('workflow:'.length))) {
     state.sidebarDrawerStack = ['root', 'workflows']; active = 'workflows';
   }
-  if (active.startsWith('history-folder:') && !state.historyFolders.some((folder) => `history-folder:${folder.id}` === active)) {
-    state.sidebarDrawerStack = ['root', 'history']; active = 'history';
-  }
   const base = sidebarDrawerBase(active);
   elements.sidebar.dataset.sidebarDrawer = active;
   elements.sidebarDrawerRoot.hidden = base !== 'root';
@@ -1158,7 +1154,6 @@ function renderSidebarDrawerState() {
   const roleFolderId = active.startsWith('role:') ? state.roleLibrary.folders.find((folder) => folder.roles.some((role) => `role:${role.id}` === active))?.id || '' : '';
   const roleId = active.startsWith('role:') ? active.slice('role:'.length) : '';
   const workflowId = active.startsWith('workflow:') ? active.slice('workflow:'.length) : '';
-  const historyFolderId = active.startsWith('history-folder:') ? active.slice('history-folder:'.length) : '';
   for (const folder of $$('.role-folder', elements.sidebarRoles)) {
     if (folder.dataset.folderId === roleFolderId) folder.setAttribute('data-sidebar-drawer-active', 'true'); else folder.removeAttribute('data-sidebar-drawer-active');
     for (const entry of $$('.role-entry', folder)) {
@@ -1169,9 +1164,6 @@ function renderSidebarDrawerState() {
   if (defaultEntry) {
     if (roleId === '__default__') defaultEntry.setAttribute('data-role-drawer-active', 'true'); else defaultEntry.removeAttribute('data-role-drawer-active');
   }
-  for (const folder of $$('.history-folder', elements.history)) {
-    if (folder.dataset.folderId === historyFolderId) folder.setAttribute('data-sidebar-drawer-active', 'true'); else folder.removeAttribute('data-sidebar-drawer-active');
-  }
   for (const entry of $$('.workflow-entry', elements.workflowList)) {
     if (workflowId && entry.dataset.workflowId === workflowId) entry.setAttribute('data-workflow-drawer-active', 'true'); else entry.removeAttribute('data-workflow-drawer-active');
   }
@@ -1179,7 +1171,7 @@ function renderSidebarDrawerState() {
   const roleTitle = $('span:first-child', elements.sidebarRolesToggle);
   const historyTitle = $('span:first-child', elements.historyToggle);
   if (roleTitle) roleTitle.textContent = roleId === '__default__' ? '默认助手' : roleId ? findRoleById(roleId)?.name || '角色详情' : '自定义角色';
-  if (historyTitle) historyTitle.textContent = historyFolderId ? state.historyFolders.find((folder) => folder.id === historyFolderId)?.name || '对话文件夹' : '最近对话';
+  if (historyTitle) historyTitle.textContent = '最近对话';
   const activeCustomRole = roleId && roleId !== '__default__' ? findRoleById(roleId) : null;
   elements.manageRoles.textContent = activeCustomRole ? '编辑' : '管理';
   elements.manageRoles.title = activeCustomRole ? `编辑角色“${activeCustomRole.name}”` : '管理自定义角色';
@@ -1188,14 +1180,13 @@ function renderSidebarDrawerState() {
   elements.favoriteConversationsToggle.setAttribute('aria-label', '返回侧栏栏目');
   elements.sidebarRolesToggle.setAttribute('aria-label', active.startsWith('role:') ? '返回自定义角色' : '返回侧栏栏目');
   elements.workflowsToggle.setAttribute('aria-label', active.startsWith('workflow:') ? '返回打包工作流' : '返回侧栏栏目');
-  elements.historyToggle.setAttribute('aria-label', active.startsWith('history-folder:') ? '返回最近对话' : '返回侧栏栏目');
+  elements.historyToggle.setAttribute('aria-label', '返回侧栏栏目');
 }
 
 function openSidebarDrawer(view) {
   if (state.appView !== 'chat') setAppView('chat');
   const base = sidebarDrawerBase(view);
   if (base === 'root') state.sidebarDrawerStack = ['root'];
-  else if (view.startsWith('history-folder:')) state.sidebarDrawerStack = ['root', base, view];
   else if (view.startsWith('workflow:')) {
     state.sidebarDrawerStack = findWorkflowById(view.slice('workflow:'.length)) ? ['root', 'workflows', view] : ['root', 'workflows'];
   }
@@ -1242,15 +1233,10 @@ function renderHistory() {
   for (const folder of state.historyFolders) {
     const conversations = visibleConversations.filter((conversation) => conversation.folderId === folder.id);
     if (searchQuery && !conversations.length) continue;
-    const drawer = document.createElement('details'); drawer.className = 'history-folder'; drawer.dataset.folderId = folder.id; drawer.open = Boolean(searchQuery) || state.openHistoryFolders.has(folder.id) || state.sidebarDrawerStack.at(-1) === `history-folder:${folder.id}`;
+    const drawer = document.createElement('details'); drawer.className = 'history-folder'; drawer.dataset.folderId = folder.id; drawer.open = Boolean(searchQuery) || state.openHistoryFolders.has(folder.id);
     const summary = document.createElement('summary');
     const folderName = document.createElement('span'); folderName.textContent = folder.name;
     const count = document.createElement('small'); count.textContent = String(conversations.length); summary.append(folderName, count); drawer.append(summary);
-    summary.addEventListener('click', (event) => {
-      event.preventDefault();
-      if (state.sidebarDrawerStack.at(-1) === `history-folder:${folder.id}`) closeCurrentSidebarDrawer();
-      else { drawer.open = true; state.openHistoryFolders.add(folder.id); saveHistoryFolders(); openSidebarDrawer(`history-folder:${folder.id}`); }
-    });
     const tools = document.createElement('div'); tools.className = 'history-folder-tools';
     const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = '✏️'; rename.title = '重命名文件夹'; rename.setAttribute('aria-label', '重命名文件夹'); rename.addEventListener('click', () => renameHistoryFolder(folder.id));
     const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '🗑️'; remove.title = '删除文件夹但保留对话'; remove.setAttribute('aria-label', '删除文件夹但保留对话'); remove.addEventListener('click', () => deleteHistoryFolder(folder.id));

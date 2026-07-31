@@ -230,7 +230,8 @@ test('the sidebar uses full-height hierarchical drawers with enter and back navi
   assert.match(publicSource, /function closeCurrentSidebarDrawer\(\)/);
   assert.match(publicSource, /state\.sidebarDrawerStack = exists \? \['root', 'roles', view\]/);
   assert.match(publicSource, /openSidebarDrawer\(`role:\$\{normalized\}`\)/);
-  assert.match(publicSource, /openSidebarDrawer\(`history-folder:\$\{folder\.id\}`\)/);
+  assert.match(publicSource, /drawer\.addEventListener\('toggle', \(\) => \{ if \(drawer\.open\) state\.openHistoryFolders\.add\(folder\.id\)/);
+  assert.doesNotMatch(publicSource, /openSidebarDrawer\(`history-folder:\$\{folder\.id\}`\)/);
   assert.match(publicSource, /data-sidebar-drawer-active/);
   assert.match(publicSource, /data-role-drawer-active/);
   assert.match(publicSource, /\.sidebar\[data-sidebar-drawer="roles"\] \.role-conversation-list \{ display: none; \}/);
