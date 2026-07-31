@@ -34,7 +34,7 @@ test('favorite conversations are available from the sidebar and conversation con
 
 test('favorite conversations reuse the shared conversation folder structure', () => {
   assert.match(appSource, /function createFavoriteConversationFolder\(/);
-  assert.match(appSource, /document\.createElement\(folderId \? 'details' : 'section'\)/);
+  assert.match(appSource, /function createFavoriteConversationFolder\(folderId, name, conversations, \{ unfiled = false \} = \{\}\) \{\s*const section = document\.createElement\('details'\)/);
   assert.match(appSource, /section\.addEventListener\('toggle', \(\) =>/);
   assert.match(appSource, /favorites\.filter\(\(conversation\) => conversation\.folderId === folder\.id\)/);
   assert.match(appSource, /createHistoryFolder\(\);\s*\}\);/);

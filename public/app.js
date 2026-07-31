@@ -53,6 +53,8 @@ const ROLE_CONVERSATIONS_OPEN_KEY = 'light-chat-open-role-conversations';
 const DEFAULT_ROLE_CONVERSATIONS_ID = '__default__';
 const HISTORY_FOLDERS_KEY = 'light-chat-history-folders-v1';
 const HISTORY_FOLDERS_OPEN_KEY = 'light-chat-open-history-folders';
+const HISTORY_UNFILED_COLLAPSED_KEY = 'light-chat-history-unfiled-collapsed';
+const FAVORITE_UNFILED_COLLAPSED_KEY = 'light-chat-favorite-unfiled-collapsed';
 const HISTORY_COLLAPSED_KEY = 'light-chat-history-collapsed';
 const SIDEBAR_WIDTH_KEY = 'light-chat-sidebar-width';
 const SIDEBAR_ROLES_HEIGHT_KEY = 'light-chat-sidebar-roles-height';
@@ -94,7 +96,7 @@ const state = {
   csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {}, favoriteMediaIds: [], conversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL },
   selected: null, stream: storedStreamPreference !== 'false', conversations: [], currentId: '',
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
-  historyFolders: [], openHistoryFolders: new Set(), historySearch: '',
+  historyFolders: [], openHistoryFolders: new Set(), historyUnfiledCollapsed: false, favoriteUnfiledCollapsed: false, historySearch: '',
   contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextRecentFileId: '', contextAssistantMessageId: '', renamingConversationId: '',
   pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingConversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', pendingRoleTransfer: null, pendingConversationFolderMove: null,
   followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationOutput: '', recentFiles: [], recentFilesLoading: false, recentFilesPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, favoriteMedia: [], favoriteMediaLoading: false, favoriteMediaPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, workflows: [], workflowRunning: false, selectedWorkflow: null,
@@ -535,6 +537,8 @@ function loadHistoryFolders() {
 function saveHistoryFolders() {
   localStorage.setItem(HISTORY_FOLDERS_KEY, JSON.stringify(state.historyFolders));
   localStorage.setItem(HISTORY_FOLDERS_OPEN_KEY, JSON.stringify([...state.openHistoryFolders]));
+  localStorage.setItem(HISTORY_UNFILED_COLLAPSED_KEY, String(state.historyUnfiledCollapsed));
+  localStorage.setItem(FAVORITE_UNFILED_COLLAPSED_KEY, String(state.favoriteUnfiledCollapsed));
 }
 
 function saveConversations() {
@@ -1230,9 +1234,11 @@ function renderHistory() {
   const searchQuery = state.historySearch.trim().toLocaleLowerCase('zh-CN');
   const matchesTitle = (conversation) => !searchQuery || conversation.title.toLocaleLowerCase('zh-CN').includes(searchQuery);
   const visibleConversations = sorted.filter(matchesTitle);
-  const root = document.createElement('section'); root.className = 'history-unfiled';
-  const rootTitle = document.createElement('p'); rootTitle.className = 'history-folder-label'; rootTitle.textContent = searchQuery ? '搜索结果 · 未归档' : '未归档';
-  root.append(rootTitle, createHistoryDropZone('', visibleConversations.filter((conversation) => !validFolderIds.has(conversation.folderId)))); elements.history.append(root);
+  const root = document.createElement('details'); root.className = 'history-unfiled history-folder'; root.open = !state.historyUnfiledCollapsed;
+  const rootTitle = document.createElement('summary'); rootTitle.className = 'history-folder-label'; rootTitle.textContent = searchQuery ? '搜索结果 · 未归档' : '未归档';
+  root.append(rootTitle, createHistoryDropZone('', visibleConversations.filter((conversation) => !validFolderIds.has(conversation.folderId))));
+  root.addEventListener('toggle', () => { state.historyUnfiledCollapsed = !root.open; saveHistoryFolders(); });
+  elements.history.append(root);
   for (const folder of state.historyFolders) {
     const conversations = visibleConversations.filter((conversation) => conversation.folderId === folder.id);
     if (searchQuery && !conversations.length) continue;
@@ -1275,6 +1281,7 @@ function renderFavoriteConversations() {
     const unfiled = favorites.filter((conversation) => !state.historyFolders.some((folder) => folder.id === conversation.folderId));
     elements.favoriteConversations.append(createFavoriteConversationFolder('', '未归档', unfiled, { unfiled: true }));
   }
+  if (!favorites.length) elements.favoriteConversations.append(createFavoriteConversationFolder('', '未归档', [], { unfiled: true }));
   for (const folder of state.historyFolders) {
     const conversations = favorites.filter((conversation) => conversation.folderId === folder.id);
     elements.favoriteConversations.append(createFavoriteConversationFolder(folder.id, folder.name, conversations));
@@ -1282,11 +1289,11 @@ function renderFavoriteConversations() {
 }
 
 function createFavoriteConversationFolder(folderId, name, conversations, { unfiled = false } = {}) {
-  const section = document.createElement(folderId ? 'details' : 'section');
+  const section = document.createElement('details');
   section.className = `favorite-conversation-folder${unfiled ? ' favorite-conversation-unfiled' : ''}`;
   if (folderId) section.dataset.folderId = folderId;
-  if (folderId) section.open = state.openHistoryFolders.has(folderId);
-  const heading = document.createElement(folderId ? 'summary' : 'div'); heading.className = 'favorite-conversation-folder-heading';
+  section.open = unfiled ? !state.favoriteUnfiledCollapsed : state.openHistoryFolders.has(folderId);
+  const heading = document.createElement('summary'); heading.className = 'favorite-conversation-folder-heading';
   const label = document.createElement('p'); label.className = 'favorite-group-title'; label.textContent = name;
   const count = document.createElement('small'); count.textContent = String(conversations.length); label.append(count);
   heading.append(label);
@@ -1295,17 +1302,21 @@ function createFavoriteConversationFolder(folderId, name, conversations, { unfil
     const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = '✏️'; rename.title = `重命名文件夹“${name}”`; rename.setAttribute('aria-label', `重命名文件夹“${name}”`); rename.addEventListener('click', () => renameHistoryFolder(folderId));
     const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '🗑️'; remove.title = `删除文件夹“${name}”`; remove.setAttribute('aria-label', `删除文件夹“${name}”`); remove.addEventListener('click', () => deleteHistoryFolder(folderId));
     tools.append(rename, remove);
-    if (folderId) section.append(heading, tools);
-    else heading.append(tools);
+    section.append(heading, tools);
   }
   const list = document.createElement('div'); list.className = 'favorite-conversation-folder-list';
   for (const conversation of conversations) list.append(createFavoriteConversationItem(conversation));
   if (!conversations.length) {
     const empty = document.createElement('p'); empty.className = 'favorite-conversation-folder-empty'; empty.textContent = unfiled ? '没有未归档的收藏对话' : '这个文件夹还没有收藏对话'; list.append(empty);
   }
-  if (!folderId) section.append(heading);
+  if (unfiled) section.append(heading);
   section.append(list);
-  if (folderId) section.addEventListener('toggle', () => { if (section.open) state.openHistoryFolders.add(folderId); else state.openHistoryFolders.delete(folderId); saveHistoryFolders(); });
+  section.addEventListener('toggle', () => {
+    if (unfiled) state.favoriteUnfiledCollapsed = !section.open;
+    else if (section.open) state.openHistoryFolders.add(folderId);
+    else state.openHistoryFolders.delete(folderId);
+    saveHistoryFolders();
+  });
   return section;
 }
 
@@ -5476,6 +5487,8 @@ async function initialize() {
   try { state.openRoleConversationIds = new Set(JSON.parse(localStorage.getItem(ROLE_CONVERSATIONS_OPEN_KEY) || '[]').filter((value) => typeof value === 'string')); } catch { state.openRoleConversationIds = new Set(); }
   state.historyFolders = loadHistoryFolders();
   try { state.openHistoryFolders = new Set(JSON.parse(localStorage.getItem(HISTORY_FOLDERS_OPEN_KEY) || '[]').filter((value) => typeof value === 'string')); } catch { state.openHistoryFolders = new Set(); }
+  state.historyUnfiledCollapsed = localStorage.getItem(HISTORY_UNFILED_COLLAPSED_KEY) === 'true';
+  state.favoriteUnfiledCollapsed = localStorage.getItem(FAVORITE_UNFILED_COLLAPSED_KEY) === 'true';
   elements.streamButton.classList.toggle('active', state.stream); elements.streamButton.setAttribute('aria-pressed', String(state.stream)); elements.streamText.textContent = state.stream ? '流式' : '非流式';
   try {
     const session = await jsonRequest('/api/session');

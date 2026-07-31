@@ -66,6 +66,13 @@ test('all conversation context-menu entries can move a conversation into a share
   assert.match(appSource, /conversation\.folderId = targetFolderId;\s*saveConversations\(\);/);
 });
 
+test('unfiled conversation collections behave like collapsible folders', () => {
+  assert.match(appSource, /const root = document\.createElement\('details'\); root\.className = 'history-unfiled history-folder'/);
+  assert.match(appSource, /historyUnfiledCollapsed = !root\.open/);
+  assert.match(appSource, /favoriteUnfiledCollapsed = !section\.open/);
+  assert.match(appSource, /id="light-chat-history-unfiled-collapsed"|HISTORY_UNFILED_COLLAPSED_KEY/);
+});
+
 test('role-card conversation history reuses the full conversation context menu', () => {
   const bindings = appSource.match(/bindContextMenuTrigger\(conversationButton, 'historyContextMenu', \(x, y, trigger\) => openHistoryContextMenu\(conversation\.id, x, y, trigger\)\)/g) || [];
   assert.ok(bindings.length >= 2);
