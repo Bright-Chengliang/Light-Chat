@@ -63,7 +63,8 @@ test('all conversation context-menu entries can move a conversation into a share
   assert.match(appSource, /function confirmConversationFolderMove\(\)/);
   assert.match(appSource, /function moveConversationToFolder\(conversationId, folderId\)/);
   assert.match(appSource, /elements\.moveConversationToFolder\.addEventListener\('click', openConversationFolderDialog\)/);
-  assert.match(appSource, /conversation\.folderId = targetFolderId;\s*saveConversations\(\);/);
+  assert.match(appSource, /const shouldFavorite = Boolean\(targetFolderId\) && !isFavoriteConversation\(conversation\)/);
+  assert.match(appSource, /conversation\.folderId = targetFolderId;[\s\S]*conversation\.favoritedAt = Date\.now\(\);[\s\S]*conversation\.favoriteOrder = 0;[\s\S]*saveConversations\(\);/);
 });
 
 test('unfiled conversation collections behave like collapsible folders', () => {

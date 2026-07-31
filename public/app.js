@@ -1424,8 +1424,13 @@ function moveConversationToFolder(conversationId, folderId) {
   const conversation = state.conversations.find((item) => item.id === conversationId);
   if (!conversation) return false;
   const targetFolderId = state.historyFolders.some((folder) => folder.id === folderId) ? folderId : '';
-  if (conversation.folderId === targetFolderId) return false;
+  const shouldFavorite = Boolean(targetFolderId) && !isFavoriteConversation(conversation);
+  if (conversation.folderId === targetFolderId && !shouldFavorite) return false;
   conversation.folderId = targetFolderId;
+  if (shouldFavorite) {
+    conversation.favoritedAt = Date.now();
+    conversation.favoriteOrder = 0;
+  }
   saveConversations();
   return true;
 }
