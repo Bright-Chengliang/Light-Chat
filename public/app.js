@@ -5,7 +5,7 @@ const elements = {
   appShell: $('.app-shell'), sidebar: $('#sidebar'), sidebarResizer: $('#sidebarResizer'), sidebarBackdrop: $('#sidebarBackdrop'), sidebarClose: $('#sidebarCloseButton'), menu: $('#menuButton'),
   sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openFavoriteMediaDrawer: $('#openFavoriteMediaDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), openOpc: $('#openOpc'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
   recentFiles: $('#recentFilesList'), recentFilesToggle: $('#recentFilesToggle'), recentFilesPagination: $('#recentFilesPagination'), previousRecentFilesPage: $('#previousRecentFilesPage'), nextRecentFilesPage: $('#nextRecentFilesPage'), recentFilesPageStatus: $('#recentFilesPageStatus'), refreshRecentFiles: $('#refreshRecentFilesButton'), favoriteMedia: $('#favoriteMediaList'), favoriteMediaToggle: $('#favoriteMediaToggle'), favoriteMediaPagination: $('#favoriteMediaPagination'), previousFavoriteMediaPage: $('#previousFavoriteMediaPage'), nextFavoriteMediaPage: $('#nextFavoriteMediaPage'), favoriteMediaPageStatus: $('#favoriteMediaPageStatus'), refreshFavoriteMedia: $('#refreshFavoriteMediaButton'),
-  newConversation: $('#newConversationButton'), currentModelNewConversation: $('#currentModelNewConversationButton'), addHistoryFolder: $('#addHistoryFolderButton'), clearHistory: $('#clearHistoryButton'), history: $('#historyList'), historyToggle: $('#historyToggle'), historySearch: $('#historySearchInput'), favoriteConversations: $('#favoriteConversations'), favoriteConversationsToggle: $('#favoriteConversationsToggle'),
+  newConversation: $('#newConversationButton'), currentModelNewConversation: $('#currentModelNewConversationButton'), addHistoryFolder: $('#addHistoryFolderButton'), addFavoriteConversationFolder: $('#addFavoriteConversationFolderButton'), clearHistory: $('#clearHistoryButton'), history: $('#historyList'), historyToggle: $('#historyToggle'), historySearch: $('#historySearchInput'), favoriteConversations: $('#favoriteConversations'), favoriteConversationsToggle: $('#favoriteConversationsToggle'),
   sidebarFavorites: $('#sidebarFavorites'), sidebarFavoritesToggle: $('#sidebarFavoritesToggle'),
   quickModelPicker: $('#quickModelPicker'), quickChatPicker: $('#quickChatPicker'), quickImagePicker: $('#quickImagePicker'), quickChatCurrent: $('#quickChatCurrent'), quickImageCurrent: $('#quickImageCurrent'), quickChatModels: $('#quickChatModels'), quickImageModels: $('#quickImageModels'), manageFavorites: $('#manageFavoritesButton'),
   sidebarRoles: $('#sidebarRoles'), sidebarRolesToggle: $('#sidebarRolesToggle'), sidebarRolesResizer: $('#sidebarRolesResizer'), manageRoles: $('#manageRolesButton'),
@@ -30,9 +30,10 @@ const elements = {
   addModelAccessGroup: $('#addModelAccessGroupButton'), saveModelAccessGroups: $('#saveModelAccessGroupsButton'), modelAccessGroupsEditor: $('#modelAccessGroupsEditor'), workflowEditor: $('#workflowEditor'), addWorkflow: $('#addWorkflowButton'), saveWorkflows: $('#saveWorkflowsButton'),
   rolesDialog: $('#rolesDialog'), rolesEditor: $('#rolesEditor'), addRoleFolder: $('#addRoleFolderButton'), saveRoles: $('#saveRolesButton'), rolesStatus: $('#rolesStatus'),
   roleTransferDialog: $('#roleTransferDialog'), roleTransferTitle: $('#roleTransferDialogTitle'), roleTransferDescription: $('#roleTransferDescription'), roleTransferFolder: $('#roleTransferFolderSelect'), roleTransferStatus: $('#roleTransferStatus'), confirmRoleTransfer: $('#confirmRoleTransferButton'),
+  conversationFolderDialog: $('#conversationFolderDialog'), conversationFolderTitle: $('#conversationFolderDialogTitle'), conversationFolderDescription: $('#conversationFolderDescription'), conversationFolderSelect: $('#conversationFolderSelect'), conversationFolderStatus: $('#conversationFolderStatus'), confirmConversationFolder: $('#confirmConversationFolderButton'),
   imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxPosition: $('#imageLightboxPosition'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'), imageLightboxContextMenu: $('#imageLightboxContextMenu'), jumpToLightboxFileMessage: $('#jumpToLightboxFileMessage'), toggleLightboxFavoriteMediaButton: $('#toggleLightboxFavoriteMediaButton'), copyLightboxImageButton: $('#copyLightboxImageButton'), downloadLightboxFileButton: $('#downloadLightboxFileButton'),
   upscaleDialog: $('#upscaleDialog'), upscaleMode: $('#upscaleMode'), upscaleWidth: $('#upscaleWidth'), upscaleHeight: $('#upscaleHeight'), upscaleStatus: $('#upscaleStatus'), startUpscaleButton: $('#startUpscaleButton'),
-  historyContextMenu: $('#historyContextMenu'), renameConversation: $('#renameConversation'), regenerateConversationTitle: $('#regenerateConversationTitle'), toggleFavoriteConversation: $('#toggleFavoriteConversation'), jumpToRoleFromConversation: $('#jumpToRoleFromConversation'), jumpToSourceConversation: $('#jumpToSourceConversation'), exportTxt: $('#exportConversationTxt'), exportMarkdownText: $('#exportConversationMarkdownText'), exportMarkdown: $('#exportConversationMarkdown'), deleteConversation: $('#deleteConversation'),
+  historyContextMenu: $('#historyContextMenu'), renameConversation: $('#renameConversation'), regenerateConversationTitle: $('#regenerateConversationTitle'), toggleFavoriteConversation: $('#toggleFavoriteConversation'), moveConversationToFolder: $('#moveConversationToFolder'), jumpToRoleFromConversation: $('#jumpToRoleFromConversation'), jumpToSourceConversation: $('#jumpToSourceConversation'), exportTxt: $('#exportConversationTxt'), exportMarkdownText: $('#exportConversationMarkdownText'), exportMarkdown: $('#exportConversationMarkdown'), deleteConversation: $('#deleteConversation'),
   roleFolderContextMenu: $('#roleFolderContextMenu'), addRoleToFolder: $('#addRoleToFolder'), deleteRoleFolder: $('#deleteRoleFolder'),
   roleContextMenu: $('#roleContextMenu'), toggleRoleConversations: $('#toggleRoleConversations'), toggleRoleConversationsLabel: $('#toggleRoleConversationsLabel'), toggleRoleConversationsCount: $('#toggleRoleConversationsCount'), editRole: $('#editRole'), duplicateRole: $('#duplicateRole'), copyRoleToFolder: $('#copyRoleToFolder'), moveRoleToFolder: $('#moveRoleToFolder'), deleteRole: $('#deleteRole'),
   favoriteContextMenu: $('#favoriteContextMenu'), editFavorite: $('#editFavorite'), deleteFavorite: $('#deleteFavorite'), recentFileContextMenu: $('#recentFileContextMenu'), jumpToRecentFileMessage: $('#jumpToRecentFileMessage'), toggleFavoriteMediaButton: $('#toggleFavoriteMediaButton'), copyRecentFileImageButton: $('#copyRecentFileImageButton'), downloadRecentFileButton: $('#downloadRecentFileButton'),
@@ -95,7 +96,7 @@ const state = {
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
   historyFolders: [], openHistoryFolders: new Set(), historySearch: '',
   contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextRecentFileId: '', contextAssistantMessageId: '', renamingConversationId: '',
-  pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingConversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', pendingRoleTransfer: null,
+  pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingConversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', pendingRoleTransfer: null, pendingConversationFolderMove: null,
   followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationOutput: '', recentFiles: [], recentFilesLoading: false, recentFilesPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, favoriteMedia: [], favoriteMediaLoading: false, favoriteMediaPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, workflows: [], workflowRunning: false, selectedWorkflow: null,
 };
 let globalFileDragDepth = 0;
@@ -1225,14 +1226,13 @@ function renderHistory() {
   if (activeContextMenu === elements.historyContextMenu) closeHistoryContextMenu();
   elements.history.replaceChildren();
   const validFolderIds = new Set(state.historyFolders.map((folder) => folder.id));
-  for (const conversation of state.conversations) if (!validFolderIds.has(conversation.folderId)) conversation.folderId = '';
   const sorted = [...state.conversations].sort((a, b) => b.updatedAt - a.updatedAt);
   const searchQuery = state.historySearch.trim().toLocaleLowerCase('zh-CN');
   const matchesTitle = (conversation) => !searchQuery || conversation.title.toLocaleLowerCase('zh-CN').includes(searchQuery);
   const visibleConversations = sorted.filter(matchesTitle);
   const root = document.createElement('section'); root.className = 'history-unfiled';
   const rootTitle = document.createElement('p'); rootTitle.className = 'history-folder-label'; rootTitle.textContent = searchQuery ? '搜索结果 · 未归档' : '未归档';
-  root.append(rootTitle, createHistoryDropZone('', visibleConversations.filter((conversation) => !conversation.folderId))); elements.history.append(root);
+  root.append(rootTitle, createHistoryDropZone('', visibleConversations.filter((conversation) => !validFolderIds.has(conversation.folderId)))); elements.history.append(root);
   for (const folder of state.historyFolders) {
     const conversations = visibleConversations.filter((conversation) => conversation.folderId === folder.id);
     if (searchQuery && !conversations.length) continue;
@@ -1269,10 +1269,39 @@ function renderHistory() {
 function renderFavoriteConversations() {
   elements.favoriteConversations.replaceChildren();
   const favorites = favoriteConversations();
-  for (const conversation of favorites) elements.favoriteConversations.append(createFavoriteConversationItem(conversation));
   if (!favorites.length) {
     const empty = document.createElement('p'); empty.className = 'empty-sidebar favorite-conversations-empty'; empty.textContent = '还没有收藏对话。可在对话标题或左侧历史记录上右键收藏。'; elements.favoriteConversations.append(empty);
+  } else {
+    const unfiled = favorites.filter((conversation) => !state.historyFolders.some((folder) => folder.id === conversation.folderId));
+    elements.favoriteConversations.append(createFavoriteConversationFolder('', '未归档', unfiled, { unfiled: true }));
   }
+  for (const folder of state.historyFolders) {
+    const conversations = favorites.filter((conversation) => conversation.folderId === folder.id);
+    elements.favoriteConversations.append(createFavoriteConversationFolder(folder.id, folder.name, conversations));
+  }
+}
+
+function createFavoriteConversationFolder(folderId, name, conversations, { unfiled = false } = {}) {
+  const section = document.createElement('section');
+  section.className = `favorite-conversation-folder${unfiled ? ' favorite-conversation-unfiled' : ''}`;
+  if (folderId) section.dataset.folderId = folderId;
+  const heading = document.createElement('div'); heading.className = 'favorite-conversation-folder-heading';
+  const label = document.createElement('p'); label.className = 'favorite-group-title'; label.textContent = name;
+  const count = document.createElement('small'); count.textContent = String(conversations.length); label.append(count);
+  heading.append(label);
+  if (!unfiled) {
+    const tools = document.createElement('span'); tools.className = 'favorite-conversation-folder-tools';
+    const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = '✏️'; rename.title = `重命名文件夹“${name}”`; rename.setAttribute('aria-label', `重命名文件夹“${name}”`); rename.addEventListener('click', () => renameHistoryFolder(folderId));
+    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '🗑️'; remove.title = `删除文件夹“${name}”`; remove.setAttribute('aria-label', `删除文件夹“${name}”`); remove.addEventListener('click', () => deleteHistoryFolder(folderId));
+    tools.append(rename, remove); heading.append(tools);
+  }
+  const list = document.createElement('div'); list.className = 'favorite-conversation-folder-list';
+  for (const conversation of conversations) list.append(createFavoriteConversationItem(conversation));
+  if (!conversations.length) {
+    const empty = document.createElement('p'); empty.className = 'favorite-conversation-folder-empty'; empty.textContent = unfiled ? '没有未归档的收藏对话' : '这个文件夹还没有收藏对话'; list.append(empty);
+  }
+  section.append(heading, list);
+  return section;
 }
 
 function createFavoriteConversationItem(conversation) {
@@ -1303,9 +1332,7 @@ function createHistoryDropZone(folderId, conversations) {
   zone.addEventListener('drop', (event) => {
     event.preventDefault(); zone.classList.remove('drag-over');
     const conversationId = event.dataTransfer.getData('text/x-light-chat-conversation') || event.dataTransfer.getData('text/plain');
-    const conversation = state.conversations.find((item) => item.id === conversationId);
-    if (!conversation) return;
-    conversation.folderId = folderId; conversation.updatedAt = Date.now(); saveConversations();
+    moveConversationToFolder(conversationId, folderId);
   });
   for (const conversation of conversations) zone.append(createHistoryItem(conversation));
   if (!conversations.length) { const empty = document.createElement('p'); empty.className = 'history-drop-hint'; empty.textContent = '拖动对话到这里'; zone.append(empty); }
@@ -1374,14 +1401,14 @@ function createHistoryFolder() {
   const cleaned = name.trim().slice(0, 40);
   if (!cleaned) { setStatus('文件夹名称不能为空', 'error'); return; }
   const folder = { id: `history-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, name: cleaned };
-  state.historyFolders.push(folder); state.openHistoryFolders.add(folder.id); saveHistoryFolders(); renderHistory();
+  state.historyFolders.push(folder); state.openHistoryFolders.add(folder.id); saveHistoryFolders(); renderHistory(); renderFavoriteConversations();
 }
 
 function renameHistoryFolder(folderId) {
   const folder = state.historyFolders.find((item) => item.id === folderId); if (!folder) return;
   const name = prompt('新的文件夹名称', folder.name); if (name === null) return;
   const cleaned = name.trim().slice(0, 40); if (!cleaned) return;
-  folder.name = cleaned; saveHistoryFolders(); renderHistory();
+  folder.name = cleaned; saveHistoryFolders(); renderHistory(); renderFavoriteConversations();
 }
 
 function deleteHistoryFolder(folderId) {
@@ -1389,6 +1416,16 @@ function deleteHistoryFolder(folderId) {
   if (!confirm(`删除文件夹“${folder.name}”？其中的对话会移到“未归档”。`)) return;
   for (const conversation of state.conversations) if (conversation.folderId === folderId) conversation.folderId = '';
   state.historyFolders = state.historyFolders.filter((item) => item.id !== folderId); state.openHistoryFolders.delete(folderId); saveHistoryFolders(); saveConversations();
+}
+
+function moveConversationToFolder(conversationId, folderId) {
+  const conversation = state.conversations.find((item) => item.id === conversationId);
+  if (!conversation) return false;
+  const targetFolderId = state.historyFolders.some((folder) => folder.id === folderId) ? folderId : '';
+  if (conversation.folderId === targetFolderId) return false;
+  conversation.folderId = targetFolderId;
+  saveConversations();
+  return true;
 }
 
 function contextMenus() {
@@ -1457,6 +1494,8 @@ function updateContextMenuAvailability(menu) {
     elements.toggleFavoriteConversation.textContent = favorite ? '★ 取消收藏对话' : '✦ 收藏对话';
     elements.toggleFavoriteConversation.title = favorite ? '从收藏对话中移除' : '添加到收藏对话';
     elements.toggleFavoriteConversation.disabled = !conversation;
+    elements.moveConversationToFolder.disabled = !conversation;
+    elements.moveConversationToFolder.title = conversation ? `移动“${conversation.title}”到对话文件夹` : '没有可移动的对话';
     elements.regenerateConversationTitle.disabled = !titleSource || titleGenerationConversationIds.has(conversation?.id);
     elements.regenerateConversationTitle.title = titleSource ? '使用当前默认标题模型重新生成会话标题' : '对话中还没有可用于生成标题的用户消息';
     elements.jumpToRoleFromConversation.disabled = !roleId;
@@ -1728,6 +1767,35 @@ function toggleFavoriteConversationFromContext() {
   if (!setConversationFavorite(conversation.id, favorite)) return;
   setStatus(favorite ? `已收藏对话“${conversation.title}”` : `已取消收藏对话“${conversation.title}”`, 'success');
   restoreContextMenuFocus(trigger);
+}
+
+function openConversationFolderDialog() {
+  const conversation = state.conversations.find((item) => item.id === state.contextConversationId);
+  const returnFocus = contextMenuReturnFocus;
+  closeHistoryContextMenu();
+  if (!conversation) return;
+  state.pendingConversationFolderMove = { conversationId: conversation.id, returnFocus };
+  elements.conversationFolderSelect.replaceChildren();
+  const unfiled = document.createElement('option'); unfiled.value = ''; unfiled.textContent = '未归档'; elements.conversationFolderSelect.append(unfiled);
+  for (const folder of state.historyFolders) {
+    const option = document.createElement('option'); option.value = folder.id; option.textContent = folder.name; elements.conversationFolderSelect.append(option);
+  }
+  elements.conversationFolderSelect.value = state.historyFolders.some((folder) => folder.id === conversation.folderId) ? conversation.folderId : '';
+  elements.conversationFolderDescription.textContent = `将“${conversation.title}”移动到目标文件夹；未归档会显示在列表顶层。`;
+  setDialogStatus(elements.conversationFolderStatus, '');
+  elements.conversationFolderDialog.showModal();
+  elements.conversationFolderSelect.focus();
+}
+
+function confirmConversationFolderMove() {
+  const pending = state.pendingConversationFolderMove;
+  const conversation = state.conversations.find((item) => item.id === pending?.conversationId);
+  if (!pending || !conversation) { setDialogStatus(elements.conversationFolderStatus, '对话已不存在，请重新操作', 'error'); return; }
+  const folderId = elements.conversationFolderSelect.value;
+  const moved = moveConversationToFolder(conversation.id, folderId);
+  const folder = state.historyFolders.find((item) => item.id === folderId);
+  elements.conversationFolderDialog.close();
+  setStatus(moved ? `已将“${conversation.title}”移到“${folder?.name || '未归档'}”` : `“${conversation.title}”已在“${folder?.name || '未归档'}”`, 'success');
 }
 
 function jumpToRoleFromConversationContext() {
@@ -5229,6 +5297,7 @@ function bindEvents() {
   elements.translateHistoryButton.addEventListener('click', () => { const open = elements.translateHistoryPanel.hidden; elements.translateHistoryPanel.hidden = !open; elements.translateHistoryButton.setAttribute('aria-expanded', String(open)); });
   elements.translateModelButton.addEventListener('click', openTranslatorModelDialog);
   elements.addHistoryFolder.addEventListener('click', (event) => { event.stopPropagation(); createHistoryFolder(); });
+  elements.addFavoriteConversationFolder.addEventListener('click', (event) => { event.stopPropagation(); createHistoryFolder(); });
   elements.clearHistory.addEventListener('click', (event) => { event.stopPropagation(); if (state.busyConversationIds.size) { setStatus('有会话正在响应，完成后再清空历史', 'error'); return; } if (confirm('清空当前浏览器中的全部对话历史？')) { state.conversations = []; createGlobalConversation(); } });
   elements.historyToggle.addEventListener('click', (event) => { event.stopPropagation(); handleSidebarDrawerHeader('history'); });
   elements.favoriteConversationsToggle.addEventListener('click', (event) => { event.stopPropagation(); handleSidebarDrawerHeader('favorite-conversations'); });
@@ -5329,12 +5398,19 @@ function bindEvents() {
   elements.renameConversation.addEventListener('click', renameConversationFromContext);
   elements.regenerateConversationTitle.addEventListener('click', regenerateConversationTitleFromContext);
   elements.toggleFavoriteConversation.addEventListener('click', toggleFavoriteConversationFromContext);
+  elements.moveConversationToFolder.addEventListener('click', openConversationFolderDialog);
   elements.jumpToRoleFromConversation.addEventListener('click', jumpToRoleFromConversationContext);
   elements.jumpToSourceConversation.addEventListener('click', jumpToSourceConversationContext);
   elements.exportTxt.addEventListener('click', () => exportConversationTxt(state.contextConversationId));
   elements.exportMarkdownText.addEventListener('click', () => exportConversationMarkdownText(state.contextConversationId));
   elements.exportMarkdown.addEventListener('click', () => exportConversationMarkdownZip(state.contextConversationId));
   elements.deleteConversation.addEventListener('click', () => deleteHistoryConversation(state.contextConversationId));
+  elements.confirmConversationFolder.addEventListener('click', confirmConversationFolderMove);
+  elements.conversationFolderDialog.addEventListener('close', () => {
+    const returnFocus = state.pendingConversationFolderMove?.returnFocus;
+    state.pendingConversationFolderMove = null; setDialogStatus(elements.conversationFolderStatus, '');
+    restoreContextMenuFocus(returnFocus);
+  });
   elements.addRoleToFolder.addEventListener('click', addRoleFromFolderContext);
   elements.deleteRoleFolder.addEventListener('click', deleteRoleFolderFromContext);
   elements.toggleRoleConversations.addEventListener('click', toggleRoleConversationsFromContext);

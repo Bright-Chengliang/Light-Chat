@@ -23,10 +23,19 @@ test('favorite conversations are available from the sidebar and conversation con
   assert.match(appHtml, /id="openFavoriteConversationsDrawer"/);
   assert.match(appHtml, /data-sidebar-drawer-panel="favorite-conversations"/);
   assert.match(appHtml, /id="favoriteConversations"/);
+  assert.match(appHtml, /id="addFavoriteConversationFolderButton"/);
   assert.match(appHtml, /id="toggleFavoriteConversation"/);
   assert.match(appSource, /bindContextMenuTrigger\(conversationMenuTrigger, 'historyContextMenu'/);
   assert.match(appSource, /function toggleFavoriteConversationFromContext\(\)/);
   assert.match(styles, /\.favorite-conversation-item \{/);
   assert.match(styles, /grid-template-columns: minmax\(0, 1fr\) auto/);
   assert.doesNotMatch(styles, /\.favorite-conversation-handle/);
+});
+
+test('favorite conversations reuse the shared conversation folder structure', () => {
+  assert.match(appSource, /function createFavoriteConversationFolder\(/);
+  assert.match(appSource, /favorites\.filter\(\(conversation\) => conversation\.folderId === folder\.id\)/);
+  assert.match(appSource, /createHistoryFolder\(\);\s*\}\);/);
+  assert.match(appSource, /renderHistory\(\); renderFavoriteConversations\(\);/);
+  assert.match(styles, /\.favorite-conversation-folder \{/);
 });

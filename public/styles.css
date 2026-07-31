@@ -236,6 +236,16 @@ body.resizing-sidebar-roles, body.resizing-sidebar-roles * { cursor: row-resize 
 .favorite-conversations-empty { margin-top: 14px; text-align: center; }
 .favorite-group-title { margin: 5px 7px 3px; display: flex; align-items: center; gap: 6px; color: var(--text-faint); font-size: .58rem; font-weight: 760; }
 .favorite-group-title::before { content: ""; width: 5px; height: 5px; flex: 0 0 5px; background: rgba(166,75,55,.58); border-radius: 50%; }
+.favorite-conversation-folder { min-width: 0; margin: 0 1px 7px; padding: 3px; background: rgba(255,255,255,.16); border: 1px solid rgba(220,217,209,.64); border-radius: 10px; }
+.favorite-conversation-unfiled { background: rgba(255,255,255,.08); border-color: transparent; }
+.favorite-conversation-folder-heading { min-width: 0; min-height: 29px; display: flex; align-items: center; gap: 5px; }
+.favorite-conversation-folder-heading .favorite-group-title { min-width: 0; flex: 1; margin: 4px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.favorite-conversation-folder-heading .favorite-group-title small { min-width: 20px; padding: 2px 5px; color: var(--text-faint); background: rgba(255,255,255,.62); border: 1px solid rgba(220,217,209,.7); border-radius: 99px; font-size: .5rem; text-align: center; }
+.favorite-conversation-folder-tools { display: inline-flex; align-items: center; gap: 2px; }
+.favorite-conversation-folder-tools button { width: 27px; height: 27px; padding: 0; display: grid; place-items: center; color: var(--text-faint); background: transparent; border-radius: 7px; font-size: .58rem; }
+.favorite-conversation-folder-tools button:hover, .favorite-conversation-folder-tools button:focus-visible { color: var(--accent); background: rgba(255,255,255,.68); }
+.favorite-conversation-folder-list { display: grid; gap: 2px; }
+.favorite-conversation-folder-empty { margin: 4px 7px 6px; color: var(--text-faint); font-size: .54rem; line-height: 1.45; text-align: center; }
 .sidebar-model, .history-item { width: 100%; min-width: 0; min-height: 38px; padding: 7px 9px; display: flex; align-items: center; gap: 9px; color: var(--text-soft); background: transparent; border-radius: 9px; text-align: left; }
 .sidebar-model:hover, .history-item:hover, .history-item.active { color: var(--text); background: rgba(255,255,255,.56); }
 .favorite-sidebar-group .sidebar-model { padding-left: 10px; border-left: 2px solid transparent; border-radius: 7px; }

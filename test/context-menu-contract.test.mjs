@@ -55,6 +55,17 @@ test('history context menus can regenerate a title from existing user messages',
   assert.match(appSource, /elements\.regenerateConversationTitle\.disabled = !titleSource/);
 });
 
+test('all conversation context-menu entries can move a conversation into a shared folder', () => {
+  assert.match(appHtml, /id="moveConversationToFolder"/);
+  assert.match(appHtml, /id="conversationFolderDialog"/);
+  assert.match(appHtml, /id="conversationFolderSelect"/);
+  assert.match(appSource, /function openConversationFolderDialog\(\)/);
+  assert.match(appSource, /function confirmConversationFolderMove\(\)/);
+  assert.match(appSource, /function moveConversationToFolder\(conversationId, folderId\)/);
+  assert.match(appSource, /elements\.moveConversationToFolder\.addEventListener\('click', openConversationFolderDialog\)/);
+  assert.match(appSource, /conversation\.folderId = targetFolderId;\s*saveConversations\(\);/);
+});
+
 test('role-card conversation history reuses the full conversation context menu', () => {
   const bindings = appSource.match(/bindContextMenuTrigger\(conversationButton, 'historyContextMenu', \(x, y, trigger\) => openHistoryContextMenu\(conversation\.id, x, y, trigger\)\)/g) || [];
   assert.ok(bindings.length >= 2);
