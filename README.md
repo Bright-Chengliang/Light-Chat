@@ -4,7 +4,11 @@
 
 Light-Chat 是一个运行在本机、面向多用户的 AI 聊天工作台。管理员负责创建用户、分配积分和模型权限，普通用户专注对话与知识整理。服务端代持上游 API 密钥，密钥不会进入浏览器；普通用户会话正文保存在浏览器本地，服务端不收集聊天内容。
 
-<img src="public/assets/light-chat-icon.png" alt="Light-Chat" width="512" />
+## 界面预览
+
+<img src="public/assets/light-chat-screenshot.png" alt="Light-Chat 新对话主界面预览" width="800" />
+
+Light-Chat 新对话主界面：左侧集中管理收藏模型、收藏对话、快速翻译、自定义角色、收藏图片与打包工作流入口，底部可同时选择对话模型和生图模型。
 
 ## 功能亮点
 
