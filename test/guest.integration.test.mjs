@@ -151,6 +151,33 @@ test('guest can configure a private upstream and only use models it allows', asy
   }
 });
 
+test('guest can preview models from a typed endpoint without saving settings', async () => {
+  const context = await fixture();
+  try {
+    const signedIn = await guestLogin(context.baseUrl);
+    const preview = await guestJson(context.baseUrl, signedIn.cookie, '/api/guest/models/preview', {
+      method: 'POST',
+      body: { endpoint: context.fake.baseUrl, apiKey: 'test-api-key' },
+    });
+    assert.equal(preview.response.status, 200);
+    const ids = preview.body.models.map((model) => model.id);
+    assert.equal(ids.includes('chat-test'), true);
+    assert.equal(ids.includes('gpt-image-2'), true);
+
+    const invalid = await guestJson(context.baseUrl, signedIn.cookie, '/api/guest/models/preview', {
+      method: 'POST',
+      body: { endpoint: 'ftp://api.example.com/v1', apiKey: '' },
+    });
+    assert.equal(invalid.response.status, 400);
+
+    const untouched = await guestJson(context.baseUrl, signedIn.cookie, '/api/guest/settings');
+    assert.equal(untouched.body.endpoint, '');
+    assert.deepEqual(untouched.body.allowedModels, []);
+  } finally {
+    await context.close();
+  }
+});
+
 test('guest cannot reach administrator-only surfaces', async () => {
   const context = await fixture();
   try {

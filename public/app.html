@@ -196,13 +196,13 @@
       <section class="guest-connection-settings" id="guestConnectionSettings" hidden aria-label="游客模型连接">
         <div class="guest-connection-heading"><strong>游客模型连接</strong><small>只对游客开放，不影响系统模型与积分。</small></div>
         <label class="guest-endpoint-field"><span>API 服务端点</span><input id="guestEndpointInput" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1"></label>
-        <label class="guest-api-key-field"><span>API 密钥</span><input id="guestApiKeyInput" type="password" autocomplete="off" placeholder="可选"></label>
-        <label class="guest-clear-key-option"><input id="guestClearApiKeyInput" type="checkbox"><span>清除已保存的密钥</span></label>
-        <label class="guest-models-field"><span>可用模型</span><textarea id="guestModelsInput" rows="6" spellcheck="false" placeholder="每行一个模型 ID"></textarea></label>
+        <div class="guest-api-key-field"><span class="guest-field-label">API 密钥</span><div class="guest-field-input-row"><input id="guestApiKeyInput" type="password" autocomplete="off" placeholder="可选"><button class="guest-clear-key-button" id="guestClearApiKeyButton" type="button" hidden>清除密钥</button></div></div>
         <div class="guest-connection-actions">
+          <button class="secondary-button" id="fetchGuestModelsButton" type="button">获取可用模型</button>
           <button class="secondary-button" id="saveGuestApiButton" type="button">保存 API 设置</button>
           <span id="guestApiStatus" role="status"></span>
         </div>
+        <label class="guest-models-field"><span>可用模型</span><select id="guestAvailableModels" multiple size="6" aria-label="可用模型"></select></label>
       </section>
       <fieldset class="reading-mode-settings">
         <legend>对话显示宽度</legend>

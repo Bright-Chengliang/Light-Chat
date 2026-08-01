@@ -22,7 +22,7 @@ const elements = {
   modelMode: $('#modelModeSelect'), modelList: $('#modelList'), openSettingsFromModel: $('#openSettingsFromModel'),
   settingsDialog: $('#settingsDialog'), groupsEditor: $('#groupsEditor'), addGroup: $('#addGroupButton'), conversationTitleModel: $('#conversationTitleModelSelect'),
   saveSettings: $('#saveSettingsButton'), settingsStatus: $('#settingsStatus'), refreshModels: $('#refreshModelsButton'),
-  guestConnectionSettings: $('#guestConnectionSettings'), guestEndpoint: $('#guestEndpointInput'), guestApiKey: $('#guestApiKeyInput'), guestClearApiKey: $('#guestClearApiKeyInput'), guestModels: $('#guestModelsInput'), saveGuestApi: $('#saveGuestApiButton'), guestApiStatus: $('#guestApiStatus'), settingsConnectionText: $('#settingsConnectionText'),
+  guestConnectionSettings: $('#guestConnectionSettings'), guestEndpoint: $('#guestEndpointInput'), guestApiKey: $('#guestApiKeyInput'), guestClearApiKeyButton: $('#guestClearApiKeyButton'), fetchGuestModels: $('#fetchGuestModelsButton'), guestAvailableModels: $('#guestAvailableModels'), saveGuestApi: $('#saveGuestApiButton'), guestApiStatus: $('#guestApiStatus'), settingsConnectionText: $('#settingsConnectionText'),
   renameConversationDialog: $('#renameConversationDialog'), renameConversationForm: $('#renameConversationForm'), renameConversationInput: $('#renameConversationInput'), renameConversationStatus: $('#renameConversationStatus'),
   accountDialog: $('#accountDialog'), accountForm: $('#accountForm'), currentUsername: $('#currentUsernameInput'),
   currentPassword: $('#currentPasswordInput'), newUsername: $('#newUsernameInput'), newPassword: $('#newPasswordInput'),
@@ -94,7 +94,7 @@ if (localStorage.getItem(STREAM_KEY) === null && storedStreamPreference !== null
   localStorage.setItem(STREAM_KEY, storedStreamPreference); localStorage.removeItem(LEGACY_STREAM_KEY);
 }
 const state = {
-  csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, guestSettings: { endpoint: '', hasApiKey: false, allowedModels: [] }, adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {}, favoriteMediaIds: [], conversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL },
+  csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, guestSettings: { endpoint: '', hasApiKey: false, allowedModels: [] }, guestCatalog: [], adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {}, favoriteMediaIds: [], conversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL },
   selected: null, stream: storedStreamPreference !== 'false', conversations: [], currentId: '',
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
   historyFolders: [], openHistoryFolders: new Set(), historyUnfiledCollapsed: false, favoriteUnfiledCollapsed: false, historySearch: '',
@@ -119,6 +119,7 @@ let contextMenuReturnFocus = null;
 let preferenceContextMutationInFlight = false;
 let preferenceWritesInFlight = 0;
 let roleContextMutationInFlight = false;
+let pendingGuestKeyClear = false;
 let markdownZipExportInFlight = false;
 let pendingUpscaleTarget = null;
 let lightboxImages = [];
@@ -3417,6 +3418,67 @@ function setSettingsConnectionText(text, ok = true) {
   }
 }
 
+function guestSelectedModels() {
+  return [...elements.guestAvailableModels.selectedOptions].map((option) => option.value);
+}
+
+function renderGuestModelSelect() {
+  const previouslySelected = new Set(guestSelectedModels());
+  const source = state.guestCatalog.length ? state.guestCatalog : state.models;
+  const allowed = new Set(state.guestSettings.allowedModels || []);
+  const select = elements.guestAvailableModels;
+  select.replaceChildren();
+  if (!source.length) {
+    select.append(Object.assign(document.createElement('option'), { value: '', textContent: '暂无可用模型，请先获取' }));
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  for (const model of source) {
+    const option = document.createElement('option');
+    option.value = model.id;
+    option.textContent = model.id;
+    option.selected = previouslySelected.has(model.id) || (previouslySelected.size === 0 && allowed.has(model.id));
+    select.append(option);
+  }
+}
+
+function clearGuestApiKey() {
+  pendingGuestKeyClear = true;
+  elements.guestApiKey.value = '';
+  elements.guestClearApiKeyButton.hidden = true;
+  elements.guestApiKey.focus();
+}
+
+async function fetchGuestModels() {
+  if (state.userRole !== 'guest') return;
+  const endpoint = elements.guestEndpoint.value.trim();
+  if (!endpoint) {
+    elements.guestApiStatus.textContent = '请先填写 API 服务端点';
+    elements.guestApiStatus.className = 'error';
+    return;
+  }
+  elements.fetchGuestModels.disabled = true;
+  elements.guestApiStatus.textContent = '正在获取可用模型…';
+  elements.guestApiStatus.className = '';
+  try {
+    const payload = await jsonRequest('/api/guest/models/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint, apiKey: elements.guestApiKey.value }),
+    });
+    state.guestCatalog = Array.isArray(payload.models) ? payload.models : [];
+    renderGuestModelSelect();
+    elements.guestApiStatus.textContent = `已获取 ${state.guestCatalog.length} 个可用模型`;
+    elements.guestApiStatus.className = 'success';
+  } catch (error) {
+    elements.guestApiStatus.textContent = error.message || '获取模型失败';
+    elements.guestApiStatus.className = 'error';
+  } finally {
+    elements.fetchGuestModels.disabled = false;
+  }
+}
+
 async function saveGuestApiSettings({ showStatus = true } = {}) {
   if (state.userRole !== 'guest') return null;
   elements.saveGuestApi.disabled = true;
@@ -3431,9 +3493,9 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         endpoint: elements.guestEndpoint.value.trim(),
-        allowedModels: elements.guestModels.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+        allowedModels: guestSelectedModels(),
         apiKey: elements.guestApiKey.value,
-        clearApiKey: elements.guestClearApiKey.checked,
+        clearApiKey: pendingGuestKeyClear,
       }),
     });
     state.guestSettings = {
@@ -3441,6 +3503,8 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
       hasApiKey: saved.hasApiKey === true,
       allowedModels: Array.isArray(saved.allowedModels) ? saved.allowedModels : [],
     };
+    pendingGuestKeyClear = false;
+    elements.guestClearApiKeyButton.hidden = !state.guestSettings.hasApiKey;
     const refreshed = await jsonRequest('/api/models?refresh=1');
     state.models = refreshed.models || [];
     state.selected = normalizeSelection(state.selected);
@@ -3448,6 +3512,7 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
     renderGroupsEditor();
     updateSelectionUi();
     renderFavorites();
+    renderGuestModelSelect();
     const message = `已保存并加载 ${state.models.length} 个模型`;
     if (showStatus) {
       elements.guestApiStatus.textContent = message;
@@ -3462,6 +3527,7 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
       elements.guestApiStatus.className = 'error';
     }
     setSettingsConnectionText('模型服务连接失败', false);
+    elements.guestClearApiKeyButton.hidden = !state.guestSettings.hasApiKey;
     throw error;
   } finally {
     elements.saveGuestApi.disabled = false;
@@ -3478,10 +3544,11 @@ function openSettings(options = {}) {
     elements.guestEndpoint.value = state.guestSettings.endpoint || '';
     elements.guestApiKey.value = '';
     elements.guestApiKey.placeholder = state.guestSettings.hasApiKey ? '已设置，留空保持不变' : '可选';
-    elements.guestClearApiKey.checked = false;
-    elements.guestModels.value = (state.guestSettings.allowedModels || []).join('\n');
+    elements.guestClearApiKeyButton.hidden = !state.guestSettings.hasApiKey;
+    pendingGuestKeyClear = false;
     elements.guestApiStatus.textContent = '';
     elements.guestApiStatus.className = '';
+    renderGuestModelSelect();
     if (state.guestSettings.endpoint) {
       setSettingsConnectionText(state.models.length ? `已加载 ${state.models.length} 个模型` : '可用模型为空', state.models.length > 0);
     } else {
@@ -5438,6 +5505,9 @@ function bindEvents() {
   elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { if (state.userRole === 'guest') { await saveGuestApiSettings({ showStatus: false }); } await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits, conversationTitleModel: state.editingConversationTitleModel }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
   elements.conversationTitleModel.addEventListener('change', () => { state.editingConversationTitleModel = elements.conversationTitleModel.value; });
   elements.refreshModels.addEventListener('click', async () => { elements.refreshModels.disabled = true; setDialogStatus(elements.settingsStatus, '正在刷新模型…'); try { const payload = await jsonRequest('/api/models?refresh=1'); state.models = payload.models || []; state.selected = normalizeSelection(state.selected); renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi(); setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型`, 'success'); setSettingsConnectionText(state.userRole === 'guest' && !state.guestSettings.endpoint ? '尚未配置游客模型连接' : `已加载 ${state.models.length} 个模型`, state.userRole !== 'guest' || state.models.length > 0); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); setSettingsConnectionText('模型服务连接失败', false); } finally { elements.refreshModels.disabled = false; } });
+  elements.fetchGuestModels.addEventListener('click', () => { void fetchGuestModels(); });
+  elements.guestClearApiKeyButton.addEventListener('click', clearGuestApiKey);
+  elements.guestApiKey.addEventListener('input', () => { pendingGuestKeyClear = false; });
   elements.saveGuestApi.addEventListener('click', () => { void saveGuestApiSettings().catch(() => {}); });
   elements.accountButton.addEventListener('click', openAccountCenter);
   elements.accountTabs.addEventListener('click', (event) => { const button = event.target.closest('[data-account-panel]'); if (button && !button.hidden) switchAccountPanel(button.dataset.accountPanel); });
