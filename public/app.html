@@ -9,10 +9,10 @@
   <title>Light-Chat</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/vendor/katex/katex.min.css?v=0.18.0">
-  <link rel="stylesheet" href="/styles.css?v=20260725-conversation-title-model">
+  <link rel="stylesheet" href="/styles.css?v=20260801-guest-mode">
   <script src="/vendor/katex/katex.min.js?v=0.18.0" defer></script>
   <script src="/vendor/katex/auto-render.min.js?v=0.18.0" defer></script>
-  <script src="/app.js?v=20260725-history-editor-paste" defer></script>
+  <script src="/app.js?v=20260801-guest-mode" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -193,6 +193,13 @@
   <dialog class="app-dialog settings-dialog" id="settingsDialog" aria-labelledby="settingsDialogTitle">
     <div class="dialog-shell wide-dialog">
       <header><div><p class="eyebrow">Preferences</p><h2 id="settingsDialogTitle">偏好设置</h2><p>调整对话显示宽度、收藏组与每个模型的上下文上限。</p></div><button class="icon-button dialog-close" data-close-dialog="settingsDialog" type="button" aria-label="关闭">×</button></header>
+      <section class="guest-connection-settings" id="guestConnectionSettings" hidden aria-label="游客模型连接">
+        <div class="guest-connection-heading"><strong>游客模型连接</strong><small>只对游客开放，不影响系统模型与积分。</small></div>
+        <label class="guest-endpoint-field"><span>API 服务端点</span><input id="guestEndpointInput" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1"></label>
+        <label class="guest-api-key-field"><span>API 密钥</span><input id="guestApiKeyInput" type="password" autocomplete="off" placeholder="可选"></label>
+        <label class="guest-clear-key-option"><input id="guestClearApiKeyInput" type="checkbox"><span>清除已保存的密钥</span></label>
+        <label class="guest-models-field"><span>可用模型</span><textarea id="guestModelsInput" rows="6" spellcheck="false" placeholder="每行一个模型 ID"></textarea></label>
+      </section>
       <fieldset class="reading-mode-settings">
         <legend>对话显示宽度</legend>
         <label><input type="radio" name="readingMode" value="fluid"><span><strong>动态宽屏</strong><small>随窗口在舒适范围内自动扩展，充分利用两侧空间</small></span></label>
@@ -221,7 +228,7 @@
       <header class="account-center-header"><div class="account-center-heading"><span class="account-center-mark" aria-hidden="true">账</span><div><p class="eyebrow">Account center</p><h2 id="accountDialogTitle">账户中心</h2><p>查看额度与用量，维护账户安全和模型权限。</p></div></div><button class="icon-button dialog-close" data-close-dialog="accountDialog" type="button" aria-label="关闭">×</button></header>
       <nav class="account-tabs" id="accountTabs" aria-label="账户中心功能区">
         <button type="button" data-account-panel="quota" class="active"><span aria-hidden="true">◈</span>额度概览</button>
-        <button type="button" data-account-panel="security"><span aria-hidden="true">◇</span>账户与安全</button>
+        <button type="button" data-account-panel="security" data-guest-hidden><span aria-hidden="true">◇</span>账户与安全</button>
         <button type="button" data-account-panel="users" data-admin-only hidden><span aria-hidden="true">♙</span>用户管理</button>
         <button type="button" data-account-panel="groups" data-admin-only hidden><span aria-hidden="true">▦</span>模型权限分组</button>
         <button type="button" data-account-panel="workflows" data-admin-only hidden><span aria-hidden="true">⛓</span>工作流管理</button>

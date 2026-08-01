@@ -8,8 +8,8 @@
   <meta name="description" content="Light-Chat 安全登录">
   <title>登录 · Light-Chat</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/styles.css?v=20260719-long-nav1">
-  <script src="/login.js?v=20260719-remember2" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=20260801-guest-mode">
+  <script src="/login.js?v=20260801-guest-mode" defer></script>
 </head>
 <body class="login-page">
   <main class="login-shell">
@@ -53,6 +53,11 @@
           <span>登录</span><span aria-hidden="true">→</span>
         </button>
       </form>
+      <div class="guest-login-separator" aria-hidden="true"><span>或</span></div>
+      <button class="guest-login-button" id="guestButton" type="button" disabled>
+        <span>以游客身份进入</span><span aria-hidden="true">→</span>
+      </button>
+      <p class="guest-login-note">游客默认没有积分与模型权限，可在工作台设置中自行配置 API 服务端点与可用模型。</p>
       <p class="login-footnote"><span aria-hidden="true">●</span> 仅通过加密隧道或本机回环访问</p>
       <p class="login-attribution">© 2026 <a href="https://github.com/Bright-Chengliang" target="_blank" rel="noopener">@Bright-Chengliang</a> · Light-Chat</p>
     </section>

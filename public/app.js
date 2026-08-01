@@ -22,6 +22,7 @@ const elements = {
   modelMode: $('#modelModeSelect'), modelList: $('#modelList'), openSettingsFromModel: $('#openSettingsFromModel'),
   settingsDialog: $('#settingsDialog'), groupsEditor: $('#groupsEditor'), addGroup: $('#addGroupButton'), conversationTitleModel: $('#conversationTitleModelSelect'),
   saveSettings: $('#saveSettingsButton'), settingsStatus: $('#settingsStatus'), refreshModels: $('#refreshModelsButton'),
+  guestConnectionSettings: $('#guestConnectionSettings'), guestEndpoint: $('#guestEndpointInput'), guestApiKey: $('#guestApiKeyInput'), guestClearApiKey: $('#guestClearApiKeyInput'), guestModels: $('#guestModelsInput'),
   renameConversationDialog: $('#renameConversationDialog'), renameConversationForm: $('#renameConversationForm'), renameConversationInput: $('#renameConversationInput'), renameConversationStatus: $('#renameConversationStatus'),
   accountDialog: $('#accountDialog'), accountForm: $('#accountForm'), currentUsername: $('#currentUsernameInput'),
   currentPassword: $('#currentPasswordInput'), newUsername: $('#newUsernameInput'), newPassword: $('#newPasswordInput'),
@@ -93,7 +94,7 @@ if (localStorage.getItem(STREAM_KEY) === null && storedStreamPreference !== null
   localStorage.setItem(STREAM_KEY, storedStreamPreference); localStorage.removeItem(LEGACY_STREAM_KEY);
 }
 const state = {
-  csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {}, favoriteMediaIds: [], conversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL },
+  csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, guestSettings: { endpoint: '', hasApiKey: false, allowedModels: [] }, adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {}, favoriteMediaIds: [], conversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL },
   selected: null, stream: storedStreamPreference !== 'false', conversations: [], currentId: '',
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
   historyFolders: [], openHistoryFolders: new Set(), historyUnfiledCollapsed: false, favoriteUnfiledCollapsed: false, historySearch: '',
@@ -3221,7 +3222,7 @@ function toggleHeaderModelMenu() {
 
 function seedFavoriteGroups() {
   if (state.preferences.favoriteGroups.length || !state.models.length) return;
-  if (state.userRole === 'user' && state.models.length <= 20) {
+  if (['user', 'guest'].includes(state.userRole) && state.models.length <= 20) {
     state.preferences.favoriteGroups = [{
       id: 'all-models', name: '全部模型',
       items: state.models.map((model) => {
@@ -3410,6 +3411,15 @@ function openSettings(options = {}) {
   if (preferenceContextMutationInFlight) { setStatus('收藏设置正在更新，请稍候', 'error'); return; }
   const focusFavorite = options?.focusFavorite;
   state.editingGroups = cloneGroups(); state.editingModelContextLimits = { ...(state.preferences.modelContextLimits || {}) }; state.editingConversationTitleModel = availableConversationTitleModel(); state.editingReadingMode = state.readingMode; applyReadingMode(state.editingReadingMode); setDialogStatus(elements.settingsStatus, ''); renderConversationTitleModelSelect(); renderGroupsEditor({ preserveScroll: false, focusFavorite }); elements.settingsDialog.showModal();
+  const isGuest = state.userRole === 'guest';
+  elements.guestConnectionSettings.hidden = !isGuest;
+  if (isGuest) {
+    elements.guestEndpoint.value = state.guestSettings.endpoint || '';
+    elements.guestApiKey.value = '';
+    elements.guestApiKey.placeholder = state.guestSettings.hasApiKey ? '已设置，留空保持不变' : '可选';
+    elements.guestClearApiKey.checked = false;
+    elements.guestModels.value = (state.guestSettings.allowedModels || []).join('\n');
+  }
 }
 
 function editFavoriteFromContext() {
@@ -4776,7 +4786,8 @@ function bindSidebarRolesResize() {
 }
 
 function switchAccountPanel(panelName) {
-  const requested = state.userRole !== 'admin' && ['users', 'groups', 'workflows'].includes(panelName) ? 'quota' : panelName;
+  const restricted = state.userRole !== 'admin' && ['users', 'groups', 'workflows'].includes(panelName);
+  const requested = restricted || (state.userRole === 'guest' && panelName === 'security') ? 'quota' : panelName;
   elements.accountDialog.classList.toggle('workflow-workspace-active', requested === 'workflows');
   for (const button of $$('[data-account-panel]', elements.accountTabs)) {
     const active = button.dataset.accountPanel === requested;
@@ -4793,7 +4804,8 @@ function applyQuota(payload) {
   state.quota = payload;
   state.credits = payload.credits;
   elements.quotaBalance.textContent = displayCredits(payload.credits, payload.role);
-  elements.quotaIdentity.textContent = `${payload.role === 'admin' ? '管理员' : '普通用户'} · UID ${payload.uid || state.userUid}`;
+  const roleLabel = payload.role === 'admin' ? '管理员' : payload.role === 'guest' ? '游客' : '普通用户';
+  elements.quotaIdentity.textContent = `${roleLabel} · UID ${payload.uid || state.userUid}`;
   elements.quotaUsed.textContent = Number(payload.usagePoints || 0).toLocaleString('zh-CN');
   elements.quotaChatCalls.textContent = Number(payload.chatCalls || 0).toLocaleString('zh-CN');
   elements.quotaImageCalls.textContent = Number(payload.imageCalls || 0).toLocaleString('zh-CN');
@@ -5355,7 +5367,7 @@ function bindEvents() {
   elements.saveRoles.addEventListener('click', saveRoleLibrary);
   for (const input of $$('input[name="readingMode"]', elements.settingsDialog)) input.addEventListener('change', () => { if (!input.checked) return; state.editingReadingMode = applyReadingMode(input.value); });
   elements.settingsDialog.addEventListener('close', () => applyReadingMode(state.readingMode));
-  elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits, conversationTitleModel: state.editingConversationTitleModel }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
+  elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { if (state.userRole === 'guest') { const saved = await jsonRequest('/api/guest/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: elements.guestEndpoint.value.trim(), allowedModels: elements.guestModels.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean), apiKey: elements.guestApiKey.value, clearApiKey: elements.guestClearApiKey.checked }) }); state.guestSettings = { endpoint: saved.endpoint || '', hasApiKey: saved.hasApiKey === true, allowedModels: Array.isArray(saved.allowedModels) ? saved.allowedModels : [] }; const refreshed = await jsonRequest('/api/models?refresh=1'); state.models = refreshed.models || []; state.selected = normalizeSelection(state.selected); renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi(); } await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits, conversationTitleModel: state.editingConversationTitleModel }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
   elements.conversationTitleModel.addEventListener('change', () => { state.editingConversationTitleModel = elements.conversationTitleModel.value; });
   elements.refreshModels.addEventListener('click', async () => { elements.refreshModels.disabled = true; setDialogStatus(elements.settingsStatus, '正在刷新模型…'); try { const payload = await jsonRequest('/api/models?refresh=1'); state.models = payload.models || []; state.selected = normalizeSelection(state.selected); renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi(); setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型`, 'success'); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } finally { elements.refreshModels.disabled = false; } });
   elements.accountButton.addEventListener('click', openAccountCenter);
@@ -5459,15 +5471,17 @@ function bindEvents() {
 
 function updateAccountUi() {
   const isAdmin = state.userRole === 'admin';
+  const isGuest = state.userRole === 'guest';
   elements.accountName.textContent = state.user;
   elements.accountUid.textContent = `UID ${state.userUid || (isAdmin ? '00000' : '—')}`;
   elements.accountAvatar.textContent = (state.user[0] || 'A').toUpperCase();
-  elements.accountRoleBadge.textContent = isAdmin ? '管理员' : '普通用户';
+  elements.accountRoleBadge.textContent = isAdmin ? '管理员' : isGuest ? '游客' : '普通用户';
   elements.accountRoleBadge.classList.toggle('admin', isAdmin);
   elements.accountCredits.textContent = `积分 ${displayCredits(state.credits)}`;
   elements.openOpc.hidden = !isAdmin;
   for (const element of $$('[data-admin-only]', elements.accountDialog)) element.hidden = !isAdmin;
-  if (!isAdmin) switchAccountPanel('quota');
+  for (const element of $$('[data-guest-hidden]', elements.accountDialog)) element.hidden = !isGuest;
+  if (!isAdmin || isGuest) switchAccountPanel('quota');
 }
 
 async function initialize() {
@@ -5485,6 +5499,12 @@ async function initialize() {
     const session = await jsonRequest('/api/session');
     if (!session.authenticated) { location.replace('/'); return; }
     state.user = session.username; state.userUid = session.uid; state.userRole = session.role || 'user'; state.credits = session.credits; state.csrf = session.csrfToken; startSessionRevocationListener(); state.translationHistory = loadTranslationHistory(); state.lastSelectedModels = loadLastSelectedModels(); updateAccountUi();
+    if (state.userRole === 'guest') {
+      try {
+        const guestSettings = await jsonRequest('/api/guest/settings');
+        state.guestSettings = { endpoint: guestSettings.endpoint || '', hasApiKey: guestSettings.hasApiKey === true, allowedModels: Array.isArray(guestSettings.allowedModels) ? guestSettings.allowedModels : [] };
+      } catch {}
+    }
     const [modelsPayload, preferencesPayload, rolesPayload] = await Promise.all([jsonRequest('/api/models'), jsonRequest('/api/preferences'), jsonRequest('/api/roles')]);
     state.models = modelsPayload.models || [];
     state.roleLibrary = rolesPayload?.version === 1 && Array.isArray(rolesPayload.folders) ? rolesPayload : { version: 1, folders: [] };
