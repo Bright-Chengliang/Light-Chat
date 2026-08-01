@@ -7,6 +7,8 @@ import {
   GuestStore,
   GUEST_UID,
   GUEST_USERNAME,
+  decryptGuestApiKey,
+  encryptGuestApiKey,
   guestPublicUser,
   normalizeGuestEndpoint,
   validateGuestModelIds,
@@ -40,11 +42,11 @@ test('guest model lists trim, deduplicate, and cap entries', () => {
   assert.throws(() => validateGuestModelIds(Array.from({ length: 201 }, (_, index) => `model-${index}`)), /可用模型列表无效/);
 });
 
-test('guest settings persist non-secret config and keep the API key in memory only', async () => {
+test('guest settings persist endpoint, allowed models, and an encrypted API key', async () => {
   const root = await mkdtemp(join(tmpdir(), 'guest-store-'));
   try {
     const path = join(root, 'guest-settings.json');
-    const store = new GuestStore(path, { allowPrivateEndpoints: true });
+    const store = new GuestStore(path, { allowPrivateEndpoints: true, secret: 'test-session-secret' });
     await store.initialize();
     const saved = await store.saveSettings({
       endpoint: 'http://127.0.0.1:9001/v1/',
@@ -57,21 +59,25 @@ test('guest settings persist non-secret config and keep the API key in memory on
     assert.equal(store.canUseModel('gpt-5'), true);
     assert.equal(store.canUseModel('claude-sonnet-4-5'), false);
 
-    const reloaded = new GuestStore(path, { allowPrivateEndpoints: true });
+    const reloaded = new GuestStore(path, { allowPrivateEndpoints: true, secret: 'test-session-secret' });
     await reloaded.initialize();
     assert.equal(reloaded.endpoint, 'http://127.0.0.1:9001/v1');
     assert.deepEqual(reloaded.publicSettings().allowedModels, ['gpt-5']);
-    assert.equal(reloaded.publicSettings().hasApiKey, false);
-    assert.equal(reloaded.apiKeyValue, '');
+    assert.equal(reloaded.publicSettings().hasApiKey, true);
+    assert.equal(reloaded.apiKeyValue, 'guest-secret');
+
+    const wrongSecret = new GuestStore(path, { allowPrivateEndpoints: true, secret: 'other-session-secret' });
+    await wrongSecret.initialize();
+    assert.equal(wrongSecret.apiKeyValue, '');
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test('guest settings can replace or explicitly clear the in-memory key', async () => {
+test('guest settings can replace or explicitly clear the encrypted key', async () => {
   const root = await mkdtemp(join(tmpdir(), 'guest-store-'));
   try {
-    const store = new GuestStore(join(root, 'guest-settings.json'), { allowPrivateEndpoints: true });
+    const store = new GuestStore(join(root, 'guest-settings.json'), { allowPrivateEndpoints: true, secret: 'test-session-secret' });
     await store.initialize();
     await store.saveSettings({ endpoint: '', allowedModels: [], apiKey: 'first-key' });
     assert.equal(store.apiKeyValue, 'first-key');
@@ -84,4 +90,11 @@ test('guest settings can replace or explicitly clear the in-memory key', async (
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test('guest API key encryption round-trips with the same secret and fails with a different one', () => {
+  const encrypted = encryptGuestApiKey('session-secret', 'sk-test');
+  assert.equal(decryptGuestApiKey('session-secret', encrypted), 'sk-test');
+  assert.equal(decryptGuestApiKey('different-secret', encrypted), '');
+  assert.equal(encryptGuestApiKey('session-secret', ''), null);
 });
