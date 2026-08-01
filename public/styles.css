@@ -79,6 +79,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .login-submit { height: 49px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; }
 .login-footnote { margin: 24px 0 0; color: var(--text-faint); font-size: .66rem; text-align: center; }
 .login-footnote span { color: var(--success); font-size: .55rem; }
+.login-attribution { margin: 10px 0 0; color: var(--text-faint); font-size: .6rem; text-align: center; }
+.login-attribution a { color: inherit; }
 
 /* Application shell */
 body:not(.login-page) { overflow: hidden; }
@@ -301,6 +303,7 @@ body.resizing-sidebar-roles, body.resizing-sidebar-roles * { cursor: row-resize 
 .workflow-conversation-list { margin: 0 7px 3px 12px; }
 .sidebar-account { min-height: 66px; margin-top: auto; padding-top: 8px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-top: 1px solid var(--border); }
 .account-privacy { grid-column: 1 / -1; padding: 0 6px 6px; overflow: hidden; color: var(--text-faint); font-size: .51rem; text-overflow: ellipsis; white-space: nowrap; }
+.account-privacy a { color: inherit; }
 .sidebar-account > #accountButton { min-width: 0; padding: 4px 6px; display: flex; align-items: center; gap: 9px; background: transparent; border-radius: 9px; text-align: left; }
 .sidebar-account > #accountButton:hover { background: rgba(255,255,255,.5); }
 .account-avatar { width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 auto; color: #fff; background: var(--accent); border-radius: 9px; font-size: .7rem; font-weight: 800; }

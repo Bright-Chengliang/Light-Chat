@@ -131,3 +131,7 @@ npm run check
 ## License
 
 MIT License，详见 [LICENSE](LICENSE)。
+
+## 作者
+
+© 2026 [Bright-Chengliang](https://github.com/Bright-Chengliang) · Light-Chat

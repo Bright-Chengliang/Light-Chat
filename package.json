@@ -2,6 +2,11 @@
   "name": "light-chat",
   "version": "1.0.0",
   "license": "MIT",
+  "author": {
+    "name": "Bright-Chengliang",
+    "url": "https://github.com/Bright-Chengliang"
+  },
+  "homepage": "https://github.com/Bright-Chengliang/light-chat",
   "private": true,
   "type": "module",
   "engines": {
