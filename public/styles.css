@@ -664,6 +664,8 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 .conversation-title-model-setting select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(166,75,55,.1); outline: 0; }
 .settings-status { margin: 0 0 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; color: var(--text-soft); background: var(--surface-soft); border-radius: 10px; font-size: .65rem; }
 .settings-status button { margin-left: auto; color: var(--accent); background: transparent; font-size: .63rem; }
+.settings-dialog .dialog-shell { overflow-y: auto; scrollbar-width: thin; }
+.settings-subheading { margin: 18px 0 8px; color: var(--text-soft); font-size: .66rem; font-weight: 760; }
 .groups-editor { min-height: 120px; max-height: 440px; display: grid; gap: 10px; overflow: auto; }
 .group-card { padding: 12px; background: #faf9f6; border: 1px solid var(--border); border-radius: 12px; }
 .group-heading { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
