@@ -3438,7 +3438,8 @@ function renderGuestModelSelect() {
     const option = document.createElement('option');
     option.value = model.id;
     option.textContent = model.id;
-    option.selected = previouslySelected.has(model.id) || (previouslySelected.size === 0 && allowed.has(model.id));
+    option.selected = previouslySelected.has(model.id)
+      || (previouslySelected.size === 0 && (state.guestCatalog.length ? true : allowed.has(model.id)));
     select.append(option);
   }
 }
@@ -3468,8 +3469,18 @@ async function fetchGuestModels() {
       body: JSON.stringify({ endpoint, apiKey: elements.guestApiKey.value }),
     });
     state.guestCatalog = Array.isArray(payload.models) ? payload.models : [];
+    state.models = state.guestCatalog;
+    state.selected = normalizeSelection(state.selected);
+    if (!state.preferences.favoriteGroups.length && state.models.length) {
+      seedFavoriteGroups();
+      state.editingGroups = cloneGroups();
+    }
+    renderConversationTitleModelSelect();
+    renderGroupsEditor();
+    updateSelectionUi();
+    renderFavorites();
     renderGuestModelSelect();
-    elements.guestApiStatus.textContent = `已获取 ${state.guestCatalog.length} 个可用模型`;
+    elements.guestApiStatus.textContent = `已获取 ${state.guestCatalog.length} 个可用模型，默认全部启用`;
     elements.guestApiStatus.className = 'success';
   } catch (error) {
     elements.guestApiStatus.textContent = error.message || '获取模型失败';
