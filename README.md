@@ -127,6 +127,7 @@ npm run check
 - `.data/`、`.secrets/`、`.logs/`、`.run/`、`.local/` 等运行时目录均被 `.gitignore` 排除。
 - 普通用户聊天正文只存在浏览器 `localStorage`；管理员会话以服务端 `.data/conversations-00000.json` 为准。
 - 服务端只保存密码哈希、会话令牌、积分、权限、角色定义和媒体索引，不收集聊天正文。
+- 服务端 JSON 每次保存前会自动保留上一份 `.bak`；收藏图片等偏好记录意外被清空时，可运行 `.\scripts\restore-preferences-backup.ps1` 从备份恢复。
 
 ## License
 
