@@ -1,6 +1,6 @@
 # Light-Chat
 
-Light-Chat 是一个运行在本机、面向多用户的 AI 聊天工作台。管理员负责创建用户、分配积分和模型权限，普通用户专注对话与知识整理。服务端代持 NewAPI 密钥，密钥不会进入浏览器；普通用户会话正文保存在浏览器本地，服务端不收集聊天内容。
+Light-Chat 是一个运行在本机、面向多用户的 AI 聊天工作台。管理员负责创建用户、分配积分和模型权限，普通用户专注对话与知识整理。服务端代持上游 API 密钥，密钥不会进入浏览器；普通用户会话正文保存在浏览器本地，服务端不收集聊天内容。
 
 ![Light-Chat](public/assets/light-chat-icon.png)
 
@@ -52,18 +52,18 @@ Light-Chat 是一个运行在本机、面向多用户的 AI 聊天工作台。�
 - 密码使用 `scrypt` + 独立随机盐保存，永不保存明文。
 - 会话为服务端不透明令牌，CSRF、同源校验、登录限速、UID 数据隔离默认开启。
 - 管理员关键操作写入 `.data/admin-audit.jsonl`，不记录密码、密钥或请求正文。
-- NewAPI 固定由服务端访问 `127.0.0.1:3002`，客户端不能提供上游地址。
+- 上游 API 地址由服务端配置（默认 `http://127.0.0.1:3002/v1`），客户端不能提供上游地址，不限定于任何特定 API 渠道。
 
 ## 快速开始
 
-环境要求：Windows 10/11、Node.js 22+、NewAPI 已运行在 `127.0.0.1:3002`。
+环境要求：Windows 10/11、Node.js 22+、OpenAI 兼容上游服务（默认地址为 `127.0.0.1:3002`，可通过环境变量修改）。
 
 ```powershell
 .\scripts\configure-secrets.ps1
 .\scripts\start-server.ps1
 ```
 
-`configure-secrets.ps1` 会交互式配置引导管理员用户名、初始密码和 NewAPI 专用密钥，经当前 Windows 用户 DPAPI 加密后写入 `.secrets/`。默认地址为 `http://127.0.0.1:3020`。
+`configure-secrets.ps1` 会交互式配置引导管理员用户名、初始密码和上游 API 密钥，经当前 Windows 用户 DPAPI 加密后写入 `.secrets/`。默认地址为 `http://127.0.0.1:3020`。
 
 后台运行与登录自启动：
 
@@ -83,10 +83,28 @@ Light-Chat 是一个运行在本机、面向多用户的 AI 聊天工作台。�
 
 Android 构建的 Base URL 同样支持 `.local/base-url` 或 `LIGHT_CHAT_BASE_URL`，方便本机一键构建而不把域名提交到仓库。
 
+## 上游 API 配置
+
+上游地址通过 `CHAT_UPSTREAM_BASE_URL` 指定，默认值为 `http://127.0.0.1:3002/v1`。也可以在本机创建 gitignored 的 `.local/upstream-base-url` 写入自定义地址，`scripts/start-server.ps1` 会自动读取。
+
+其他服务端环境变量：
+
+| 变量 | 说明 |
+| --- | --- |
+| `CHAT_UPSTREAM_API_KEY` | 上游 API 密钥，仅存于服务端进程内存 |
+| `CHAT_UPSTREAM_BASE_URL` | 上游 OpenAI 兼容 API 地址 |
+| `CHAT_BOOTSTRAP_USERNAME` | 引导管理员用户名 |
+| `CHAT_BOOTSTRAP_PASSWORD` | 引导管理员初始密码 |
+| `CHAT_SESSION_SECRET` | 会话签名密钥 |
+| `CHAT_PORT` | 监听端口，`3020–4000` |
+| `CHAT_TRUST_PROXY` | 反代场景置为 `true` |
+| `CHAT_ALLOWED_HOSTS` | 允许的 Host，逗号分隔 |
+| `CHAT_DATA_DIR` | 运行时数据目录，默认项目内 `.data/` |
+
 ## 目录结构
 
 ```text
-lib/                 服务端逻辑：账户、会话、安全、媒体、NewAPI 客户端等
+lib/                 服务端逻辑：账户、会话、安全、媒体、上游 API 客户端等
 public/              前端静态资源：登录页、工作台、样式、KaTeX 等
 scripts/             PowerShell 配置/启动/后台/Android 构建脚本
 android/             Android WebView 客户端

@@ -31,7 +31,7 @@ if ($credentials.version -ne 1) {
     throw '不支持的凭据文件版本。'
 }
 
-$env:CHAT_NEWAPI_API_KEY = Unprotect-Value $credentials.newApiKey
+$env:CHAT_UPSTREAM_API_KEY = Unprotect-Value $credentials.newApiKey
 $env:CHAT_BOOTSTRAP_USERNAME = [string]$credentials.username
 $env:CHAT_BOOTSTRAP_PASSWORD = Unprotect-Value $credentials.initialPassword
 $env:CHAT_SESSION_SECRET = Unprotect-Value $credentials.sessionSecret
@@ -50,6 +50,12 @@ if ([string]::IsNullOrWhiteSpace($AllowedHosts)) {
     $AllowedHosts = '127.0.0.1,localhost'
 }
 $env:CHAT_ALLOWED_HOSTS = $AllowedHosts
+if (-not [Environment]::GetEnvironmentVariable('CHAT_UPSTREAM_BASE_URL', 'Process')) {
+    $LocalUpstreamFile = Join-Path $ProjectRoot '.local\upstream-base-url'
+    if (Test-Path -LiteralPath $LocalUpstreamFile) {
+        $env:CHAT_UPSTREAM_BASE_URL = (Get-Content -LiteralPath $LocalUpstreamFile -Raw).Trim()
+    }
+}
 
 try {
     Push-Location $ProjectRoot
@@ -62,12 +68,13 @@ try {
     }
 }
 finally {
-    Remove-Item Env:CHAT_NEWAPI_API_KEY -ErrorAction SilentlyContinue
+    Remove-Item Env:CHAT_UPSTREAM_API_KEY -ErrorAction SilentlyContinue
     Remove-Item Env:CHAT_BOOTSTRAP_USERNAME -ErrorAction SilentlyContinue
     Remove-Item Env:CHAT_BOOTSTRAP_PASSWORD -ErrorAction SilentlyContinue
     Remove-Item Env:CHAT_SESSION_SECRET -ErrorAction SilentlyContinue
     Remove-Item Env:CHAT_PORT -ErrorAction SilentlyContinue
     Remove-Item Env:CHAT_TRUST_PROXY -ErrorAction SilentlyContinue
     Remove-Item Env:CHAT_ALLOWED_HOSTS -ErrorAction SilentlyContinue
+    Remove-Item Env:CHAT_UPSTREAM_BASE_URL -ErrorAction SilentlyContinue
     $credentials = $null
 }

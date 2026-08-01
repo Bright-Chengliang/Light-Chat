@@ -35,16 +35,18 @@ test('workflow requests use the same effective locked model and size that the se
   assert.match(appSource, /imageModel: request\.selection\.modelId,[\s\S]*size: request\.size,[\s\S]*quality: request\.quality/);
 });
 
-test('Light-Chat routes every Gemini Flash request through the configured 3002 NewAPI gateway', () => {
+test('Light-Chat routes every Gemini Flash request through the configured OpenAI-compatible upstream', () => {
   const runtimeSource = `${serverSource}\n${backendSource}\n${clientSource}`;
   assert.doesNotMatch(runtimeSource, /3006|ICON_3006|geminiFlashChatApiKey|geminiFlashChatBaseUrl/);
-  assert.match(serverSource, /NEWAPI_BASE_URL = 'http:\/\/127\.0\.0\.1:3002\/v1'/);
+  assert.match(serverSource, /UPSTREAM_BASE_URL = process\.env\.CHAT_UPSTREAM_BASE_URL \|\| 'http:\/\/127\.0\.0\.1:3002\/v1'/);
+  assert.match(serverSource, /'CHAT_UPSTREAM_BASE_URL'/);
   assert.match(clientSource, /this\.fetch\(`\$\{this\.baseUrl\}\/chat\/completions`/);
 });
 
-test('gpt-image-2 uses the configured 3002 NewAPI gateway without any direct proxy route', () => {
+test('gpt-image-2 uses the configured OpenAI-compatible upstream without any direct proxy route', () => {
   const runtimeSource = `${serverSource}\n${backendSource}\n${clientSource}`;
-  assert.match(serverSource, /NEWAPI_BASE_URL = 'http:\/\/127\.0\.0\.1:3002\/v1'/);
+  assert.match(serverSource, /UPSTREAM_BASE_URL = process\.env\.CHAT_UPSTREAM_BASE_URL \|\| 'http:\/\/127\.0\.0\.1:3002\/v1'/);
+  assert.match(serverSource, /'CHAT_UPSTREAM_BASE_URL'/);
   assert.match(clientSource, /this\.fetch\(`\$\{this\.baseUrl\}\/responses`/);
   assert.match(clientSource, /model: 'gpt-5\.4-mini'/);
   assert.doesNotMatch(runtimeSource, /8393|cockpit-cliproxy|cli-proxy/i);

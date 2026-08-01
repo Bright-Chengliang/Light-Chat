@@ -45,7 +45,13 @@ if ($username -notmatch '^[A-Za-z0-9_.-]{3,64}$') {
     throw '用户名需为 3–64 位字母、数字、点、下划线或连字符。'
 }
 
-$apiKey = Read-SecretValue -EnvironmentName 'CHAT_SETUP_NEWAPI_API_KEY' -Prompt 'NewAPI 专用 API 密钥'
+$legacyApiKey = [Environment]::GetEnvironmentVariable('CHAT_SETUP_NEWAPI_API_KEY', 'Process')
+if (-not [string]::IsNullOrWhiteSpace($legacyApiKey)) {
+    [Environment]::SetEnvironmentVariable('CHAT_SETUP_UPSTREAM_API_KEY', $legacyApiKey, 'Process')
+    [Environment]::SetEnvironmentVariable('CHAT_SETUP_NEWAPI_API_KEY', $null, 'Process')
+    $legacyApiKey = $null
+}
+$apiKey = Read-SecretValue -EnvironmentName 'CHAT_SETUP_UPSTREAM_API_KEY' -Prompt '上游（OpenAI 兼容）API 密钥'
 $initialPassword = Read-SecretValue -EnvironmentName 'CHAT_SETUP_INITIAL_PASSWORD' -Prompt '管理员初始密码（至少 10 个字符）'
 $passwordCheck = Reveal-SecureValue $initialPassword
 try {

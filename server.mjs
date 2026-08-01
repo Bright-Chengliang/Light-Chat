@@ -5,8 +5,8 @@ import { createChatApp } from './lib/app.mjs';
 const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = '127.0.0.1';
 const PORT = Number.parseInt(process.env.CHAT_PORT || '3020', 10);
-const NEWAPI_BASE_URL = 'http://127.0.0.1:3002/v1';
-const API_KEY = process.env.CHAT_NEWAPI_API_KEY;
+const UPSTREAM_BASE_URL = process.env.CHAT_UPSTREAM_BASE_URL || 'http://127.0.0.1:3002/v1';
+const API_KEY = process.env.CHAT_UPSTREAM_API_KEY;
 const BOOTSTRAP_USERNAME = process.env.CHAT_BOOTSTRAP_USERNAME;
 const BOOTSTRAP_PASSWORD = process.env.CHAT_BOOTSTRAP_PASSWORD;
 const SESSION_SECRET = process.env.CHAT_SESSION_SECRET;
@@ -18,7 +18,8 @@ const ALLOWED_HOSTS = (process.env.CHAT_ALLOWED_HOSTS || '')
 const DATA_DIR = process.env.CHAT_DATA_DIR ? resolve(process.env.CHAT_DATA_DIR) : undefined;
 
 for (const name of [
-  'CHAT_NEWAPI_API_KEY',
+  'CHAT_UPSTREAM_API_KEY',
+  'CHAT_UPSTREAM_BASE_URL',
   'CHAT_BOOTSTRAP_USERNAME',
   'CHAT_BOOTSTRAP_PASSWORD',
   'CHAT_SESSION_SECRET',
@@ -32,7 +33,7 @@ if (!Number.isInteger(PORT) || PORT < 3020 || PORT > 4000) {
 }
 
 const missing = [
-  ['CHAT_NEWAPI_API_KEY', API_KEY],
+  ['CHAT_UPSTREAM_API_KEY', API_KEY],
   ['CHAT_BOOTSTRAP_USERNAME', BOOTSTRAP_USERNAME],
   ['CHAT_BOOTSTRAP_PASSWORD', BOOTSTRAP_PASSWORD],
   ['CHAT_SESSION_SECRET', SESSION_SECRET],
@@ -56,7 +57,7 @@ try {
     port: PORT,
     trustProxy: TRUST_PROXY,
     allowedHosts: ALLOWED_HOSTS,
-    newApiBaseUrl: NEWAPI_BASE_URL,
+    newApiBaseUrl: UPSTREAM_BASE_URL,
   });
 } catch (error) {
   console.error(`服务初始化失败：${error?.message || '未知错误'}`);
