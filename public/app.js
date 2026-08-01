@@ -3245,6 +3245,20 @@ function seedFavoriteGroups() {
   ];
 }
 
+function sanitizeFavoriteGroups(groups, models) {
+  if (!Array.isArray(groups) || !Array.isArray(models)) return [];
+  return groups
+    .map((group) => ({
+      ...group,
+      items: (group.items || []).filter((item) => {
+        const modelId = item.modelId || item.model;
+        return typeof modelId === 'string'
+          && models.some((model) => model.id === modelId && model.modes.includes(item.mode));
+      }),
+    }))
+    .filter((group) => group.items.length);
+}
+
 async function savePreferences(nextPreferences = state.preferences) {
   preferenceWritesInFlight += 1;
   try {
@@ -3418,14 +3432,8 @@ function setSettingsConnectionText(text, ok = true) {
   }
 }
 
-function guestSelectedModels() {
-  return [...elements.guestAvailableModels.selectedOptions].map((option) => option.value);
-}
-
 function renderGuestModelSelect() {
-  const previouslySelected = new Set(guestSelectedModels());
   const source = state.guestCatalog.length ? state.guestCatalog : state.models;
-  const allowed = new Set(state.guestSettings.allowedModels || []);
   const select = elements.guestAvailableModels;
   select.replaceChildren();
   if (!source.length) {
@@ -3438,10 +3446,14 @@ function renderGuestModelSelect() {
     const option = document.createElement('option');
     option.value = model.id;
     option.textContent = model.id;
-    option.selected = previouslySelected.has(model.id)
-      || (previouslySelected.size === 0 && (state.guestCatalog.length ? true : allowed.has(model.id)));
     select.append(option);
   }
+  const current = state.selected?.modelId && source.some((model) => model.id === state.selected.modelId)
+    ? state.selected.modelId
+    : select.value && source.some((model) => model.id === select.value)
+      ? select.value
+      : source[0].id;
+  select.value = current;
 }
 
 function clearGuestApiKey() {
@@ -3471,7 +3483,9 @@ async function fetchGuestModels() {
     state.guestCatalog = Array.isArray(payload.models) ? payload.models : [];
     state.models = state.guestCatalog;
     state.selected = normalizeSelection(state.selected);
-    if (!state.preferences.favoriteGroups.length && state.models.length) {
+    state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
+    state.editingGroups = cloneGroups();
+    if (!state.editingGroups.length && state.models.length) {
       seedFavoriteGroups();
       state.editingGroups = cloneGroups();
     }
@@ -3480,7 +3494,7 @@ async function fetchGuestModels() {
     updateSelectionUi();
     renderFavorites();
     renderGuestModelSelect();
-    elements.guestApiStatus.textContent = `已获取 ${state.guestCatalog.length} 个可用模型，默认全部启用`;
+    elements.guestApiStatus.textContent = `已获取 ${state.guestCatalog.length} 个可用模型，可在下拉选择当前模型`;
     elements.guestApiStatus.className = 'success';
   } catch (error) {
     elements.guestApiStatus.textContent = error.message || '获取模型失败';
@@ -3504,7 +3518,9 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         endpoint: elements.guestEndpoint.value.trim(),
-        allowedModels: guestSelectedModels(),
+        allowedModels: state.guestCatalog.length
+          ? state.guestCatalog.map((model) => model.id)
+          : state.guestSettings.allowedModels,
         apiKey: elements.guestApiKey.value,
         clearApiKey: pendingGuestKeyClear,
       }),
@@ -3519,6 +3535,8 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
     const refreshed = await jsonRequest('/api/models?refresh=1');
     state.models = refreshed.models || [];
     state.selected = normalizeSelection(state.selected);
+    state.editingGroups = sanitizeFavoriteGroups(state.editingGroups, state.models);
+    state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
     renderConversationTitleModelSelect();
     renderGroupsEditor();
     updateSelectionUi();
@@ -5519,6 +5537,13 @@ function bindEvents() {
   elements.fetchGuestModels.addEventListener('click', () => { void fetchGuestModels(); });
   elements.guestClearApiKeyButton.addEventListener('click', clearGuestApiKey);
   elements.guestApiKey.addEventListener('input', () => { pendingGuestKeyClear = false; });
+  elements.guestAvailableModels.addEventListener('change', () => {
+    const modelId = elements.guestAvailableModels.value;
+    const model = state.models.find((item) => item.id === modelId) || state.guestCatalog.find((item) => item.id === modelId);
+    if (!model) return;
+    const mode = model.modes.includes(model.suggestedMode) ? model.suggestedMode : model.modes[0];
+    if (state.models.some((item) => item.id === modelId && item.modes.includes(mode))) setSelection(modelId, mode);
+  });
   elements.saveGuestApi.addEventListener('click', () => { void saveGuestApiSettings().catch(() => {}); });
   elements.accountButton.addEventListener('click', openAccountCenter);
   elements.accountTabs.addEventListener('click', (event) => { const button = event.target.closest('[data-account-panel]'); if (button && !button.hidden) switchAccountPanel(button.dataset.accountPanel); });
