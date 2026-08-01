@@ -1,11 +1,23 @@
 [CmdletBinding()]
 param(
     [ValidateSet('debug', 'release')][string]$BuildType = 'debug',
-    [string]$BaseUrl = 'https://chat.example.com/'
+    [string]$BaseUrl = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $ProjectRoot = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
+if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+    $BaseUrl = [Environment]::GetEnvironmentVariable('LIGHT_CHAT_BASE_URL', 'Process')
+}
+if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+    $LocalBaseUrlFile = Join-Path $ProjectRoot '.local\base-url'
+    if (Test-Path -LiteralPath $LocalBaseUrlFile) {
+        $BaseUrl = (Get-Content -LiteralPath $LocalBaseUrlFile -Raw).Trim()
+    }
+}
+if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+    $BaseUrl = 'https://chat.example.com/'
+}
 $AndroidRoot = Join-Path $ProjectRoot 'android'
 $SdkRoot = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
 $JavaRoot = if ($env:JAVA_HOME) { $env:JAVA_HOME } else { 'C:\Program Files\Android\Android Studio\jbr' }

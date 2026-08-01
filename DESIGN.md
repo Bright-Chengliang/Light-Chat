@@ -5,16 +5,12 @@
 - Last refreshed: 2026-07-19
 - Primary product surfaces: 登录页、对话工作台、模型选择器、收藏 LLM 组设置、角色文件夹与角色关联对话、历史整理/编辑/分支/导出、回答版本、图片预览、账户中心、管理员用户管理与模型权限分组。
 - Evidence reviewed:
-  - `~/projects\Code\chat.online\lib\account-store.mjs`
-  - `~/projects\Code\chat.online\lib\app.mjs`
-  - `~/projects\Code\chat.online\public\app.html`
-  - `~/projects\Code\chat.online\public\app.js`
-  - `~/projects\Code\chat.online\public\styles.css`
-  - `~/projects\Code\xiaoliuren\public\index.html`
-  - `~/projects\Code\xiaoliuren\public\styles.css`
-  - `~/projects\Code\xiaoliuren\public\app.js`
-  - `~/projects\Code\xiaoliuren\output\playwright\xiaoliuren-desktop.png`
-  - `~/projects\PolyU\softwares\Obsidian\projects\personal\认知库自进化系统\06_Wikis\工具与项目评测\2026.07.10_ai-website-cloner-template_AI网站克隆模板项目介绍.md`
+  - `./lib/account-store.mjs`
+  - `./lib/app.mjs`
+  - `./public/app.html`
+  - `./public/app.js`
+  - `./public/styles.css`
+  - 相邻项目设计参考（不随本仓库发布）
 
 ## Brand
 - Personality: 克制、安静、可信、偏纸张与书房质感，服务名使用“Light-Chat”。
@@ -24,7 +20,7 @@
 ## Product goals
 - Goals: 安全支持管理员与普通用户登录；管理员在账户中心创建/启停/删除用户、充值积分并配置模型权限；按 UID 隔离偏好、角色和媒体；成功响应或用户主动取消时结算积分，上游失败与超时不扣积分，并展示余额与累计用量；完成 NewAPI 多轮聊天、文档与图片输入、Gemini Flash 生图及 gpt-image-2 生成/参考图编辑；展示图片、usage 与按模型上下文上限；支持默认流式与可选非流式响应、最多 4 会话并行；快速选择收藏模型组；管理自定义角色与系统提示词并从角色卡回到衍生对话；编辑、分支、整理和导出历史。
 - Non-goals: 开放注册、第三方支付或货币结算、组织/企业级租户体系、公开 API、服务器端长期保存聊天正文、复刻 Claude 品牌。
-- Success signals: 3020 本地与 `chat.example.com` 均可登录；管理员和普通用户看到符合各自角色的账户中心；模型列表来自 3002 且受 UID 权限过滤；成功响应和主动取消正确结算，上游失败与超时不扣积分；用户之间不能读取彼此偏好、角色或媒体；所有敏感值仅存在服务端。
+- Success signals: 3020 本地与部署域名（如 `chat.example.com`）均可登录；管理员和普通用户看到符合各自角色的账户中心；模型列表来自 3002 且受 UID 权限过滤；成功响应和主动取消正确结算，上游失败与超时不扣积分；用户之间不能读取彼此偏好、角色或媒体；所有敏感值仅存在服务端。
 
 ## Personas and jobs
 - Primary personas: 管理员、由管理员创建的普通用户。

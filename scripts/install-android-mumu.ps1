@@ -1,15 +1,20 @@
 [CmdletBinding()]
 param(
     [string]$Serial = 'emulator-5554',
-    [string]$Apk = ''
+    [string]$Apk = '',
+    [string]$Adb = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $ProjectRoot = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
-$adbCandidates = @(
-    'D:\Program Files\Netease\MuMuPlayer\nx_main\adb.exe',
-    (Join-Path ($env:ANDROID_HOME ?? (Join-Path $env:LOCALAPPDATA 'Android\Sdk')) 'platform-tools\adb.exe')
-)
+$adbCandidates = @()
+if ($Adb) { $adbCandidates += $Adb }
+if ($env:MUMU_ADB) { $adbCandidates += $env:MUMU_ADB }
+$LocalAdbFile = Join-Path $ProjectRoot '.local\mumu-adb'
+if (Test-Path -LiteralPath $LocalAdbFile) {
+    $adbCandidates += (Get-Content -LiteralPath $LocalAdbFile -Raw).Trim()
+}
+$adbCandidates += (Join-Path ($env:ANDROID_HOME ?? (Join-Path $env:LOCALAPPDATA 'Android\Sdk')) 'platform-tools\adb.exe')
 $adb = $adbCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 if (-not $adb) { throw '找不到 ADB。请启动 MuMu 或设置 ANDROID_HOME。' }
 if (-not $Apk) { $Apk = Join-Path $ProjectRoot 'output\android\Light-Chat-1.0.0-debug.apk' }

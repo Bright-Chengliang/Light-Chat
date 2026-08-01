@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [ValidateRange(3020, 4000)][int]$Port = 3020,
-    [switch]$NoTrustProxy
+    [switch]$NoTrustProxy,
+    [string]$AllowedHosts = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -36,7 +37,19 @@ $env:CHAT_BOOTSTRAP_PASSWORD = Unprotect-Value $credentials.initialPassword
 $env:CHAT_SESSION_SECRET = Unprotect-Value $credentials.sessionSecret
 $env:CHAT_PORT = [string]$Port
 $env:CHAT_TRUST_PROXY = if ($NoTrustProxy) { 'false' } else { 'true' }
-$env:CHAT_ALLOWED_HOSTS = 'chat.example.com'
+if ([string]::IsNullOrWhiteSpace($AllowedHosts)) {
+    $AllowedHosts = [Environment]::GetEnvironmentVariable('CHAT_ALLOWED_HOSTS', 'Process')
+}
+if ([string]::IsNullOrWhiteSpace($AllowedHosts)) {
+    $LocalHostsFile = Join-Path $ProjectRoot '.local\allowed-hosts'
+    if (Test-Path -LiteralPath $LocalHostsFile) {
+        $AllowedHosts = (Get-Content -LiteralPath $LocalHostsFile -Raw).Trim()
+    }
+}
+if ([string]::IsNullOrWhiteSpace($AllowedHosts)) {
+    $AllowedHosts = '127.0.0.1,localhost'
+}
+$env:CHAT_ALLOWED_HOSTS = $AllowedHosts
 
 try {
     Push-Location $ProjectRoot

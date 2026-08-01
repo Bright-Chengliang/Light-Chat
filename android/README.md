@@ -21,16 +21,18 @@
 
 ```powershell
 $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
-$env:ANDROID_HOME = 'C:\Users\admin\AppData\Local\Android\Sdk'
+$env:ANDROID_HOME = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 cd android
 .\gradlew.bat testDebugUnitTest lintDebug assembleDebug
 ```
 
-默认服务地址为 `https://chat.example.com/`。如需构建到其他环境，必须显式传入标准 HTTPS 地址：
+仓库不包含个人部署域名。默认服务地址为 `https://chat.example.com/`。本机一键构建会优先读取 `.local/base-url`（已被 `.gitignore` 排除），也可以显式传入标准 HTTPS 地址：
 
 ```powershell
 .\gradlew.bat assembleDebug -PLIGHT_CHAT_BASE_URL=https://example.example/
 ```
+
+使用项目脚本构建时，也可以先设置 `$env:LIGHT_CHAT_BASE_URL`，或在项目根目录创建 `.local/base-url` 写入你的 HTTPS 地址。
 
 构建产物：
 
@@ -48,7 +50,8 @@ MuMu 的 ADB 设备默认是 `emulator-5554`。可执行：
 或手动：
 
 ```powershell
-$adb = 'D:\Program Files\Netease\MuMuPlayer\nx_main\adb.exe'
+$adb = $env:MUMU_ADB
+if (-not $adb) { $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe' }
 & $adb devices -l
 & $adb -s emulator-5554 install -r .\app\build\outputs\apk\debug\app-debug.apk
 & $adb -s emulator-5554 shell am start -n top.brightcl.lightchat.debug/top.brightcl.lightchat.MainActivity
@@ -71,7 +74,7 @@ $adb = 'D:\Program Files\Netease\MuMuPlayer\nx_main\adb.exe'
 - Android User-Agent 标记会让服务端为已认证 App 会话签发 30 天有效期；普通网页会话仍为 12 小时。注销、封禁、删除用户或修改密码仍由服务端立即撤销会话。
 - WebView 启用 DOM Storage 以保留网页端本机历史，但不启用任何 JavaScript Bridge，不向页面注入账户、密钥或原生对象。
 - 目标 SDK 36 的 edge-to-edge 窗口由根容器统一处理 `systemBars | displayCutout` inset：状态栏、导航栏、横屏左右挖孔和桌面窗口安全区都会得到 padding；处理后的系统栏 inset 会归零后继续传给 WebView，避免与网页安全区重复留白，同时保留 IME（软键盘）视口更新。
-- 只允许精确的 `https://chat.example.com` 导航和下载；HTTP、文件、内容、JavaScript URL、用户信息、非标准端口均不会在 WebView 内打开。
+- 只允许精确的 `https://chat.example.com` 导航和下载；HTTP、文件、内容、JavaScript URL、用户信息、非标准端口均不会在 WebView 内打开。实际域名由构建时的 `LIGHT_CHAT_BASE_URL` 决定。
 - 禁止明文网络、混合内容、file URL 跨域访问和第三方 Cookie；SSL 错误始终取消连接。
 - 文件上传使用 Android 系统 `ACTION_OPEN_DOCUMENT`，不申请相机或公共存储权限；生成文件下载通过带当前 Cookie 的系统 `DownloadManager`，只允许受信任域名。
 - APK 和 Web 前端不包含后台模型服务地址、API 密钥、密码或固定管理员凭据。

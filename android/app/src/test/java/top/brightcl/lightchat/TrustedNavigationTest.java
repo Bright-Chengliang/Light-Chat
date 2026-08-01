@@ -8,12 +8,12 @@ import static org.junit.Assert.assertTrue;
 public final class TrustedNavigationTest {
     @Test
     public void acceptsOnlyExactHttpsServiceOrigin() {
-        assertTrue(TrustedNavigation.isTrusted("https://chat.example.com/app", "chat.example.com"));
-        assertTrue(TrustedNavigation.isTrusted("https://chat.example.com:443/api/session", "chat.example.com"));
-        assertFalse(TrustedNavigation.isTrusted("http://chat.example.com/app", "chat.example.com"));
-        assertFalse(TrustedNavigation.isTrusted("https://chat.example.com.evil.example/app", "chat.example.com"));
-        assertFalse(TrustedNavigation.isTrusted("https://user@chat.example.com/app", "chat.example.com"));
-        assertFalse(TrustedNavigation.isTrusted("https://chat.example.com:8443/app", "chat.example.com"));
+        assertTrue(TrustedNavigation.isTrusted("https://example.com/app", "example.com"));
+        assertTrue(TrustedNavigation.isTrusted("https://example.com:443/api/session", "example.com"));
+        assertFalse(TrustedNavigation.isTrusted("http://example.com/app", "example.com"));
+        assertFalse(TrustedNavigation.isTrusted("https://example.com.evil.example/app", "example.com"));
+        assertFalse(TrustedNavigation.isTrusted("https://user@example.com/app", "example.com"));
+        assertFalse(TrustedNavigation.isTrusted("https://example.com:8443/app", "example.com"));
     }
 
     @Test
