@@ -1076,7 +1076,7 @@ function renderFavoriteMedia() {
   elements.favoriteMedia.replaceChildren();
   renderMediaPageControls(elements.favoriteMediaPagination, elements.previousFavoriteMediaPage, elements.nextFavoriteMediaPage, elements.favoriteMediaPageStatus, state.favoriteMediaPage, state.favoriteMediaLoading);
   if (state.favoriteMediaLoading) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '正在加载收藏图片…' })); return; }
-  if (!state.favoriteMedia.length) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '还没有收藏图片。可在“最近文件”中右键任意文件后选择收藏。' })); return; }
+  if (!state.favoriteMedia.length) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '还没有收藏图片。可在“最近文件”中右键选择收藏。' })); return; }
   const images = state.favoriteMedia.filter((item) => item.isImage);
   for (const item of state.favoriteMedia) {
     const card = document.createElement('article'); card.className = 'favorite-media-card';
