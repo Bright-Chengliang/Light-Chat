@@ -3537,6 +3537,10 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
     state.selected = normalizeSelection(state.selected);
     state.editingGroups = sanitizeFavoriteGroups(state.editingGroups, state.models);
     state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
+    if (!state.editingGroups.length && state.models.length) {
+      seedFavoriteGroups();
+      state.editingGroups = cloneGroups();
+    }
     renderConversationTitleModelSelect();
     renderGroupsEditor();
     updateSelectionUi();
@@ -5688,9 +5692,11 @@ async function initialize() {
     persistOpenRoleConversations();
     state.selectedRoleId = validRoleId(state.selectedRoleId);
     state.preferences = { favoriteGroups: preferencesPayload.favoriteGroups || [], selected: preferencesPayload.selected || null, modelContextLimits: sanitizeContextLimits(preferencesPayload.modelContextLimits), favoriteMediaIds: Array.isArray(preferencesPayload.favoriteMediaIds) ? preferencesPayload.favoriteMediaIds : [], conversationTitleModel: typeof preferencesPayload.conversationTitleModel === 'string' ? preferencesPayload.conversationTitleModel : DEFAULT_CONVERSATION_TITLE_MODEL };
+    state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
     seedFavoriteGroups(); state.selected = normalizeSelection(state.preferences.selected); state.preferences.selected = state.selected;
     if (state.selected) rememberModeSelection(state.selected.modelId, state.selected.mode);
-    if (!preferencesPayload.favoriteGroups?.length && state.preferences.favoriteGroups.length) await savePreferences().catch(() => {});
+    const favoriteGroupsChanged = !preferencesPayload.favoriteGroups?.length || state.preferences.favoriteGroups.length !== preferencesPayload.favoriteGroups.length;
+    if (state.preferences.favoriteGroups.length && favoriteGroupsChanged) await savePreferences().catch(() => {});
     state.conversations = await loadPersistedConversations(); openEntryGlobalConversation();
     elements.connection.textContent = `${state.models.length} 个模型可用 · 服务连接已就绪`;
     updateSelectionUi(); renderConversation(); renderPendingAttachments(); autoResize();
