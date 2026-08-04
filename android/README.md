@@ -72,11 +72,11 @@ if (-not $adb) { $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\
 
 - 登录态只由服务端 `HttpOnly; Secure; SameSite=Strict` Cookie 保存；WebView 调用 `CookieManager.flush()`，支持进程结束后恢复 Cookie。
 - Android User-Agent 标记会让服务端为已认证 App 会话签发 30 天有效期；普通网页会话仍为 12 小时。注销、封禁、删除用户或修改密码仍由服务端立即撤销会话。
-- WebView 启用 DOM Storage 以保留网页端本机历史，但不启用任何 JavaScript Bridge，不向页面注入账户、密钥或原生对象。
+- WebView 启用 DOM Storage 以保留网页端本机历史；仅向受信任页面提供一个最小下载桥，用于把网页生成的 TXT、Markdown 和 ZIP Blob 写入系统下载目录。下载桥不提供读取文件、账户、Cookie、密钥或设备信息的能力，并在每次写入前重新校验当前页面来源。
 - 目标 SDK 36 的 edge-to-edge 窗口由根容器统一处理 `systemBars | displayCutout` inset：状态栏、导航栏、横屏左右挖孔和桌面窗口安全区都会得到 padding；处理后的系统栏 inset 会归零后继续传给 WebView，避免与网页安全区重复留白，同时保留 IME（软键盘）视口更新。
-- 只允许精确的 `https://chat.example.com` 导航和下载；HTTP、文件、内容、JavaScript URL、用户信息、非标准端口均不会在 WebView 内打开。实际域名由构建时的 `LIGHT_CHAT_BASE_URL` 决定。
+- 只允许精确的 `https://chat.example.com` 导航和普通网络下载；受信任页面自己生成的 `blob:` 导出由受限下载桥保存。HTTP、文件、内容、JavaScript URL、用户信息、非标准端口及外域 Blob 均不会在 WebView 内打开。实际域名由构建时的 `LIGHT_CHAT_BASE_URL` 决定。
 - 禁止明文网络、混合内容、file URL 跨域访问和第三方 Cookie；SSL 错误始终取消连接。
-- 文件上传使用 Android 系统 `ACTION_OPEN_DOCUMENT`，不申请相机或公共存储权限；生成文件下载通过带当前 Cookie 的系统 `DownloadManager`，只允许受信任域名。
+- 文件上传使用 Android 系统 `ACTION_OPEN_DOCUMENT`，不申请相机或公共存储权限；服务端文件通过带当前 Cookie 的系统 `DownloadManager` 下载，网页即时生成的对话导出通过 `MediaStore.Downloads` 保存，两者都只接受受信任页面发起的请求。
 - APK 和 Web 前端不包含后台模型服务地址、API 密钥、密码或固定管理员凭据。
 
 ## 代码结构

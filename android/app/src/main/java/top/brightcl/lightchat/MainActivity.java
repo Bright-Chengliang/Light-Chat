@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
@@ -14,12 +15,14 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.JavascriptInterface;
 import android.webkit.SslErrorHandler;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
@@ -34,6 +37,9 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -142,6 +148,7 @@ public final class MainActivity extends Activity {
 
         webView.setWebViewClient(new LightChatWebViewClient());
         webView.setWebChromeClient(new LightChatChromeClient());
+        webView.addJavascriptInterface(new SecureDownloadBridge(), "LightChatDownloads");
         webView.setDownloadListener(new SecureDownloadListener());
     }
 
@@ -252,6 +259,7 @@ public final class MainActivity extends Activity {
         filePathCallback = null;
         CookieManager.getInstance().flush();
         webView.stopLoading();
+        webView.removeJavascriptInterface("LightChatDownloads");
         webView.setWebChromeClient(null);
         webView.setWebViewClient(null);
         webView.removeAllViews();
@@ -335,6 +343,16 @@ public final class MainActivity extends Activity {
         @Override
         public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimeType, long contentLength) {
             Uri uri = Uri.parse(url);
+            if ("blob".equalsIgnoreCase(uri.getScheme())) {
+                String currentUrl = webView.getUrl();
+                if (currentUrl == null || !TrustedNavigation.isTrusted(currentUrl, BuildConfig.TRUSTED_HOST)) {
+                    Toast.makeText(MainActivity.this, R.string.blocked_download, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String fileName = URLUtil.guessFileName(url, contentDisposition, mimeType);
+                exportBlobFromTrustedPage(url, fileName, mimeType);
+                return;
+            }
             if (!TrustedNavigation.isTrusted(uri, BuildConfig.TRUSTED_HOST)) {
                 Toast.makeText(MainActivity.this, R.string.blocked_download, Toast.LENGTH_SHORT).show();
                 return;
@@ -356,6 +374,68 @@ public final class MainActivity extends Activity {
             }
             manager.enqueue(request);
             Toast.makeText(MainActivity.this, R.string.download_started, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void exportBlobFromTrustedPage(String blobUrl, String fileName, String mimeType) {
+        String script = "(async()=>{try{"
+                + "const response=await fetch(" + JSONObject.quote(blobUrl) + ");"
+                + "if(!response.ok)throw new Error('blob');"
+                + "const blob=await response.blob();"
+                + "const reader=new FileReader();"
+                + "reader.onload=()=>{const value=String(reader.result||'');const comma=value.indexOf(',');"
+                + "if(comma<0){LightChatDownloads.reportDownloadError();return;}"
+                + "LightChatDownloads.saveBase64File(" + JSONObject.quote(fileName) + ",blob.type||"
+                + JSONObject.quote(mimeType == null ? "" : mimeType) + ",value.slice(comma+1));};"
+                + "reader.onerror=()=>LightChatDownloads.reportDownloadError();reader.readAsDataURL(blob);"
+                + "}catch(error){LightChatDownloads.reportDownloadError();}})();";
+        webView.evaluateJavascript(script, null);
+    }
+
+    private final class SecureDownloadBridge {
+        @JavascriptInterface
+        public void saveBase64File(String fileName, String mimeType, String base64Data) {
+            runOnUiThread(() -> {
+                String currentUrl = webView.getUrl();
+                if (currentUrl == null || !TrustedNavigation.isTrusted(currentUrl, BuildConfig.TRUSTED_HOST)) {
+                    Toast.makeText(MainActivity.this, R.string.blocked_download, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                new Thread(() -> saveDownload(fileName, mimeType, base64Data), "light-chat-download").start();
+            });
+        }
+
+        @JavascriptInterface
+        public void reportDownloadError() {
+            runOnUiThread(() -> Toast.makeText(MainActivity.this, R.string.download_failed, Toast.LENGTH_SHORT).show());
+        }
+    }
+
+    private void saveDownload(String fileName, String mimeType, String base64Data) {
+        Uri destination = null;
+        try {
+            byte[] bytes = DownloadPayload.decode(base64Data);
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Downloads.DISPLAY_NAME, DownloadPayload.safeFileName(fileName));
+            values.put(MediaStore.Downloads.MIME_TYPE, DownloadPayload.safeMimeType(mimeType));
+            values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+            values.put(MediaStore.Downloads.IS_PENDING, 1);
+            destination = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+            if (destination == null) throw new IllegalStateException("无法创建下载文件");
+            try (OutputStream output = getContentResolver().openOutputStream(destination, "w")) {
+                if (output == null) throw new IllegalStateException("无法写入下载文件");
+                output.write(bytes);
+            }
+            ContentValues complete = new ContentValues();
+            complete.put(MediaStore.Downloads.IS_PENDING, 0);
+            getContentResolver().update(destination, complete, null, null);
+            runOnUiThread(() -> Toast.makeText(MainActivity.this, R.string.download_saved, Toast.LENGTH_SHORT).show());
+        } catch (RuntimeException | java.io.IOException error) {
+            if (destination != null) {
+                try { getContentResolver().delete(destination, null, null); }
+                catch (RuntimeException ignored) {}
+            }
+            runOnUiThread(() -> Toast.makeText(MainActivity.this, R.string.download_failed, Toast.LENGTH_SHORT).show());
         }
     }
 }

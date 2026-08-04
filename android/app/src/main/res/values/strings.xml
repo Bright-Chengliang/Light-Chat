@@ -19,5 +19,6 @@
     <string name="blocked_download">已阻止来自非 Light-Chat 域名的下载</string>
     <string name="download_description">来自 Light-Chat 的文件</string>
     <string name="download_started">已开始下载</string>
+    <string name="download_saved">已保存到系统下载目录</string>
     <string name="download_failed">无法启动下载</string>
 </resources>

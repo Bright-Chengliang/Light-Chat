@@ -1728,6 +1728,19 @@ function safeExportStem(value) {
 }
 
 function downloadBlob(blob, fileName) {
+  const nativeDownloads = globalThis.LightChatDownloads;
+  if (nativeDownloads && typeof nativeDownloads.saveBase64File === 'function') {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      const encoded = String(reader.result || '');
+      const comma = encoded.indexOf(',');
+      if (comma < 0) { nativeDownloads.reportDownloadError?.(); return; }
+      nativeDownloads.saveBase64File(fileName, blob.type || 'application/octet-stream', encoded.slice(comma + 1));
+    });
+    reader.addEventListener('error', () => nativeDownloads.reportDownloadError?.());
+    reader.readAsDataURL(blob);
+    return;
+  }
   const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = fileName; link.hidden = true; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
