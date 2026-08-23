@@ -547,6 +547,8 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 .attachment-file-icon { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; color: var(--accent); background: var(--accent-soft); border-radius: 6px; font-size: .56rem; font-weight: 800; }
 .attachment-card > span:nth-child(2) { min-width: 0; flex: 1; overflow: hidden; font-size: .59rem; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-card button { width: 24px; height: 24px; flex: 0 0 auto; color: var(--text-faint); background: transparent; border-radius: 6px; }
+.attachment-card .attachment-image-preview { width: 34px; height: 34px; padding: 0; cursor: zoom-in; }
+.attachment-image-preview:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .message-queue { margin-bottom: 7px; max-height: min(38dvh, 340px); padding: 8px; display: grid; gap: 7px; overflow: auto; background: rgba(255,255,255,.76); border: 1px solid var(--border); border-radius: 13px; box-shadow: var(--shadow-soft); }
 .message-queue[hidden] { display: none; }
 .message-queue-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 3px 1px; color: var(--text-faint); font-size: .58rem; }

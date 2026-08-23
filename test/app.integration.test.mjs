@@ -19,7 +19,7 @@ const WORKFLOW_ROLES = {
   }],
 };
 
-async function fixture({ imageUpscaler = null, fakeOptions = {}, opcPort = undefined } = {}) {
+async function fixture({ imageUpscaler = null, fakeOptions = {}, opcPort = undefined, preferences = null } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'chat-app-'));
   await mkdir(join(root, 'public'), { recursive: true });
   await mkdir(join(root, '.data'), { recursive: true });
@@ -27,6 +27,7 @@ async function fixture({ imageUpscaler = null, fakeOptions = {}, opcPort = undef
     writeFile(join(root, 'public', 'login.html'), '<!doctype html><title>login</title>'),
     writeFile(join(root, 'public', 'app.html'), '<!doctype html><title>app</title>'),
     writeFile(join(root, '.data', 'roles.json'), JSON.stringify(WORKFLOW_ROLES)),
+    preferences ? writeFile(join(root, '.data', 'preferences.json'), `${JSON.stringify(preferences, null, 2)}\n`) : Promise.resolve(),
   ]);
   const fake = await createFakeNewApi(fakeOptions);
   const app = await createChatApp({
@@ -453,6 +454,28 @@ test('conversation title model defaults to Gemini Flash and can be saved per acc
     assert.equal(regeneratedBody.model, 'chat-test');
     const titleRequests = context.fake.requests.filter((item) => item.url === '/v1/chat/completions');
     assert.equal(JSON.parse(titleRequests.at(-1).bodyText).model, 'chat-test');
+  } finally {
+    await context.close();
+  }
+});
+
+test('preferences responses drop model context limits for unavailable models', async () => {
+  const context = await fixture({
+    preferences: {
+      version: 1,
+      favoriteGroups: [{ id: 'daily', name: '常用', items: [{ modelId: 'chat-test', model: 'chat-test', mode: 'chat', label: 'chat-test' }] }],
+      selected: { modelId: 'chat-test', model: 'chat-test', mode: 'chat' },
+      modelContextLimits: { 'chat-test': 131072, 'removed-model': 999999 },
+      favoriteMediaIds: [],
+      conversationTitleModel: 'chat-test',
+    },
+  });
+  try {
+    const signedIn = await authenticated(context);
+    const response = await fetch(`${context.baseUrl}/api/preferences`, { headers: { Cookie: signedIn.cookie } });
+    const body = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(body));
+    assert.deepEqual(body.modelContextLimits, { 'chat-test': 131072 });
   } finally {
     await context.close();
   }

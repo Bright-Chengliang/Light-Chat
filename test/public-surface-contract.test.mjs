@@ -13,6 +13,16 @@ test('browser-delivered assets and session metadata do not reveal the private mo
   assert.doesNotMatch(backendSource, /newApiConfigured\s*:/);
 });
 
+test('model context limit preferences are filtered against the current model catalog', () => {
+  assert.match(publicSource, /function sanitizeContextLimits\(value, models = state\.models\)/);
+  assert.match(publicSource, /allowed\.has\(modelId\)/);
+  assert.match(publicSource, /sanitizeContextLimits\(nextPreferences\.modelContextLimits, state\.models\)/);
+  assert.match(publicSource, /state\.preferences\.modelContextLimits = sanitizeContextLimits\(state\.preferences\.modelContextLimits, state\.models\)/);
+  assert.match(publicSource, /state\.editingModelContextLimits = sanitizeContextLimits\(state\.editingModelContextLimits, state\.models\)/);
+  assert.match(backendSource, /function sanitizeModelContextLimits\(value, models\)/);
+  assert.match(backendSource, /preferencesPayload\(userPreferences, availableModels\)/);
+});
+
 test('rendered blockquotes expose a hover and keyboard accessible copy shortcut', () => {
   assert.match(publicSource, /function decorateCopyableBlockquotes\(container\)/);
   assert.match(publicSource, /copy\.setAttribute\('aria-label', '复制引用内容'\)/);
@@ -431,6 +441,9 @@ test('the main composer uploads pasted images and files without intercepting ord
   assert.match(publicSource, /if \(!files\.length\) return;\s*event\.preventDefault\(\);\s*void uploadFiles\(files\);/);
   assert.match(publicSource, /elements\.input\.addEventListener\('paste', uploadClipboardAttachments\)/);
   assert.match(publicSource, /new File\(\[file\], `粘贴附件-/);
+  assert.match(publicSource, /preview\.className = 'attachment-image-preview'/);
+  assert.match(publicSource, /openImageLightbox\(state\.pendingAttachments\.filter\(\(candidate\) => candidate\.isImage\), item\)/);
+  assert.match(publicSource, /\.attachment-image-preview:focus-visible/);
 });
 
 test('image model size choices expand in a stable in-menu panel', () => {
@@ -509,6 +522,11 @@ test('quick translation provides a protected two-panel workspace with local hist
   assert.match(publicSource, /stream: true/);
   assert.match(publicSource, /function consumeTranslationStream\(response\)/);
   assert.match(publicSource, /当前模型：\$\{modelId\}/);
+  assert.match(publicSource, /light-chat-translation-model/);
+  assert.match(publicSource, /function setTranslationModel\(modelId/);
+  assert.match(publicSource, /state\.modelDialogTarget === 'translator'/);
+  assert.match(publicSource, /不会改变任何对话的模型/);
+  assert.doesNotMatch(publicSource, /function translationModelId\(\) \{[^}]*state\.selected/);
   assert.match(backendSource, /maxTokens > 64000/);
   assert.match(publicSource, /function loadTranslationHistory\(\)/);
   assert.match(publicSource, /light-chat-translation-history/);

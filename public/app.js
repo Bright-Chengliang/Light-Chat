@@ -39,7 +39,7 @@ const elements = {
   roleContextMenu: $('#roleContextMenu'), toggleRoleConversations: $('#toggleRoleConversations'), toggleRoleConversationsLabel: $('#toggleRoleConversationsLabel'), toggleRoleConversationsCount: $('#toggleRoleConversationsCount'), editRole: $('#editRole'), duplicateRole: $('#duplicateRole'), copyRoleToFolder: $('#copyRoleToFolder'), moveRoleToFolder: $('#moveRoleToFolder'), deleteRole: $('#deleteRole'),
   favoriteContextMenu: $('#favoriteContextMenu'), editFavorite: $('#editFavorite'), deleteFavorite: $('#deleteFavorite'), recentFileContextMenu: $('#recentFileContextMenu'), jumpToRecentFileMessage: $('#jumpToRecentFileMessage'), toggleFavoriteMediaButton: $('#toggleFavoriteMediaButton'), copyRecentFileImageButton: $('#copyRecentFileImageButton'), downloadRecentFileButton: $('#downloadRecentFileButton'),
   variantModelMenu: $('#variantModelMenu'), globalDropOverlay: $('#globalDropOverlay'), globalDropTitle: $('#globalDropOverlay strong'),
-  translatorWorkspace: $('#translatorWorkspace'), translateHistoryButton: $('#translateHistoryButton'), translateHistoryPanel: $('#translateHistoryPanel'), translateSourceLanguage: $('#translateSourceLanguage'), translateTargetLanguage: $('#translateTargetLanguage'), translateSwapButton: $('#translateSwapButton'), translateButton: $('#translateButton'), translateModelButton: $('#translateModelButton'), translatorCurrentModel: $('#translatorCurrentModel'), translateInput: $('#translateInput'), translateInputCount: $('#translateInputCount'), translateClearButton: $('#translateClearButton'), translateCopyButton: $('#translateCopyButton'), translateOutput: $('#translateOutput'), translateStatus: $('#translateStatus'), translateModelLabel: $('#translateModelLabel'),
+  translatorWorkspace: $('#translatorWorkspace'), translateHistoryButton: $('#translateHistoryButton'), translateHistoryPanel: $('#translateHistoryPanel'), translateSourceLanguage: $('#translateSourceLanguage'), translateTargetLanguage: $('#translateTargetLanguage'), translateSwapButton: $('#translateSwapButton'), translateButton: $('#translateButton'), translateModelButton: $('#translateModelButton'), translatorCurrentModel: $('#translatorCurrentModel'), translateInput: $('#translateInput'), translateInputCount: $('#translateInputCount'), translateClearButton: $('#translateClearButton'), translateCopyButton: $('#translateCopyButton'), translateOutput: $('#translateOutput'), translateStatus: $('#translateStatus'), translateModelLabel: $('#translateModelLabel'), modelDialogTitle: $('#modelDialogTitle'), modelDialogDescription: $('#modelDialogDescription'),
 };
 
 const STORAGE_KEY = 'light-chat-conversations-v1';
@@ -62,6 +62,7 @@ const SIDEBAR_ROLES_HEIGHT_KEY = 'light-chat-sidebar-roles-height';
 const LAST_MODELS_KEY_PREFIX = 'light-chat-last-models';
 const READING_MODE_KEY = 'light-chat-reading-mode';
 const TRANSLATION_HISTORY_KEY_PREFIX = 'light-chat-translation-history';
+const TRANSLATION_MODEL_KEY_PREFIX = 'light-chat-translation-model';
 const DEFAULT_SIDEBAR_WIDTH = 280;
 const MIN_SIDEBAR_WIDTH = 240;
 const MAX_SIDEBAR_WIDTH = 520;
@@ -100,7 +101,7 @@ const state = {
   historyFolders: [], openHistoryFolders: new Set(), historyUnfiledCollapsed: false, favoriteUnfiledCollapsed: false, historySearch: '',
   contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextRecentFileId: '', contextAssistantMessageId: '', renamingConversationId: '',
   pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingConversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', pendingRoleTransfer: null, pendingConversationFolderMove: null,
-  followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationOutput: '', recentFiles: [], recentFilesLoading: false, recentFilesPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, favoriteMedia: [], favoriteMediaLoading: false, favoriteMediaPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, workflows: [], workflowRunning: false, selectedWorkflow: null,
+  followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationModelId: '', modelDialogTarget: 'chat', translationOutput: '', recentFiles: [], recentFilesLoading: false, recentFilesPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, favoriteMedia: [], favoriteMediaLoading: false, favoriteMediaPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, workflows: [], workflowRunning: false, selectedWorkflow: null,
 };
 let globalFileDragDepth = 0;
 let editingAttachmentDropHandler = null;
@@ -271,6 +272,20 @@ function displayCredits(value, role = state.userRole) {
 
 function translationHistoryStorageKey() { return `${TRANSLATION_HISTORY_KEY_PREFIX}:${state.userUid || 'anonymous'}`; }
 
+function translationModelStorageKey() { return `${TRANSLATION_MODEL_KEY_PREFIX}:${state.userUid || 'anonymous'}`; }
+
+function loadTranslationModel() {
+  try {
+    const modelId = localStorage.getItem(translationModelStorageKey());
+    return typeof modelId === 'string' ? modelId : '';
+  } catch { return ''; }
+}
+
+function saveTranslationModel() {
+  if (!state.userUid || !state.translationModelId) return;
+  localStorage.setItem(translationModelStorageKey(), state.translationModelId);
+}
+
 function loadTranslationHistory() {
   try {
     const parsed = JSON.parse(localStorage.getItem(translationHistoryStorageKey()) || '[]');
@@ -283,8 +298,21 @@ function saveTranslationHistory() { localStorage.setItem(translationHistoryStora
 function translationLanguageLabel(select) { return select.options[select.selectedIndex]?.textContent || '自动检测'; }
 
 function translationModelId() {
-  if (state.selected?.mode === 'chat' && state.models.some((model) => model.id === state.selected.modelId && model.modes.includes('chat'))) return state.selected.modelId;
-  return lastAvailableModel('chat');
+  return state.models.some((model) => model.id === state.translationModelId && model.modes.includes('chat')) ? state.translationModelId : '';
+}
+
+function initializeTranslationModel() {
+  if (state.translationModelId) return;
+  state.translationModelId = preferredModel('chat');
+  saveTranslationModel();
+}
+
+function setTranslationModel(modelId, { close = false } = {}) {
+  if (!state.models.some((model) => model.id === modelId && model.modes.includes('chat'))) return;
+  state.translationModelId = modelId;
+  saveTranslationModel();
+  renderTranslator();
+  if (close) elements.modelDialog.close();
 }
 
 function renderTranslationHistory() {
@@ -305,9 +333,11 @@ function renderTranslator() {
   const source = elements.translateInput.value || '';
   const modelId = translationModelId();
   elements.translateInputCount.textContent = `${estimateTextTokens(source).toLocaleString('zh-CN')} token`;
-  elements.translateModelLabel.textContent = modelId ? `模型：${modelId}` : '没有可用对话模型';
-  elements.translatorCurrentModel.textContent = modelId ? `当前模型：${modelId}` : '当前模型：未选择';
-  elements.translatorCurrentModel.title = modelId || '没有可用对话模型';
+  const configuredModelId = state.translationModelId;
+  const unavailable = configuredModelId && !modelId;
+  elements.translateModelLabel.textContent = modelId ? `模型：${modelId}` : unavailable ? `模型不可用：${configuredModelId}` : '没有可用对话模型';
+  elements.translatorCurrentModel.textContent = modelId ? `当前模型：${modelId}` : unavailable ? `当前模型不可用：${configuredModelId}` : '当前模型：未选择';
+  elements.translatorCurrentModel.title = modelId || configuredModelId || '没有可用对话模型';
   elements.translateButton.disabled = !source.trim() || !modelId;
   elements.translateCopyButton.disabled = !state.translationOutput;
   renderTranslatorOutput();
@@ -348,7 +378,10 @@ function swapTranslationLanguages() {
 
 function openTranslatorModelDialog() {
   closeHeaderModelMenu();
-  elements.modelMode.value = 'chat'; elements.modelSearch.value = ''; renderModelList(); elements.modelDialog.showModal(); requestAnimationFrame(() => elements.modelSearch.focus());
+  state.modelDialogTarget = 'translator';
+  elements.modelDialogTitle.textContent = '配置翻译模型';
+  elements.modelDialogDescription.textContent = '此设置仅用于快速翻译，不会改变任何对话的模型。';
+  elements.modelMode.value = 'chat'; elements.modelMode.disabled = true; elements.modelSearch.value = ''; renderModelList(); elements.modelDialog.showModal(); requestAnimationFrame(() => elements.modelSearch.focus());
 }
 
 async function consumeTranslationStream(response) {
@@ -419,9 +452,10 @@ function sanitizeUsage(value) {
   return Object.keys(usage).length ? usage : null;
 }
 
-function sanitizeContextLimits(value) {
+function sanitizeContextLimits(value, models = state.models) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  return Object.fromEntries(Object.entries(value).filter(([modelId, limit]) => typeof modelId === 'string' && Number.isInteger(limit) && limit >= 1024 && limit <= MAX_CONTEXT_TOKENS));
+  const allowed = Array.isArray(models) ? new Set(models.map((model) => model.id)) : new Set();
+  return Object.fromEntries(Object.entries(value).filter(([modelId, limit]) => typeof modelId === 'string' && allowed.has(modelId) && Number.isInteger(limit) && limit >= 1024 && limit <= MAX_CONTEXT_TOKENS));
 }
 
 function contextLimitForModel(modelId) {
@@ -1703,14 +1737,14 @@ function openVariantModelMenu(messageId, anchor) {
       const model = state.models.find((candidate) => candidate.id === modelId);
       if (item.mode === 'chat') {
         const button = document.createElement('button'); button.type = 'button'; button.setAttribute('role', 'menuitem'); button.textContent = `@ ${item.label || modelId}`; button.title = modelId;
-        button.addEventListener('click', () => { const targetId = state.contextAssistantMessageId; closeVariantModelMenu(); setSelection(modelId, 'chat'); regenerateAssistant(targetId, modelId); });
+        button.addEventListener('click', () => { const targetId = state.contextAssistantMessageId; closeVariantModelMenu(); setSelection(modelId, 'chat'); regenerateAssistant(targetId, modelId, { allowHistorical: true }); });
         elements.variantModelMenu.append(button); continue;
       }
       const row = document.createElement('div'); row.className = 'variant-image-model-row';
       const button = document.createElement('button'); button.type = 'button'; button.textContent = `@ ${item.label || modelId}`; button.title = `${modelId}（展开尺寸选项）`; button.setAttribute('aria-haspopup', 'true'); button.setAttribute('aria-expanded', 'false');
       const sizes = orderedImageSizes(model?.imageOptions?.sizes || [], modelId);
       const sizesMenu = document.createElement('div'); sizesMenu.className = 'variant-image-size-menu'; sizesMenu.id = `variant-image-size-${randomId()}`; button.setAttribute('aria-controls', sizesMenu.id);
-      for (const size of sizes) { const sizeButton = document.createElement('button'); sizeButton.type = 'button'; sizeButton.setAttribute('role', 'menuitem'); sizeButton.textContent = imageSizeLabel(size, modelId); sizeButton.title = `${modelId} · ${imageSizeLabel(size, modelId)}`; sizeButton.addEventListener('click', () => { const targetId = state.contextAssistantMessageId; closeVariantModelMenu(); setSelection(modelId, 'image'); elements.imageSize.value = size; regenerateImageAssistant(targetId, modelId, { imageSize: size }); }); sizesMenu.append(sizeButton); }
+      for (const size of sizes) { const sizeButton = document.createElement('button'); sizeButton.type = 'button'; sizeButton.setAttribute('role', 'menuitem'); sizeButton.textContent = imageSizeLabel(size, modelId); sizeButton.title = `${modelId} · ${imageSizeLabel(size, modelId)}`; sizeButton.addEventListener('click', () => { const targetId = state.contextAssistantMessageId; closeVariantModelMenu(); setSelection(modelId, 'image'); elements.imageSize.value = size; regenerateImageAssistant(targetId, modelId, { allowHistorical: true, imageSize: size }); }); sizesMenu.append(sizeButton); }
       const setExpanded = (expanded) => { row.dataset.expanded = String(expanded); button.setAttribute('aria-expanded', String(expanded)); };
       button.addEventListener('click', () => setExpanded(row.dataset.expanded !== 'true'));
       button.addEventListener('keydown', (event) => { if (event.key === 'Escape') { setExpanded(false); button.focus(); } });
@@ -2536,12 +2570,12 @@ function createMessageActions(message) {
     const regenerate = document.createElement('button'); regenerate.type = 'button'; regenerate.textContent = '🔄'; regenerate.title = canRegenerate ? '使用当前选中的模型重新生成此后的回答' : '请先选择可用模型'; regenerate.setAttribute('aria-label', '使用当前选中的模型重新生成回答'); regenerate.disabled = !canRegenerate; regenerate.addEventListener('click', () => regenerateFromUserMessage(message.id));
     actions.append(regenerate);
   } else if (message.role === 'assistant') {
-    const conversation = currentConversation(); const messageIndex = conversation?.messages.findIndex((item) => item.id === message.id) ?? -1; const isLastResponse = conversation?.messages.at(-1)?.id === message.id;
+    const conversation = currentConversation(); const messageIndex = conversation?.messages.findIndex((item) => item.id === message.id) ?? -1;
     const hasMatchingUser = messageIndex > 0 && conversation.messages[messageIndex - 1].role === 'user' && message.replyToId === conversation.messages[messageIndex - 1].id;
     const selectedModel = state.models.find((model) => model.id === state.selected?.modelId);
-    const canRegenerate = isLastResponse && hasMatchingUser && !isConversationBusy() && Boolean(state.selected && selectedModel?.modes.includes(state.selected.mode));
-    const regenerate = document.createElement('button'); regenerate.type = 'button'; regenerate.textContent = '🔄'; regenerate.title = isLastResponse ? '使用当前激活模型重新生成' : '旧节点请先创建分支再重新生成'; regenerate.setAttribute('aria-label', '使用当前激活模型重新生成'); regenerate.disabled = !canRegenerate; regenerate.addEventListener('click', () => regenerateAssistantWithCurrentModel(message.id));
-    const switchModel = document.createElement('button'); switchModel.type = 'button'; switchModel.textContent = '@'; switchModel.title = isLastResponse ? '切换收藏模型并生成新回答或图片' : '旧节点请先创建分支再切换模型'; switchModel.setAttribute('aria-label', '切换收藏模型生成新回答或图片'); switchModel.disabled = !isLastResponse || !favoriteModels().length || isConversationBusy(); switchModel.addEventListener('click', (event) => { event.stopPropagation(); openVariantModelMenu(message.id, switchModel); });
+    const canRegenerate = hasMatchingUser && !isConversationBusy() && Boolean(state.selected && selectedModel?.modes.includes(state.selected.mode));
+    const regenerate = document.createElement('button'); regenerate.type = 'button'; regenerate.textContent = '🔄'; regenerate.title = canRegenerate ? '使用当前激活模型重新生成，并保留原回答版本与后续消息' : '请先选择可用模型'; regenerate.setAttribute('aria-label', '使用当前激活模型重新生成回答'); regenerate.disabled = !canRegenerate; regenerate.addEventListener('click', () => regenerateAssistantWithCurrentModel(message.id));
+    const switchModel = document.createElement('button'); switchModel.type = 'button'; switchModel.textContent = '@'; switchModel.title = '使用收藏模型在此节点生成新回答或图片'; switchModel.setAttribute('aria-label', '切换收藏模型生成新回答或图片'); switchModel.disabled = !hasMatchingUser || !favoriteModels().length || isConversationBusy(); switchModel.addEventListener('click', (event) => { event.stopPropagation(); openVariantModelMenu(message.id, switchModel); });
     actions.append(regenerate, switchModel);
   }
   actions.append(edit, branch, remove);
@@ -3182,10 +3216,14 @@ function renderModelList() {
   elements.modelList.replaceChildren();
   if (!filtered.length) { const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '没有匹配的模型'; elements.modelList.append(empty); return; }
   for (const model of filtered) {
-    const button = document.createElement('button'); button.type = 'button'; button.className = state.selected?.modelId === model.id && state.selected?.mode === mode ? 'selected' : '';
+    const isTranslationSelection = state.modelDialogTarget === 'translator';
+    const button = document.createElement('button'); button.type = 'button'; button.className = (isTranslationSelection ? state.translationModelId === model.id : state.selected?.modelId === model.id && state.selected?.mode === mode) ? 'selected' : '';
     const strong = document.createElement('strong'); strong.textContent = model.id;
     const badge = document.createElement('span'); badge.textContent = mode === 'image' ? 'Images API' : model.inputImages ? '支持图片' : '文本对话';
-    button.append(strong, badge); button.addEventListener('click', () => setSelection(model.id, mode, { close: true })); elements.modelList.append(button);
+    button.append(strong, badge); button.addEventListener('click', () => {
+      if (isTranslationSelection) setTranslationModel(model.id, { close: true });
+      else setSelection(model.id, mode, { close: true });
+    }); elements.modelList.append(button);
   }
 }
 
@@ -3275,7 +3313,7 @@ function sanitizeFavoriteGroups(groups, models) {
 async function savePreferences(nextPreferences = state.preferences) {
   preferenceWritesInFlight += 1;
   try {
-    const requestedContextLimits = sanitizeContextLimits(nextPreferences.modelContextLimits);
+    const requestedContextLimits = sanitizeContextLimits(nextPreferences.modelContextLimits, state.models);
     const requestedTitleModel = availableConversationTitleModel(nextPreferences.conversationTitleModel);
     for (const [modelId, limit] of Object.entries(requestedContextLimits)) if (limit === DEFAULT_CONTEXT_TOKENS) delete requestedContextLimits[modelId];
     const payload = await jsonRequest('/api/preferences', {
@@ -3299,6 +3337,10 @@ async function savePreferences(nextPreferences = state.preferences) {
 
 function openModelDialog() {
   closeHeaderModelMenu();
+  state.modelDialogTarget = 'chat';
+  elements.modelDialogTitle.textContent = '选择模型';
+  elements.modelDialogDescription.textContent = '从当前可用模型中选择，并明确对话或生图模式。';
+  elements.modelMode.disabled = false;
   elements.modelMode.value = state.selected?.mode || 'chat'; elements.modelSearch.value = ''; renderModelList(); elements.modelDialog.showModal(); requestAnimationFrame(() => elements.modelSearch.focus());
 }
 
@@ -3495,6 +3537,7 @@ async function fetchGuestModels() {
     });
     state.guestCatalog = Array.isArray(payload.models) ? payload.models : [];
     state.models = state.guestCatalog;
+    initializeTranslationModel();
     state.selected = normalizeSelection(state.selected);
     state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
     state.editingGroups = cloneGroups();
@@ -3547,9 +3590,12 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
     elements.guestClearApiKeyButton.hidden = !state.guestSettings.hasApiKey;
     const refreshed = await jsonRequest('/api/models?refresh=1');
     state.models = refreshed.models || [];
+    initializeTranslationModel();
     state.selected = normalizeSelection(state.selected);
     state.editingGroups = sanitizeFavoriteGroups(state.editingGroups, state.models);
     state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
+    state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models);
+    state.editingModelContextLimits = sanitizeContextLimits(state.editingModelContextLimits, state.models);
     if (!state.editingGroups.length && state.models.length) {
       seedFavoriteGroups();
       state.editingGroups = cloneGroups();
@@ -3583,7 +3629,8 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
 function openSettings(options = {}) {
   if (preferenceContextMutationInFlight) { setStatus('收藏设置正在更新，请稍候', 'error'); return; }
   const focusFavorite = options?.focusFavorite;
-  state.editingGroups = cloneGroups(); state.editingModelContextLimits = { ...(state.preferences.modelContextLimits || {}) }; state.editingConversationTitleModel = availableConversationTitleModel(); state.editingReadingMode = state.readingMode; applyReadingMode(state.editingReadingMode); setDialogStatus(elements.settingsStatus, ''); renderConversationTitleModelSelect(); renderGroupsEditor({ preserveScroll: false, focusFavorite }); elements.settingsDialog.showModal();
+  state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models);
+  state.editingGroups = cloneGroups(); state.editingModelContextLimits = { ...state.preferences.modelContextLimits }; state.editingConversationTitleModel = availableConversationTitleModel(); state.editingReadingMode = state.readingMode; applyReadingMode(state.editingReadingMode); setDialogStatus(elements.settingsStatus, ''); renderConversationTitleModelSelect(); renderGroupsEditor({ preserveScroll: false, focusFavorite }); elements.settingsDialog.showModal();
   const isGuest = state.userRole === 'guest';
   elements.guestConnectionSettings.hidden = !isGuest;
   if (isGuest) {
@@ -4209,7 +4256,12 @@ function renderPendingAttachments() {
   elements.attachmentStrip.hidden = state.pendingAttachments.length === 0; elements.attachmentStrip.replaceChildren();
   state.pendingAttachments.forEach((item, index) => {
     const card = document.createElement('div'); card.className = 'attachment-card';
-    if (item.isImage) { const img = document.createElement('img'); img.src = item.url; img.alt = item.fileName || '待发送图片'; card.append(img); }
+    if (item.isImage) {
+      const preview = document.createElement('button'); preview.type = 'button'; preview.className = 'attachment-image-preview'; preview.title = '点击预览图片'; preview.setAttribute('aria-label', `预览 ${item.fileName || '图片'}`);
+      const img = document.createElement('img'); img.src = item.url; img.alt = item.fileName || '待发送图片';
+      preview.append(img); preview.addEventListener('click', () => openImageLightbox(state.pendingAttachments.filter((candidate) => candidate.isImage), item));
+      card.append(preview);
+    }
     else { const icon = document.createElement('span'); icon.className = 'attachment-file-icon'; icon.textContent = (item.fileName.split('.').pop() || 'FILE').toUpperCase(); card.append(icon); }
     const name = document.createElement('span'); name.textContent = item.fileName || item.mimeType;
     const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.setAttribute('aria-label', `移除 ${item.fileName}`); remove.addEventListener('click', () => { state.pendingAttachments.splice(index, 1); renderPendingAttachments(); updateSendState(); });
@@ -4523,8 +4575,8 @@ function regenerateAssistantWithCurrentModel(messageId) {
   const selection = state.selected;
   const selectedModel = state.models.find((model) => model.id === selection?.modelId);
   if (!selection || !selectedModel?.modes.includes(selection.mode)) { setStatus('请先选择可用模型', 'error'); return; }
-  if (selection.mode === 'image') regenerateImageAssistant(messageId, selection.modelId);
-  else regenerateAssistant(messageId, selection.modelId);
+  if (selection.mode === 'image') regenerateImageAssistant(messageId, selection.modelId, { allowHistorical: true });
+  else regenerateAssistant(messageId, selection.modelId, { allowHistorical: true });
 }
 
 function retainCancelledRegeneration(conversation, message, variants) {
@@ -5533,6 +5585,7 @@ function bindEvents() {
   elements.currentRoleCard.addEventListener('click', toggleHeaderRoleMenu);
   elements.headerRoleMenu.addEventListener('keydown', (event) => { if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return; const buttons = $$('button', elements.headerRoleMenu); if (!buttons.length) return; const currentIndex = buttons.indexOf(document.activeElement); let nextIndex = currentIndex; if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1 + buttons.length) % buttons.length; if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + buttons.length) % buttons.length; if (event.key === 'Home') nextIndex = 0; if (event.key === 'End') nextIndex = buttons.length - 1; event.preventDefault(); buttons[nextIndex].focus(); });
   elements.modelSearch.addEventListener('input', renderModelList); elements.modelMode.addEventListener('change', renderModelList);
+  elements.modelDialog.addEventListener('close', () => { state.modelDialogTarget = 'chat'; elements.modelMode.disabled = false; });
   elements.openSettingsFromModel.addEventListener('click', () => { elements.modelDialog.close(); openSettings(); });
   for (const picker of [elements.quickChatPicker, elements.quickImagePicker]) picker.addEventListener('toggle', () => {
     if (!picker.open) return;
@@ -5550,7 +5603,7 @@ function bindEvents() {
   elements.settingsDialog.addEventListener('close', () => applyReadingMode(state.readingMode));
   elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { if (state.userRole === 'guest') { await saveGuestApiSettings({ showStatus: false }); } await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits, conversationTitleModel: state.editingConversationTitleModel }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
   elements.conversationTitleModel.addEventListener('change', () => { state.editingConversationTitleModel = elements.conversationTitleModel.value; });
-  elements.refreshModels.addEventListener('click', async () => { elements.refreshModels.disabled = true; setDialogStatus(elements.settingsStatus, '正在刷新模型…'); try { const payload = await jsonRequest('/api/models?refresh=1'); state.models = payload.models || []; state.selected = normalizeSelection(state.selected); renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi(); setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型`, 'success'); setSettingsConnectionText(state.userRole === 'guest' && !state.guestSettings.endpoint ? '尚未配置游客模型连接' : `已加载 ${state.models.length} 个模型`, state.userRole !== 'guest' || state.models.length > 0); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); setSettingsConnectionText('模型服务连接失败', false); } finally { elements.refreshModels.disabled = false; } });
+  elements.refreshModels.addEventListener('click', async () => { elements.refreshModels.disabled = true; setDialogStatus(elements.settingsStatus, '正在刷新模型…'); try { const payload = await jsonRequest('/api/models?refresh=1'); state.models = payload.models || []; initializeTranslationModel(); state.selected = normalizeSelection(state.selected); state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models); state.editingModelContextLimits = sanitizeContextLimits(state.editingModelContextLimits, state.models); renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi(); setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型`, 'success'); setSettingsConnectionText(state.userRole === 'guest' && !state.guestSettings.endpoint ? '尚未配置游客模型连接' : `已加载 ${state.models.length} 个模型`, state.userRole !== 'guest' || state.models.length > 0); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); setSettingsConnectionText('模型服务连接失败', false); } finally { elements.refreshModels.disabled = false; } });
   elements.fetchGuestModels.addEventListener('click', () => { void fetchGuestModels(); });
   elements.guestClearApiKeyButton.addEventListener('click', clearGuestApiKey);
   elements.guestApiKey.addEventListener('input', () => { pendingGuestKeyClear = false; });
@@ -5690,7 +5743,7 @@ async function initialize() {
   try {
     const session = await jsonRequest('/api/session');
     if (!session.authenticated) { location.replace('/'); return; }
-    state.user = session.username; state.userUid = session.uid; state.userRole = session.role || 'user'; state.credits = session.credits; state.csrf = session.csrfToken; startSessionRevocationListener(); state.translationHistory = loadTranslationHistory(); state.lastSelectedModels = loadLastSelectedModels(); updateAccountUi();
+    state.user = session.username; state.userUid = session.uid; state.userRole = session.role || 'user'; state.credits = session.credits; state.csrf = session.csrfToken; startSessionRevocationListener(); state.translationHistory = loadTranslationHistory(); state.translationModelId = loadTranslationModel(); state.lastSelectedModels = loadLastSelectedModels(); updateAccountUi();
     if (state.userRole === 'guest') {
       try {
         const guestSettings = await jsonRequest('/api/guest/settings');
@@ -5704,8 +5757,10 @@ async function initialize() {
     state.openRoleConversationIds = new Set([...state.openRoleConversationIds].filter((id) => id === DEFAULT_ROLE_CONVERSATIONS_ID || validRoleIds.has(id)));
     persistOpenRoleConversations();
     state.selectedRoleId = validRoleId(state.selectedRoleId);
-    state.preferences = { favoriteGroups: preferencesPayload.favoriteGroups || [], selected: preferencesPayload.selected || null, modelContextLimits: sanitizeContextLimits(preferencesPayload.modelContextLimits), favoriteMediaIds: Array.isArray(preferencesPayload.favoriteMediaIds) ? preferencesPayload.favoriteMediaIds : [], conversationTitleModel: typeof preferencesPayload.conversationTitleModel === 'string' ? preferencesPayload.conversationTitleModel : DEFAULT_CONVERSATION_TITLE_MODEL };
+    state.preferences = { favoriteGroups: preferencesPayload.favoriteGroups || [], selected: preferencesPayload.selected || null, modelContextLimits: sanitizeContextLimits(preferencesPayload.modelContextLimits, state.models), favoriteMediaIds: Array.isArray(preferencesPayload.favoriteMediaIds) ? preferencesPayload.favoriteMediaIds : [], conversationTitleModel: typeof preferencesPayload.conversationTitleModel === 'string' ? preferencesPayload.conversationTitleModel : DEFAULT_CONVERSATION_TITLE_MODEL };
     state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
+    state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models);
+    initializeTranslationModel();
     seedFavoriteGroups(); state.selected = normalizeSelection(state.preferences.selected); state.preferences.selected = state.selected;
     if (state.selected) rememberModeSelection(state.selected.modelId, state.selected.mode);
     const favoriteGroupsChanged = !preferencesPayload.favoriteGroups?.length || state.preferences.favoriteGroups.length !== preferencesPayload.favoriteGroups.length;

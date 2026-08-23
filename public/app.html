@@ -183,7 +183,7 @@
 
   <dialog class="app-dialog model-dialog" id="modelDialog" aria-labelledby="modelDialogTitle">
     <div class="dialog-shell">
-      <header><div><p class="eyebrow">Model library</p><h2 id="modelDialogTitle">选择模型</h2><p>从当前可用模型中选择，并明确对话或生图模式。</p></div><button class="icon-button dialog-close" data-close-dialog="modelDialog" type="button" aria-label="关闭">×</button></header>
+      <header><div><p class="eyebrow">Model library</p><h2 id="modelDialogTitle">选择模型</h2><p id="modelDialogDescription">从当前可用模型中选择，并明确对话或生图模式。</p></div><button class="icon-button dialog-close" data-close-dialog="modelDialog" type="button" aria-label="关闭">×</button></header>
       <div class="model-controls"><input id="modelSearchInput" type="search" placeholder="搜索模型…" aria-label="搜索模型"><label><span>模式</span><select id="modelModeSelect"><option value="chat">对话</option><option value="image">生图</option></select></label></div>
       <div class="model-list" id="modelList"></div>
       <footer><button class="secondary-button" id="openSettingsFromModel" type="button">管理收藏组</button><button class="primary-button" data-close-dialog="modelDialog" type="button">完成</button></footer>

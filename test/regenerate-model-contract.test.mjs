@@ -10,9 +10,19 @@ const [appSource, styles] = await Promise.all([
 test('assistant regenerate button uses the currently active model instead of the original response model', () => {
   assert.match(appSource, /function regenerateAssistantWithCurrentModel\(messageId\)/);
   assert.match(appSource, /regenerateAssistantWithCurrentModel\(message\.id\)/);
-  assert.match(appSource, /regenerateAssistant\(messageId, selection\.modelId\)/);
-  assert.match(appSource, /regenerateImageAssistant\(messageId, selection\.modelId\)/);
+  assert.match(appSource, /regenerateAssistant\(messageId, selection\.modelId, \{ allowHistorical: true \}\)/);
+  assert.match(appSource, /regenerateImageAssistant\(messageId, selection\.modelId, \{ allowHistorical: true \}\)/);
   assert.doesNotMatch(appSource, /regenerateAssistant\(message\.id, message\.modelId\)/);
+});
+
+test('old assistant nodes regenerate in place instead of requiring a branch', () => {
+  assert.doesNotMatch(appSource, /isLastResponse|旧节点请先创建分支/);
+  assert.match(appSource, /const canRegenerate = hasMatchingUser && !isConversationBusy\(\)/);
+  assert.match(appSource, /switchModel\.disabled = !hasMatchingUser \|\| !favoriteModels\(\)\.length \|\| isConversationBusy\(\)/);
+  assert.match(appSource, /regenerateAssistant\(messageId, selection\.modelId, \{ allowHistorical: true \}\)/);
+  assert.match(appSource, /regenerateImageAssistant\(messageId, selection\.modelId, \{ allowHistorical: true \}\)/);
+  assert.match(appSource, /regenerateAssistant\(targetId, modelId, \{ allowHistorical: true \}\)/);
+  assert.match(appSource, /regenerateImageAssistant\(targetId, modelId, \{ allowHistorical: true, imageSize: size \}\)/);
 });
 
 test('regeneration keeps an in-place pending variant so earlier responses remain switchable', () => {
