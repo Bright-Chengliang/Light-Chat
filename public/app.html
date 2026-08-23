@@ -9,10 +9,10 @@
   <title>Light-Chat</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/vendor/katex/katex.min.css?v=0.18.0">
-  <link rel="stylesheet" href="/styles.css?v=20260801-guest-mode">
+  <link rel="stylesheet" href="/styles.css?v=20260824-guest-direct">
   <script src="/vendor/katex/katex.min.js?v=0.18.0" defer></script>
   <script src="/vendor/katex/auto-render.min.js?v=0.18.0" defer></script>
-  <script src="/app.js?v=20260801-guest-mode" defer></script>
+  <script src="/app.js?v=20260824-guest-direct" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -73,7 +73,7 @@
         </section>
       </div>
       <div class="sidebar-account">
-        <small class="account-privacy">历史仅保存在本机 · 模型连接由服务端安全管理 · <a href="https://github.com/Bright-Chengliang" target="_blank" rel="noopener">© 2026 @Bright-Chengliang</a></small>
+        <small class="account-privacy">历史仅保存在本机 · 游客模型连接由当前浏览器直连 · <a href="https://github.com/Bright-Chengliang" target="_blank" rel="noopener">© 2026 @Bright-Chengliang</a></small>
         <button id="accountButton" type="button"><span class="account-avatar" id="accountAvatar">A</span><span class="account-summary"><span class="account-name-row"><strong id="accountName">管理员</strong><em id="accountRoleBadge">管理员</em></span><span class="account-meta-row"><small id="accountUid">UID 00000</small><small class="account-credits" id="accountCredits">积分 ∞</small></span></span></button>
         <button class="icon-button" id="logoutButton" type="button" aria-label="退出登录" title="退出登录">↪</button>
       </div>
@@ -194,9 +194,9 @@
     <div class="dialog-shell wide-dialog">
       <header><div><p class="eyebrow">Preferences</p><h2 id="settingsDialogTitle">偏好设置</h2><p>调整对话显示宽度、收藏组与每个模型的上下文上限。</p></div><button class="icon-button dialog-close" data-close-dialog="settingsDialog" type="button" aria-label="关闭">×</button></header>
       <section class="guest-connection-settings" id="guestConnectionSettings" hidden aria-label="游客模型连接">
-        <div class="guest-connection-heading"><strong>游客模型连接</strong><small>只对游客开放，不影响系统模型与积分。</small></div>
+        <div class="guest-connection-heading"><strong>游客模型直连</strong><small>配置仅保存在当前浏览器；模型请求由浏览器直接发送到此端点，服务端不会接收 API 密钥。</small></div>
         <label class="guest-endpoint-field"><span>API 服务端点</span><input id="guestEndpointInput" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1"></label>
-        <div class="guest-api-key-field"><span class="guest-field-label">API 密钥</span><div class="guest-field-input-row"><input id="guestApiKeyInput" type="password" autocomplete="off" placeholder="可选"><button class="guest-clear-key-button" id="guestClearApiKeyButton" type="button" hidden>清除密钥</button></div></div>
+        <div class="guest-api-key-field"><span class="guest-field-label">API 密钥</span><div class="guest-field-input-row"><input id="guestApiKeyInput" type="password" autocomplete="off" placeholder="直连所需"><button class="guest-clear-key-button" id="guestClearApiKeyButton" type="button" hidden>清除密钥</button></div></div>
         <div class="guest-connection-actions">
           <button class="secondary-button" id="fetchGuestModelsButton" type="button">获取可用模型</button>
           <button class="secondary-button" id="saveGuestApiButton" type="button">保存 API 设置</button>
@@ -212,6 +212,7 @@
       <label class="conversation-title-model-setting" for="conversationTitleModelSelect"><span><strong>会话标题生成模型</strong><small>用于自动生成及“重新生成会话标题”；默认使用 Gemini 3.5 Flash Low Fan。</small></span><select id="conversationTitleModelSelect" aria-label="会话标题生成模型"></select></label>
       <div class="settings-status"><span class="status-dot online"></span><span id="settingsConnectionText">模型服务已安全连接</span><button id="refreshModelsButton" type="button">刷新模型</button></div>
       <h3 class="settings-subheading">收藏模型组</h3>
+      <p class="settings-hint">默认对话模型和默认生图模型分别对应顶部的两个模型选择器；每组第一项作为该模式的默认模型。同一个模型可以同时加入两个组。</p>
       <div class="groups-editor" id="groupsEditor"></div>
       <button class="add-group-button" id="addGroupButton" type="button">＋ 添加收藏组</button>
       <p class="dialog-message" id="settingsStatus" role="alert"></p>

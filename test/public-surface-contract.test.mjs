@@ -9,8 +9,19 @@ const publicSource = (await Promise.all(
 const backendSource = await readFile(new URL('../lib/app.mjs', import.meta.url), 'utf8');
 
 test('browser-delivered assets and session metadata do not reveal the private model gateway', () => {
-  assert.doesNotMatch(publicSource, /new[ -]?api|3002|3006|CHAT_NEWAPI|127\.0\.0\.1|localhost/i);
+  assert.doesNotMatch(publicSource, /new[ -]?api|3002|3006|CHAT_NEWAPI/i);
   assert.doesNotMatch(backendSource, /newApiConfigured\s*:/);
+});
+
+test('guest mode keeps credentials local and sends model requests directly to the configured endpoint', () => {
+  assert.match(publicSource, /GUEST_LOCAL_CONFIG_KEY/);
+  assert.match(publicSource, /localStorage\.setItem\(GUEST_LOCAL_CONFIG_KEY/);
+  assert.match(publicSource, /headers\.set\('Authorization', `Bearer \$\{settings\.apiKey\}`\)/);
+  assert.match(publicSource, /function guestDirectFetch\(path, options = \{\}, config = \{\}\)/);
+  assert.match(publicSource, /if \(state\.userRole === 'guest'\) \{\s*const directPayload/);
+  assert.match(publicSource, /guestDirectFetch\('\/models'/);
+  assert.match(publicSource, /guestDirectFetch\('\/responses'/);
+  assert.match(publicSource, /游客请求由当前浏览器直接发送/);
 });
 
 test('model context limit preferences are filtered against the current model catalog', () => {
@@ -118,12 +129,12 @@ test('the composer send button becomes an abort control while the active request
   assert.match(publicSource, /send-cancel-icon/);
   assert.match(publicSource, /const activeRequestControllers = new Map\(\)/);
   assert.match(publicSource, /new AbortController\(\)/);
-  assert.match(publicSource, /signal: requestController\.signal/);
+  assert.match(publicSource, /chatRequest\(.*requestController\.signal/);
   assert.match(publicSource, /function cancelCurrentResponse\(\)/);
   assert.match(publicSource, /renderConversation\(\); updateSendState\(\);/);
   assert.match(publicSource, /function retainCancelledRegeneration\(conversation, message, variants\)/);
   assert.match(publicSource, /activeRequestControllers\.set\(conversation\.id, requestController\)/);
-  assert.match(publicSource, /signal: requestController\.signal/);
+  assert.match(publicSource, /guestChatFetch\(directPayload, signal\)/);
   assert.match(publicSource, /activeRequestControllers\.get\(conversation\.id\) === requestController/);
   assert.match(publicSource, /响应已中断，本次调用按正常模型费用扣除/);
   assert.match(publicSource, /send-button\.cancel-mode/);
@@ -207,7 +218,7 @@ test('role cards can move or copy complete definitions between folders', () => {
   assert.match(publicSource, /nextSource\.folder\.roles\.splice\(nextSource\.roleIndex \+ 1, 0, copiedRole\)/);
   assert.match(publicSource, /target\.roles\.push\(\.\.\.source\.folder\.roles\.splice\(source\.roleIndex, 1\)\)/);
   assert.match(publicSource, /已有对话仍继续关联这个角色/);
-  assert.match(publicSource, /jsonRequest\('\/api\/roles', \{ method: 'PUT'/);
+  assert.match(publicSource, /roleRequest\('\/api\/roles', \{ method: 'PUT'/);
 });
 
 test('the active conversation reports and can switch its server-injected role prompt', () => {

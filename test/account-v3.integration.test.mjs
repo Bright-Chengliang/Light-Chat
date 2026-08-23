@@ -571,7 +571,7 @@ test('preferences, roles, and media are isolated by ordinary-user UID', async ()
     const bobPreferences = await api(context, bob, 'GET', '/api/preferences');
     assert.equal(bobPreferences.response.status, 200);
     assert.deepEqual(bobPreferences.body.favoriteGroups, [{
-      id: 'all-models', name: '全部模型',
+      id: 'default-chat', name: '默认对话模型',
       items: [{ modelId: 'chat-basic', model: 'chat-basic', mode: 'chat', label: 'chat-basic' }],
     }]);
     assert.deepEqual((await api(context, alice, 'GET', '/api/preferences')).body.favoriteGroups, savedPreferences.body.favoriteGroups);
@@ -618,12 +618,44 @@ test('ordinary users with at most twenty available models receive every model as
     const signedIn = await signIn(context, user.username, 'all-favorites-password');
     const preferences = await api(context, signedIn, 'GET', '/api/preferences');
     assert.equal(preferences.response.status, 200, JSON.stringify(preferences.body));
-    assert.deepEqual(preferences.body.favoriteGroups.map((group) => group.name), ['全部模型']);
+    assert.deepEqual(preferences.body.favoriteGroups.map((group) => group.name), ['默认对话模型', '默认生图模型']);
     assert.deepEqual(preferences.body.favoriteGroups[0].items.map((item) => [item.modelId, item.mode]), [
-      ['chat-basic', 'chat'], ['chat-extra', 'chat'], ['gpt-image-basic', 'image'],
+      ['chat-basic', 'chat'], ['chat-extra', 'chat'],
+    ]);
+    assert.deepEqual(preferences.body.favoriteGroups[1].items.map((item) => [item.modelId, item.mode]), [
+      ['gpt-image-basic', 'image'],
     ]);
     const reloaded = await api(context, signedIn, 'GET', '/api/preferences');
     assert.deepEqual(reloaded.body.favoriteGroups, preferences.body.favoriteGroups);
+  } finally {
+    await context.close();
+  }
+});
+
+test('legacy automatic favorites migrate into explicit chat and image groups', async () => {
+  const context = await fixture();
+  try {
+    const admin = await signIn(context);
+    const user = await createUser(context, admin, {
+      username: 'legacy-favorites-user', password: 'legacy-favorites-password', credits: 1,
+      extraModels: ['chat-basic', 'gpt-image-basic'],
+    });
+    const signedIn = await signIn(context, user.username, 'legacy-favorites-password');
+    const saved = await api(context, signedIn, 'PUT', '/api/preferences', {
+      favoriteGroups: [{
+        id: 'all-models', name: '全部模型', items: [
+          { modelId: 'chat-basic', model: 'chat-basic', mode: 'chat', label: 'chat-basic' },
+          { modelId: 'gpt-image-basic', model: 'gpt-image-basic', mode: 'image', label: 'gpt-image-basic' },
+        ],
+      }],
+      selected: { modelId: 'chat-basic', mode: 'chat' }, modelContextLimits: {}, conversationTitleModel: 'chat-basic',
+    });
+    assert.equal(saved.response.status, 200, JSON.stringify(saved.body));
+    const migrated = await api(context, signedIn, 'GET', '/api/preferences');
+    assert.deepEqual(migrated.body.favoriteGroups.map((group) => group.name), ['默认对话模型', '默认生图模型']);
+    assert.deepEqual(migrated.body.favoriteGroups.flatMap((group) => group.items.map((item) => [group.id, item.modelId, item.mode])), [
+      ['default-chat', 'chat-basic', 'chat'], ['default-image', 'gpt-image-basic', 'image'],
+    ]);
   } finally {
     await context.close();
   }

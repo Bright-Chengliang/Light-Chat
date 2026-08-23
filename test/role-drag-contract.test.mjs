@@ -13,7 +13,7 @@ test('sidebar role cards support persisted drag ordering and folder moves', () =
   assert.match(appSource, /entry\.draggable = true/);
   assert.match(appSource, /void moveRoleByDrag\(sourceRoleId, \{ targetRoleId: role\.id, before:/);
   assert.match(appSource, /void moveRoleByDrag\(sourceRoleId, \{ targetFolderId: folder\.id \}\)/);
-  assert.match(appSource, /jsonRequest\('\/api\/roles', \{ method: 'PUT'/);
+  assert.match(appSource, /roleRequest\('\/api\/roles', \{ method: 'PUT'/);
   assert.match(styles, /\.role-entry\.drag-over/);
   assert.match(styles, /\.role-folder\.role-drag-over/);
 });

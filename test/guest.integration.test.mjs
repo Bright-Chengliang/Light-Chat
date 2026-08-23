@@ -101,7 +101,7 @@ test('guest can enter without a password but starts with zero credits and no mod
   }
 });
 
-test('guest can configure a private upstream and only use models it allows', async () => {
+test('guest proxy endpoints reject API keys because guest requests are browser-direct', async () => {
   const context = await fixture();
   try {
     const signedIn = await guestLogin(context.baseUrl);
@@ -113,34 +113,25 @@ test('guest can configure a private upstream and only use models it allows', asy
         apiKey: 'test-api-key',
       },
     });
-    assert.equal(saved.response.status, 200);
-    assert.equal(saved.body.endpoint, context.fake.baseUrl);
-    assert.equal(saved.body.hasApiKey, true);
-    assert.deepEqual(saved.body.allowedModels, ['chat-test', 'gpt-image-2']);
-
-    const redacted = await guestJson(context.baseUrl, signedIn.cookie, '/api/guest/settings');
-    assert.equal(redacted.body.hasApiKey, true);
-    assert.equal(Object.hasOwn(redacted.body, 'apiKey'), false);
-    assert.doesNotMatch(JSON.stringify(redacted.body), /test-api-key/);
+    assert.equal(saved.response.status, 410);
+    assert.equal(saved.body.code, 'GUEST_DIRECT_ONLY');
 
     const models = await guestJson(context.baseUrl, signedIn.cookie, '/api/models?refresh=1');
-    assert.deepEqual(models.body.models.map((model) => model.id).sort(), ['chat-test', 'gpt-image-2']);
+    assert.deepEqual(models.body.models, []);
 
     const chat = await guestJson(context.baseUrl, signedIn.cookie, '/api/chat', {
       method: 'POST',
       body: { model: 'chat-test', messages: [{ role: 'user', content: '你好' }], stream: false },
     });
-    assert.equal(chat.response.status, 200);
-    assert.equal(chat.body.text, '游客回复');
-    const upstreamRequest = context.fake.requests.find((request) => request.url === '/v1/chat/completions');
-    assert.equal(upstreamRequest.authorization, 'Bearer test-api-key');
+    assert.equal(chat.response.status, 410);
+    assert.equal(chat.body.code, 'GUEST_DIRECT_ONLY');
 
     const denied = await guestJson(context.baseUrl, signedIn.cookie, '/api/chat', {
       method: 'POST',
       body: { model: 'claude-sonnet-4-5', messages: [{ role: 'user', content: '你好' }], stream: false },
     });
-    assert.equal(denied.response.status, 403);
-    assert.equal(denied.body.code, 'MODEL_ACCESS_DENIED');
+    assert.equal(denied.response.status, 410);
+    assert.equal(denied.body.code, 'GUEST_DIRECT_ONLY');
 
     const quota = await guestJson(context.baseUrl, signedIn.cookie, '/api/quota');
     assert.equal(quota.body.credits, 0);
@@ -159,16 +150,14 @@ test('guest can preview models from a typed endpoint without saving settings', a
       method: 'POST',
       body: { endpoint: context.fake.baseUrl, apiKey: 'test-api-key' },
     });
-    assert.equal(preview.response.status, 200);
-    const ids = preview.body.models.map((model) => model.id);
-    assert.equal(ids.includes('chat-test'), true);
-    assert.equal(ids.includes('gpt-image-2'), true);
+    assert.equal(preview.response.status, 410);
+    assert.equal(preview.body.code, 'GUEST_DIRECT_ONLY');
 
     const invalid = await guestJson(context.baseUrl, signedIn.cookie, '/api/guest/models/preview', {
       method: 'POST',
       body: { endpoint: 'ftp://api.example.com/v1', apiKey: '' },
     });
-    assert.equal(invalid.response.status, 400);
+    assert.equal(invalid.response.status, 410);
 
     const untouched = await guestJson(context.baseUrl, signedIn.cookie, '/api/guest/settings');
     assert.equal(untouched.body.endpoint, '');
