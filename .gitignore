@@ -10,6 +10,11 @@ node_modules/
 tmp/
 .QuickSSH/
 light-chat*.log
+/*_test_*.jpg
+/*_test_*.json
+/extracted_paper.txt
+/references_only.txt
+/test_prompt.txt
 *.local
 微信截图*.png
 *.pyc

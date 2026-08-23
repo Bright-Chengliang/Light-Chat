@@ -4,11 +4,27 @@
 
 Light-Chat 是一个运行在本机、面向多用户的 AI 聊天工作台。管理员负责创建用户、分配积分和模型权限，普通用户专注对话与知识整理。服务端代持上游 API 密钥，密钥不会进入浏览器；普通用户会话正文保存在浏览器本地，服务端不收集聊天内容。
 
+它的核心取舍是：**把模型接入、权限、计费和安全边界收敛在服务端，同时把个人对话工作区留在用户手里**。项目同时提供 Web 工作台和受限 HTTPS Android 客户端。
+
 ## 界面预览
 
 <img src="public/assets/light-chat-screenshot.png" alt="Light-Chat 新对话主界面预览" width="800" />
 
 Light-Chat 新对话主界面：左侧集中管理收藏模型、收藏对话、快速翻译、自定义角色、收藏图片与打包工作流入口，底部可同时选择对话模型和生图模型。
+
+## 架构概览
+
+```mermaid
+flowchart LR
+    Web[Web 工作台\npublic/app.js] --> Server[Node.js 服务\nserver.mjs + lib/app.mjs]
+    Android[Android WebView\n受限 HTTPS] --> Server
+    Server --> Auth[账户 / 会话 / CSRF\n安全边界]
+    Server --> Stores[JSON Stores\n账户、角色、媒体、偏好]
+    Server --> Upstream[OpenAI-compatible\n上游模型服务]
+    Server --> Tools[PDF / 生图 / 工作流\n工具链]
+```
+
+请求、权限和上游模型调用都经过 Node 服务端；浏览器不直接接触上游密钥。`lib/` 负责领域逻辑，`public/` 提供无构建前端，`android/` 是面向移动端的受限客户端。
 
 ## 功能亮点
 
