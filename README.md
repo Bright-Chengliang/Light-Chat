@@ -50,6 +50,12 @@ flowchart LR
 
 生成过的图片会进入按用户隔离的媒体库，支持跨页浏览、灯箱预览、悬浮下载、上下文菜单复制，以及从图片跳回源消息。图片归属严格按 UID 校验，用户之间无法互相读取。
 
+### 本地图片超分
+
+本机超分有两种模式：**细节增强**调用 Real-ESRGAN NCNN Vulkan 的 `realesrgan-x4plus` 模型，再用 Pillow 调整到目标尺寸；**文字保真**跳过 AI 超分，只使用 Python Pillow 的高质量 `LANCZOS` 缩放，适合包含文字、线条或排版的图片。
+
+部署本机超分需要额外环境：Python、Pillow，以及细节增强模式所需的 `realesrgan-ncnn-vulkan.exe` 和 `realesrgan-x4plus` 模型文件。默认引擎路径为项目同级的 `../image-upscaler/realesrgan-ncnn-vulkan/realesrgan-ncnn-vulkan.exe`。其他部署者可以让 AI 按这个默认目录协助安装和配置，也可以自行准备引擎、模型和 Python 依赖；未配置本地超分时，聊天、生图和图片编辑等其他能力仍可独立使用。
+
 ### 收藏模型
 
 模型可以组织成收藏组，右上角模型按钮优先展开收藏，底部“更多模型”再进入完整模型库。服务端按用户权限过滤模型：管理员配置“权限组 + 额外模型”授权，普通用户只能看到并使用自己被允许的模型。
@@ -79,7 +85,7 @@ flowchart LR
 ## 其他能力
 
 - 多模型对话：默认 SSE 流式，可切换单次 JSON；支持多轮上下文、附件与 usage 展示。
-- 生图与图片编辑：`gpt-image-2` 生成/参考图编辑，Gemini Flash 生图，支持多尺寸竖图与 PNG mask。
+- 生图与图片编辑：能力取决于已配置的上游模型；图片还可调用本机 Real-ESRGAN 或 Pillow 超分。
 - 文档上传：PNG/JPEG/WebP、TXT/MD、PDF、DOC/DOCX、PPT/PPTX，服务端只做签名和体积校验。
 - 账户中心：额度概览、账户与安全、用户管理、充值/启停/删除、模型权限分组。
 - Android WebView 客户端：受限 HTTPS、HttpOnly Cookie 持久登录，不保存密码或密钥。
