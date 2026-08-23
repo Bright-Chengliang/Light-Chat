@@ -22,37 +22,15 @@ Light-Chat 是一个运行在本机、面向多用户的 AI 聊天工作台。�
 
 Light-Chat 新对话主界面：在一个工作区内选择模型、角色和工作流，整理历史对话与媒体，并直接开始多模态任务。
 
-<p align="center">
-  <img src="public/assets/light-chat-favorite-groups.png" alt="Light-Chat 默认对话模型和默认生图模型收藏组设置" width="800" />
-</p>
-
-模型收藏组设置：`默认对话模型` 和 `默认生图模型` 分别对应工作区底部的两个模型选择器；每组第一项就是该模式的默认模型，同一个模型也可以同时加入两个组。
-
-<p align="center">
-  <img src="public/assets/light-chat-guest-direct.png" alt="Light-Chat 游客模型浏览器直连设置" width="800" />
-</p>
-
-游客模型直连设置：端点和密钥只保存在当前浏览器，模型列表、对话和生图请求由浏览器直接发送到用户配置的上游服务。
-
-## 架构概览
-
-```mermaid
-flowchart LR
-    Web[Web 工作台\npublic/app.js] --> Server[Node.js 服务\nserver.mjs + lib/app.mjs]
-    Android[Android WebView\n受限 HTTPS] --> Server
-    Server --> Auth[账户 / 会话 / CSRF\n安全边界]
-    Server --> Stores[JSON Stores\n账户、角色、媒体、偏好]
-    Server --> Upstream[OpenAI-compatible\n上游模型服务]
-    Server --> Tools[PDF / 生图 / 工作流\n工具链]
-```
-
-普通账户的请求、权限和上游模型调用经过 Node 服务端；游客模式由浏览器直连用户配置的上游，浏览器不把游客密钥提交给本站。`lib/` 负责领域逻辑，`public/` 提供无构建前端，`android/` 是面向移动端的受限客户端。
-
 ## 功能亮点
 
 ### 对话文件夹
 
 历史对话支持文件夹整理：拖拽归组、折叠与展开、文件夹头部操作，以及“未归档对话”独立折叠区。文件夹结构持久化，按最近活动排序，方便把散落的会话整理成可复用的知识库。
+
+<p align="center">
+  <img src="public/assets/light-chat-conversation-folders.png" alt="Light-Chat 对话文件夹整理界面" width="800" />
+</p>
 
 ### 收藏对话
 
@@ -83,6 +61,10 @@ flowchart LR
 ### 收藏模型
 
 很多 API 渠道或自建 API 服务会暴露大量候选模型，逐个翻找和切换很容易眼花缭乱。收藏模型的目的，是在不调整 API 服务端可用模型列表的情况下，把常用模型整理进自己的收藏分组，之后从对话模型、生图模型选择器中快速切换。右上角模型按钮优先展开收藏，底部“更多模型”再进入完整模型库；服务端仍按用户权限过滤模型，管理员配置“权限组 + 额外模型”授权，普通用户只能看到并使用自己被允许的模型。
+
+<p align="center">
+  <img src="public/assets/light-chat-favorite-groups.png" alt="Light-Chat 收藏模型组设置界面" width="800" />
+</p>
 
 ### 游客模式
 
@@ -129,6 +111,28 @@ flowchart LR
 - 文档上传：PNG/JPEG/WebP、TXT/MD、PDF、DOC/DOCX、PPT/PPTX，服务端只做签名和体积校验。
 - 账户中心：额度概览、账户与安全、用户管理、充值/启停/删除、模型权限分组。
 - Android WebView 客户端：受限 HTTPS、HttpOnly Cookie 持久登录，不保存密码或密钥。
+
+## 架构概览
+
+```mermaid
+flowchart LR
+    Web[Web 工作台\npublic/app.js] --> Server[Node.js 服务\nserver.mjs + lib/app.mjs]
+    Android[Android WebView\n受限 HTTPS] --> Server
+    Server --> Auth[账户 / 会话 / CSRF\n安全边界]
+    Server --> Stores[JSON Stores\n账户、角色、媒体、偏好]
+    Server --> Upstream[OpenAI-compatible\n上游模型服务]
+    Server --> Tools[PDF / 生图 / 工作流\n工具链]
+```
+
+普通账户的请求、权限和上游模型调用经过 Node 服务端；游客模式由浏览器直连用户配置的上游，浏览器不把游客密钥提交给本站。`lib/` 负责领域逻辑，`public/` 提供无构建前端，`android/` 是面向移动端的受限客户端。
+
+## 界面示例
+
+<p align="center">
+  <img src="public/assets/light-chat-guest-direct.png" alt="Light-Chat 游客模型浏览器直连设置" width="800" />
+</p>
+
+游客模型直连设置：端点和密钥只保存在当前浏览器，模型列表、对话和生图请求由浏览器直接发送到用户配置的上游服务。
 
 ## 安全设计
 
