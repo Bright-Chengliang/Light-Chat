@@ -22,6 +22,18 @@ Light-Chat 是一个运行在本机、面向多用户的 AI 聊天工作台。�
 
 Light-Chat 新对话主界面：在一个工作区内选择模型、角色和工作流，整理历史对话与媒体，并直接开始多模态任务。
 
+<p align="center">
+  <img src="public/assets/light-chat-favorite-groups.png" alt="Light-Chat 默认对话模型和默认生图模型收藏组设置" width="800" />
+</p>
+
+模型收藏组设置：`默认对话模型` 和 `默认生图模型` 分别对应工作区底部的两个模型选择器；每组第一项就是该模式的默认模型，同一个模型也可以同时加入两个组。
+
+<p align="center">
+  <img src="public/assets/light-chat-guest-direct.png" alt="Light-Chat 游客模型浏览器直连设置" width="800" />
+</p>
+
+游客模型直连设置：端点和密钥只保存在当前浏览器，模型列表、对话和生图请求由浏览器直接发送到用户配置的上游服务。
+
 ## 架构概览
 
 ```mermaid
