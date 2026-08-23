@@ -14,6 +14,77 @@
         android:importantForAutofill="yes" />
 
     <LinearLayout
+        android:id="@+id/serviceConfigPanel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/paper"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="34dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="@drawable/brand_tile_soft"
+            android:gravity="center"
+            android:text="@string/lightning_symbol"
+            android:textColor="@color/brand_accent"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/service_config_title"
+            android:textColor="@color/text_primary"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="@string/service_config_description"
+            android:textColor="@color/text_soft"
+            android:textSize="15sp" />
+
+        <EditText
+            android:id="@+id/serviceUrlInput"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="22dp"
+            android:autofillHints="url"
+            android:hint="@string/service_url_hint"
+            android:inputType="textUri"
+            android:singleLine="true"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_soft" />
+
+        <TextView
+            android:id="@+id/serviceConfigMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:textColor="@color/brand_accent"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/saveServiceUrlButton"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="16dp"
+            android:backgroundTint="@color/brand_accent"
+            android:text="@string/save_service_url"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/loadingOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -103,6 +174,16 @@
             android:layout_marginTop="8dp"
             android:backgroundTint="@color/surface_soft"
             android:text="@string/network_settings"
+            android:textAllCaps="false"
+            android:textColor="@color/text_soft" />
+
+        <Button
+            android:id="@+id/changeServiceUrlButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="@color/surface_soft"
+            android:text="@string/change_service_url"
             android:textAllCaps="false"
             android:textColor="@color/text_soft" />
     </LinearLayout>

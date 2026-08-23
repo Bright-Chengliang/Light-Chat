@@ -3,6 +3,8 @@ package top.brightcl.lightchat;
 import org.junit.Test;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public final class TrustedNavigationTest {
@@ -23,5 +25,15 @@ public final class TrustedNavigationTest {
         assertFalse(TrustedNavigation.canOpenExternally("javascript:alert(1)"));
         assertFalse(TrustedNavigation.canOpenExternally("file:///sdcard/private.txt"));
         assertFalse(TrustedNavigation.canOpenExternally("content://contacts/1"));
+    }
+
+    @Test
+    public void normalizesConfiguredHttpsServiceUrls() {
+        assertEquals("https://chat.example.com/", TrustedNavigation.normalizeServiceUrl("https://chat.example.com"));
+        assertEquals("https://example.com/light-chat/", TrustedNavigation.normalizeServiceUrl("https://example.com/light-chat"));
+        assertNull(TrustedNavigation.normalizeServiceUrl("http://example.com/"));
+        assertNull(TrustedNavigation.normalizeServiceUrl("https://example.com:8443/"));
+        assertNull(TrustedNavigation.normalizeServiceUrl("https://user@example.com/"));
+        assertNull(TrustedNavigation.normalizeServiceUrl("https://example.com/?next=evil"));
     }
 }

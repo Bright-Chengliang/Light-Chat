@@ -12,6 +12,12 @@
     <string name="retry">重新连接</string>
     <string name="network_settings">打开网络设置</string>
     <string name="no_network_settings">无法打开网络设置</string>
+    <string name="service_config_title">配置 Light-Chat 服务</string>
+    <string name="service_config_description">输入你的公网 HTTPS 地址。保存一次后，App 会记住服务地址和登录状态。</string>
+    <string name="service_url_hint">https://chat.example.com/</string>
+    <string name="save_service_url">保存并连接</string>
+    <string name="change_service_url">更换服务地址</string>
+    <string name="invalid_service_url">请输入标准 HTTPS 服务地址，例如 https://chat.example.com/</string>
     <string name="blocked_navigation">已阻止不受信任的页面跳转</string>
     <string name="no_external_browser">没有可处理该链接的应用</string>
     <string name="choose_files">选择图片或文档</string>

@@ -7,6 +7,7 @@ import android.content.ActivityNotFoundException;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Insets;
 import android.net.ConnectivityManager;
@@ -49,11 +50,19 @@ public final class MainActivity extends Activity {
     private static final String APP_USER_AGENT = " light-chat-android/1.0";
 
     private WebView webView;
+    private View serviceConfigPanel;
+    private android.widget.EditText serviceUrlInput;
+    private TextView serviceConfigMessage;
     private View loadingOverlay;
     private View errorPanel;
     private TextView errorMessage;
     private ValueCallback<Uri[]> filePathCallback;
     private boolean mainFrameLoadFailed;
+    private String serviceUrl;
+    private String trustedHost;
+
+    private static final String SETTINGS_NAME = "light_chat_settings";
+    private static final String SERVICE_URL_KEY = "service_url";
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
@@ -63,24 +72,82 @@ public final class MainActivity extends Activity {
         configureSystemBars();
 
         webView = findViewById(R.id.webView);
+        serviceConfigPanel = findViewById(R.id.serviceConfigPanel);
+        serviceUrlInput = findViewById(R.id.serviceUrlInput);
+        serviceConfigMessage = findViewById(R.id.serviceConfigMessage);
         loadingOverlay = findViewById(R.id.loadingOverlay);
         errorPanel = findViewById(R.id.errorPanel);
         errorMessage = findViewById(R.id.errorMessage);
         Button retryButton = findViewById(R.id.retryButton);
         Button networkSettingsButton = findViewById(R.id.networkSettingsButton);
+        Button changeServiceUrlButton = findViewById(R.id.changeServiceUrlButton);
 
         configureSafeAreaInsets();
         retryButton.setOnClickListener(view -> retry());
         networkSettingsButton.setOnClickListener(view -> openNetworkSettings());
+        changeServiceUrlButton.setOnClickListener(view -> showServiceConfig(null));
+        findViewById(R.id.saveServiceUrlButton).setOnClickListener(view -> saveServiceUrl());
 
         configureCookies();
         configureWebView();
 
-        if (savedInstanceState == null) {
-            webView.loadUrl(BuildConfig.BASE_URL);
+        serviceUrl = loadSavedServiceUrl();
+        if (serviceUrl == null) {
+            showServiceConfig(null);
+        } else if (savedInstanceState == null) {
+            webView.loadUrl(serviceUrl);
         } else {
             webView.restoreState(savedInstanceState);
         }
+    }
+
+    private String loadSavedServiceUrl() {
+        SharedPreferences preferences = getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE);
+        String saved = TrustedNavigation.normalizeServiceUrl(preferences.getString(SERVICE_URL_KEY, ""));
+        if (saved != null) {
+            trustedHost = Uri.parse(saved).getHost();
+            return saved;
+        }
+        String buildDefault = TrustedNavigation.normalizeServiceUrl(BuildConfig.BASE_URL);
+        if (buildDefault != null && !"https://chat.example.com/".equals(buildDefault)) {
+            preferences.edit().putString(SERVICE_URL_KEY, buildDefault).apply();
+            trustedHost = Uri.parse(buildDefault).getHost();
+            return buildDefault;
+        }
+        return null;
+    }
+
+    private void showServiceConfig(String message) {
+        serviceConfigPanel.setVisibility(View.VISIBLE);
+        webView.setVisibility(View.GONE);
+        loadingOverlay.setVisibility(View.GONE);
+        errorPanel.setVisibility(View.GONE);
+        if (serviceUrl != null) serviceUrlInput.setText(serviceUrl);
+        if (message == null || message.isBlank()) {
+            serviceConfigMessage.setVisibility(View.GONE);
+        } else {
+            serviceConfigMessage.setText(message);
+            serviceConfigMessage.setVisibility(View.VISIBLE);
+        }
+        serviceUrlInput.requestFocus();
+    }
+
+    private void saveServiceUrl() {
+        String normalized = TrustedNavigation.normalizeServiceUrl(serviceUrlInput.getText().toString());
+        if (normalized == null) {
+            showServiceConfig(getString(R.string.invalid_service_url));
+            return;
+        }
+        serviceUrl = normalized;
+        trustedHost = Uri.parse(normalized).getHost();
+        getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE).edit().putString(SERVICE_URL_KEY, normalized).apply();
+        webView.clearHistory();
+        webView.clearCache(false);
+        serviceConfigPanel.setVisibility(View.GONE);
+        webView.setVisibility(View.VISIBLE);
+        loadingOverlay.setVisibility(View.VISIBLE);
+        errorPanel.setVisibility(View.GONE);
+        webView.loadUrl(serviceUrl);
     }
 
     private void configureSystemBars() {
@@ -161,10 +228,10 @@ public final class MainActivity extends Activity {
             return;
         }
         String current = webView.getUrl();
-        if (current != null && TrustedNavigation.isTrusted(Uri.parse(current), BuildConfig.TRUSTED_HOST)) {
+        if (current != null && TrustedNavigation.isTrusted(Uri.parse(current), trustedHost)) {
             webView.reload();
         } else {
-            webView.loadUrl(BuildConfig.BASE_URL);
+            webView.loadUrl(serviceUrl);
         }
     }
 
@@ -177,6 +244,7 @@ public final class MainActivity extends Activity {
 
     private void showError(String message) {
         mainFrameLoadFailed = true;
+        serviceConfigPanel.setVisibility(View.GONE);
         loadingOverlay.setVisibility(View.GONE);
         errorMessage.setText(message);
         errorPanel.setVisibility(View.VISIBLE);
@@ -203,7 +271,7 @@ public final class MainActivity extends Activity {
     }
 
     private boolean handleNavigation(Uri uri) {
-        if (TrustedNavigation.isTrusted(uri, BuildConfig.TRUSTED_HOST)) return false;
+        if (TrustedNavigation.isTrusted(uri, trustedHost)) return false;
         openExternal(uri);
         return true;
     }
@@ -275,7 +343,7 @@ public final class MainActivity extends Activity {
 
         @Override
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
-            if (TrustedNavigation.isTrusted(Uri.parse(url), BuildConfig.TRUSTED_HOST)) {
+            if (TrustedNavigation.isTrusted(Uri.parse(url), trustedHost)) {
                 mainFrameLoadFailed = false;
                 errorPanel.setVisibility(View.GONE);
                 loadingOverlay.setVisibility(View.VISIBLE);
@@ -284,7 +352,7 @@ public final class MainActivity extends Activity {
 
         @Override
         public void onPageFinished(WebView view, String url) {
-            if (!TrustedNavigation.isTrusted(Uri.parse(url), BuildConfig.TRUSTED_HOST)) return;
+            if (!TrustedNavigation.isTrusted(Uri.parse(url), trustedHost)) return;
             CookieManager.getInstance().flush();
             if (mainFrameLoadFailed) return;
             loadingOverlay.setVisibility(View.GONE);
@@ -345,7 +413,7 @@ public final class MainActivity extends Activity {
             Uri uri = Uri.parse(url);
             if ("blob".equalsIgnoreCase(uri.getScheme())) {
                 String currentUrl = webView.getUrl();
-                if (currentUrl == null || !TrustedNavigation.isTrusted(currentUrl, BuildConfig.TRUSTED_HOST)) {
+                if (currentUrl == null || !TrustedNavigation.isTrusted(currentUrl, trustedHost)) {
                     Toast.makeText(MainActivity.this, R.string.blocked_download, Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -353,7 +421,7 @@ public final class MainActivity extends Activity {
                 exportBlobFromTrustedPage(url, fileName, mimeType);
                 return;
             }
-            if (!TrustedNavigation.isTrusted(uri, BuildConfig.TRUSTED_HOST)) {
+            if (!TrustedNavigation.isTrusted(uri, trustedHost)) {
                 Toast.makeText(MainActivity.this, R.string.blocked_download, Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -397,7 +465,7 @@ public final class MainActivity extends Activity {
         public void saveBase64File(String fileName, String mimeType, String base64Data) {
             runOnUiThread(() -> {
                 String currentUrl = webView.getUrl();
-                if (currentUrl == null || !TrustedNavigation.isTrusted(currentUrl, BuildConfig.TRUSTED_HOST)) {
+                if (currentUrl == null || !TrustedNavigation.isTrusted(currentUrl, trustedHost)) {
                     Toast.makeText(MainActivity.this, R.string.blocked_download, Toast.LENGTH_SHORT).show();
                     return;
                 }

@@ -13,6 +13,30 @@ final class TrustedNavigation {
         return uri != null && isTrusted(uri.toString(), trustedHost);
     }
 
+    static String normalizeServiceUrl(String rawUrl) {
+        if (rawUrl == null) return null;
+        String candidate = rawUrl.trim();
+        if (candidate.isEmpty()) return null;
+        try {
+            URI uri = new URI(candidate);
+            String host = uri.getHost();
+            int port = uri.getPort();
+            if (!"https".equalsIgnoreCase(uri.getScheme())
+                    || host == null
+                    || uri.getUserInfo() != null
+                    || (port != -1 && port != 443)
+                    || uri.getQuery() != null
+                    || uri.getFragment() != null) return null;
+            StringBuilder normalized = new StringBuilder("https://").append(host.toLowerCase(Locale.ROOT));
+            if (port == 443) normalized.append(":443");
+            if (uri.getRawPath() != null && !uri.getRawPath().isEmpty()) normalized.append(uri.getRawPath());
+            if (normalized.charAt(normalized.length() - 1) != '/') normalized.append('/');
+            return normalized.toString();
+        } catch (URISyntaxException error) {
+            return null;
+        }
+    }
+
     static boolean isTrusted(String rawUrl, String trustedHost) {
         if (rawUrl == null || trustedHost == null) return false;
         try {
