@@ -13,6 +13,20 @@ test('browser-delivered assets and session metadata do not reveal the private mo
   assert.doesNotMatch(backendSource, /newApiConfigured\s*:/);
 });
 
+test('the learning workspace is an administrator-only same-origin entry point', () => {
+  assert.match(publicSource, /id="openLearning" href="\/learning\/"/);
+  assert.doesNotMatch(publicSource, /id="openLearning"[^>]+target=/);
+  assert.match(publicSource, /openLearning: \$\('#openLearning'\)/);
+  assert.match(publicSource, /elements\.openLearning\.hidden = !isAdmin/);
+  assert.match(backendSource, /const LEARNING_PROXY_PREFIX = '\/learning';/);
+  assert.match(backendSource, /const LEARNING_UPSTREAM_PORT = 3021;/);
+  assert.match(backendSource, /function learningServiceWorkerScript\(\)/);
+  assert.match(backendSource, /x-light-chat-learning-client/);
+  assert.match(backendSource, /\{ prefix: LEARNING_PROXY_PREFIX, port: learningPort, browserWsPort: LEARNING_UPSTREAM_PORT, webSocketPaths: new Set\(\['\/ws', '\/_next\/webpack-hmr'\]\), upstreamOrigin:/);
+  assert.match(backendSource, /if \(!\['GET', 'HEAD', 'OPTIONS'\]\.includes\(req\.method \|\| ''\)\) requireSameOrigin\(req, sessionManager\)/);
+  assert.doesNotMatch(backendSource, /Location: `http:\/\/localhost:\$\{learningPort\}/);
+});
+
 test('guest mode keeps credentials local and sends model requests directly to the configured endpoint', () => {
   assert.match(publicSource, /GUEST_LOCAL_CONFIG_KEY/);
   assert.match(publicSource, /localStorage\.setItem\(GUEST_LOCAL_CONFIG_KEY/);

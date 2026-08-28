@@ -12,7 +12,9 @@ public final class TrustedNavigationTest {
     public void acceptsOnlyExactHttpsServiceOrigin() {
         assertTrue(TrustedNavigation.isTrusted("https://example.com/app", "example.com"));
         assertTrue(TrustedNavigation.isTrusted("https://example.com:443/api/session", "example.com"));
+        assertTrue(TrustedNavigation.isTrusted("https://example.com/learning/", "example.com"));
         assertFalse(TrustedNavigation.isTrusted("http://example.com/app", "example.com"));
+        assertFalse(TrustedNavigation.isTrusted("http://localhost:3021/", "example.com"));
         assertFalse(TrustedNavigation.isTrusted("https://example.com.evil.example/app", "example.com"));
         assertFalse(TrustedNavigation.isTrusted("https://user@example.com/app", "example.com"));
         assertFalse(TrustedNavigation.isTrusted("https://example.com:8443/app", "example.com"));
