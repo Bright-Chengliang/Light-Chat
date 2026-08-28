@@ -405,6 +405,18 @@ test('Gemini Flash image generation is advertised as a one-credit option', () =>
   assert.match(backendSource, /gemini.*flash.*image/i);
   assert.match(backendSource, /imageCreditCost\(body\.model\)/);
 });
+
+test('favorite mode changes retain the selected model and support explicit image overrides', () => {
+  assert.match(publicSource, /function modelSupportsMode\(model, mode/);
+  assert.match(publicSource, /const currentModelId = item\.modelId \|\| item\.model/);
+  assert.match(publicSource, /const currentModel = state\.models\.find\(\(model\) => model\.id === state\.selected\?\.modelId\)/);
+  assert.match(publicSource, /modelSupportsMode\(currentModel, mode, \{ allowImageModeOverride: mode === 'image' \}\)/);
+  assert.match(publicSource, /allowImageModeOverride: nextMode === 'image'/);
+  assert.match(publicSource, /mode === 'image' \|\| model\.modes\.includes\(mode\)/);
+  assert.match(backendSource, /entry\.mode !== 'image' && !model\.modes\.includes\(entry\.mode\)/);
+  assert.match(backendSource, /allowImageModeOverride: true/);
+});
+
 test('the composer accepts a bounded editable queue while a response is active', () => {
   assert.match(publicSource, /id="messageQueue"/);
   assert.match(publicSource, /id="queueSendButton"/);

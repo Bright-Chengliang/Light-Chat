@@ -1332,6 +1332,50 @@ test('favorite model groups persist validated modes and stale models are rejecte
   }
 });
 
+test('saved image mode can explicitly opt a model into the Images API', async () => {
+  const context = await fixture();
+  try {
+    const signedIn = await authenticated(context);
+    const saved = await fetch(`${context.baseUrl}/api/preferences`, {
+      method: 'PUT',
+      headers: {
+        Cookie: signedIn.cookie,
+        Origin: context.baseUrl,
+        'X-CSRF-Token': signedIn.body.csrfToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        favoriteGroups: [{
+          id: 'custom-image',
+          name: '自定义生图',
+          items: [{ model: 'chat-test', mode: 'image', label: '自定义生图模型' }],
+        }],
+        selected: { model: 'chat-test', mode: 'image' },
+        modelContextLimits: {},
+        conversationTitleModel: 'chat-test',
+      }),
+    });
+    assert.equal(saved.status, 200);
+    const generated = await fetch(`${context.baseUrl}/api/images/generations`, {
+      method: 'POST',
+      headers: {
+        Cookie: signedIn.cookie,
+        Origin: context.baseUrl,
+        'X-CSRF-Token': signedIn.body.csrfToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model: 'chat-test', prompt: '自定义模型生图', size: '1024x1024', count: 1 }),
+    });
+    assert.equal(generated.status, 200);
+    const payload = await generated.json();
+    assert.equal(payload.images.length, 1);
+    const upstream = context.fake.requests.findLast((request) => request.url === '/v1/images/generations');
+    assert.equal(JSON.parse(upstream.bodyText).model, 'chat-test');
+  } finally {
+    await context.close();
+  }
+});
+
 test('role folders persist order and inject only server-stored system prompts', async () => {
   const context = await fixture();
   try {

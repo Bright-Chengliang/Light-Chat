@@ -867,16 +867,16 @@ function effectiveWorkflowImageRequest(workflow, draft) {
   const modelId = workflow.allowImageModelOverride === false
     ? workflowImageModel(workflow)
     : selected?.modelId;
-  const model = state.models.find((item) => item.id === modelId && item.modes.includes('image'));
+  const model = state.models.find((item) => item.id === modelId && modelSupportsMode(item, 'image', { allowImageModeOverride: true }));
   if (!model) return null;
-  const sizes = model.imageOptions?.sizes || [];
-  const qualities = model.imageOptions?.qualities || [];
+  const sizes = model.imageOptions?.sizes || ['1024x1024'];
+  const qualities = model.imageOptions?.qualities || ['high'];
   const requestedSize = workflow.allowImageSizeOverride === false ? workflow.defaultSize : draft.imageSize;
   const requestedQuality = workflow.allowImageQualityOverride === false
     ? workflow.defaultQuality
     : imageQualityForRequest(currentConversation(), model);
-  const size = sizes.includes(requestedSize) ? requestedSize : model.imageOptions?.defaultSize;
-  const quality = qualities.includes(requestedQuality) ? requestedQuality : model.imageOptions?.defaultQuality;
+  const size = sizes.includes(requestedSize) ? requestedSize : model.imageOptions?.defaultSize || sizes[0];
+  const quality = qualities.includes(requestedQuality) ? requestedQuality : model.imageOptions?.defaultQuality || qualities[0];
   if (!size || !quality) return null;
   return { model, selection: { modelId, mode: 'image' }, size, quality };
 }
@@ -1524,7 +1524,7 @@ function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar
   const workflow = validWorkflowId(conversation.workflowId) ? findWorkflowById(conversation.workflowId) : null;
   state.selectedWorkflow = workflow;
   if (workflow) {
-    const imageModel = conversation.lastRequest?.mode === 'image' && state.models.some((model) => model.id === conversation.lastRequest.modelId && model.modes.includes('image'))
+    const imageModel = conversation.lastRequest?.mode === 'image' && state.models.some((model) => model.id === conversation.lastRequest.modelId && modelSupportsMode(model, 'image', { allowImageModeOverride: true }))
       ? conversation.lastRequest.modelId
       : workflowImageModel(workflow);
     if (imageModel) setSelection(imageModel, 'image');
@@ -1825,7 +1825,7 @@ function favoriteModels() {
   return state.preferences.favoriteGroups.map((group) => ({
     id: group.id,
     name: group.name,
-    items: group.items.filter((item) => available.has(item.modelId || item.model) && state.models.some((model) => model.id === (item.modelId || item.model) && model.modes.includes(item.mode))),
+    items: group.items.filter((item) => available.has(item.modelId || item.model) && favoriteModelAvailable(item)),
   })).filter((group) => group.items.length);
 }
 
@@ -1848,6 +1848,7 @@ function openVariantModelMenu(messageId, anchor) {
       const row = document.createElement('div'); row.className = 'variant-image-model-row';
       const button = document.createElement('button'); button.type = 'button'; button.textContent = `@ ${item.label || modelId}`; button.title = `${modelId}（展开尺寸选项）`; button.setAttribute('aria-haspopup', 'true'); button.setAttribute('aria-expanded', 'false');
       const sizes = orderedImageSizes(model?.imageOptions?.sizes || [], modelId);
+      if (!sizes.length) sizes.push('1024x1024');
       const sizesMenu = document.createElement('div'); sizesMenu.className = 'variant-image-size-menu'; sizesMenu.id = `variant-image-size-${randomId()}`; button.setAttribute('aria-controls', sizesMenu.id);
       for (const size of sizes) { const sizeButton = document.createElement('button'); sizeButton.type = 'button'; sizeButton.setAttribute('role', 'menuitem'); sizeButton.textContent = imageSizeLabel(size, modelId); sizeButton.title = `${modelId} · ${imageSizeLabel(size, modelId)}`; sizeButton.addEventListener('click', () => { const targetId = state.contextAssistantMessageId; closeVariantModelMenu(); setSelection(modelId, 'image'); elements.imageSize.value = size; regenerateImageAssistant(targetId, modelId, { allowHistorical: true, imageSize: size }); }); sizesMenu.append(sizeButton); }
       const setExpanded = (expanded) => { row.dataset.expanded = String(expanded); button.setAttribute('aria-expanded', String(expanded)); };
@@ -3079,8 +3080,18 @@ function updateStreamingMessage(message, conversationId = state.currentId) {
   if (state.followOutput) setConversationScrollTop(elements.scroll.scrollHeight);
 }
 
+function modelSupportsMode(model, mode, { allowImageModeOverride = false } = {}) {
+  return Boolean(model && (model.modes?.includes(mode) || (allowImageModeOverride && mode === 'image')));
+}
+
+function favoriteModelAvailable(item, models = state.models) {
+  const modelId = item?.modelId || item?.model;
+  const model = models.find((candidate) => candidate.id === modelId);
+  return modelSupportsMode(model, item?.mode, { allowImageModeOverride: true });
+}
+
 function preferredModel(mode) {
-  const favorite = state.preferences.favoriteGroups.flatMap((group) => group.items).find((item) => item.mode === mode && state.models.some((model) => model.id === (item.modelId || item.model) && model.modes.includes(mode)));
+  const favorite = state.preferences.favoriteGroups.flatMap((group) => group.items).find((item) => item.mode === mode && favoriteModelAvailable(item));
   if (favorite) return favorite.modelId || favorite.model;
   const candidates = state.models.filter((model) => model.modes.includes(mode));
   if (!candidates.length) return '';
@@ -3091,7 +3102,7 @@ function preferredModel(mode) {
 function normalizeSelection(value) {
   const modelId = value?.modelId || value?.model;
   const mode = value?.mode;
-  if (typeof modelId === 'string' && ['chat', 'image'].includes(mode) && state.models.some((item) => item.id === modelId && item.modes.includes(mode))) return { modelId, mode };
+  if (typeof modelId === 'string' && ['chat', 'image'].includes(mode) && state.models.some((item) => item.id === modelId && modelSupportsMode(item, mode, { allowImageModeOverride: mode === 'image' }))) return { modelId, mode };
   const fallback = preferredModel('chat');
   return fallback ? { modelId: fallback, mode: 'chat' } : null;
 }
@@ -3147,7 +3158,7 @@ function lastAvailableModel(mode, favoriteItems = []) {
     favoriteItems[0]?.modelId,
     preferredModel(mode),
   ];
-  return candidates.find((modelId) => modelId && state.models.some((model) => model.id === modelId && model.modes.includes(mode))) || '';
+  return candidates.find((modelId) => modelId && state.models.some((model) => model.id === modelId && modelSupportsMode(model, mode, { allowImageModeOverride: true }))) || '';
 }
 
 function activateQuickMode(mode) {
@@ -3159,7 +3170,7 @@ function activateQuickMode(mode) {
 function setSelection(modelId, mode, { persist = true, close = false } = {}) {
   if (state.selectedWorkflow && mode !== 'image') { setStatus('打包工作流仅可选择生图模型', 'error'); return; }
   if (persist && preferenceContextMutationInFlight) { setStatus('收藏设置正在更新，请稍候再切换模型', 'error'); return; }
-  if (!state.models.some((item) => item.id === modelId && item.modes.includes(mode))) return;
+  if (!state.models.some((item) => item.id === modelId && modelSupportsMode(item, mode, { allowImageModeOverride: true }))) return;
   if (state.selectedWorkflow) {
     const workflow = state.selectedWorkflow;
     const lockedModel = workflowImageModel(workflow);
@@ -3167,8 +3178,8 @@ function setSelection(modelId, mode, { persist = true, close = false } = {}) {
       setStatus(`“${workflow.name}”已固定使用 ${lockedModel}，不能切换生图模型`, 'error');
       return;
     }
-    const model = state.models.find((item) => item.id === modelId && item.modes.includes('image'));
-    if (workflow.allowImageSizeOverride === false && !model?.imageOptions?.sizes?.includes(workflow.defaultSize)) {
+    const model = state.models.find((item) => item.id === modelId && modelSupportsMode(item, 'image', { allowImageModeOverride: true }));
+    if (workflow.allowImageSizeOverride === false && model?.imageOptions?.sizes && !model.imageOptions.sizes.includes(workflow.defaultSize)) {
       setStatus(`所选模型不支持工作流固定尺寸 ${workflow.defaultSize}`, 'error');
       return;
     }
@@ -3190,7 +3201,7 @@ function imageQualityForRequest(conversation, model) {
 
 function restoreConversationRequest(conversation) {
   const request = conversation?.lastRequest;
-  if (!request || !state.models.some((model) => model.id === request.modelId && model.modes.includes(request.mode))) return;
+  if (!request || !state.models.some((model) => model.id === request.modelId && modelSupportsMode(model, request.mode, { allowImageModeOverride: request.mode === 'image' }))) return;
   setSelection(request.modelId, request.mode, { persist: false });
   if (request.mode !== 'image') return;
   const model = state.models.find((item) => item.id === request.modelId);
@@ -3220,7 +3231,7 @@ function renderFavorites() {
     let groupCount = 0;
     for (const item of group.items) {
       const modelId = item.modelId || item.model;
-      if (!state.models.some((model) => model.id === modelId && model.modes.includes(item.mode))) continue;
+      if (!favoriteModelAvailable(item)) continue;
       validCount += 1; groupCount += 1;
       const row = document.createElement('div'); row.className = 'list-action-row favorite-model-row';
       const button = document.createElement('button'); button.type = 'button'; button.className = 'sidebar-model';
@@ -3318,14 +3329,14 @@ function setSidebarFavoritesCollapsed(collapsed, { persist = true } = {}) {
 function renderModelList() {
   if (!elements.modelList) return;
   const query = elements.modelSearch.value.trim().toLowerCase(); const mode = elements.modelMode.value;
-  const filtered = state.models.filter((model) => model.modes.includes(mode) && model.id.toLowerCase().includes(query));
+  const filtered = state.models.filter((model) => (mode === 'image' || model.modes.includes(mode)) && model.id.toLowerCase().includes(query));
   elements.modelList.replaceChildren();
   if (!filtered.length) { const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '没有匹配的模型'; elements.modelList.append(empty); return; }
   for (const model of filtered) {
     const isTranslationSelection = state.modelDialogTarget === 'translator';
     const button = document.createElement('button'); button.type = 'button'; button.className = (isTranslationSelection ? state.translationModelId === model.id : state.selected?.modelId === model.id && state.selected?.mode === mode) ? 'selected' : '';
     const strong = document.createElement('strong'); strong.textContent = model.id;
-    const badge = document.createElement('span'); badge.textContent = mode === 'image' ? 'Images API' : model.inputImages ? '支持图片' : '文本对话';
+    const badge = document.createElement('span'); badge.textContent = mode === 'image' ? (model.modes.includes('image') ? 'Images API' : '手动生图模式') : model.inputImages ? '支持图片' : '文本对话';
     button.append(strong, badge); button.addEventListener('click', () => {
       if (isTranslationSelection) setTranslationModel(model.id, { close: true });
       else setSelection(model.id, mode, { close: true });
@@ -3343,7 +3354,7 @@ function renderHeaderModelMenu() {
   for (const group of state.preferences.favoriteGroups) {
     const items = group.items.filter((item) => {
       const modelId = item.modelId || item.model;
-      return state.models.some((model) => model.id === modelId && model.modes.includes(item.mode));
+      return favoriteModelAvailable(item);
     });
     if (!items.length) continue;
     const section = document.createElement('section'); section.className = 'header-model-menu-group';
@@ -3428,7 +3439,8 @@ function sanitizeFavoriteGroups(groups, models) {
       items: (group.items || []).filter((item) => {
         const modelId = item.modelId || item.model;
         return typeof modelId === 'string'
-          && models.some((model) => model.id === modelId && model.modes.includes(item.mode));
+          && models.some((model) => model.id === modelId)
+          && (item.mode === 'image' || models.some((model) => model.id === modelId && model.modes.includes(item.mode)));
       }),
     }))
     .filter((group) => group.items.length);
@@ -3510,7 +3522,7 @@ function nextFavoriteCandidate(group) {
     const preferredId = state.selected?.mode === mode ? state.selected.modelId : preferredModel(mode);
     const candidates = [...new Set([
       preferredId,
-      ...state.models.filter((model) => model.modes.includes(mode)).map((model) => model.id),
+      ...state.models.filter((model) => modelSupportsMode(model, mode, { allowImageModeOverride: mode === 'image' })).map((model) => model.id),
     ].filter(Boolean))];
     const modelId = candidates.find((candidate) => !existing.has(`${mode}\0${candidate}`));
     if (modelId) return { modelId, mode };
@@ -3584,11 +3596,21 @@ function renderGroupsEditor(options = {}) {
       });
       const itemHandle = document.createElement('span'); itemHandle.className = 'drag-handle'; itemHandle.textContent = '⠿'; itemHandle.title = '拖动模型调整顺序或移动到其他组'; itemHandle.draggable = true; itemHandle.addEventListener('dragstart', (event) => { event.stopPropagation(); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/x-light-chat-favorite', JSON.stringify({ groupId: group.id, itemIndex })); });
       const model = document.createElement('select'); model.setAttribute('aria-label', '模型');
-      for (const candidate of state.models.filter((entry) => entry.modes.includes(item.mode))) { const option = document.createElement('option'); option.value = candidate.id; option.textContent = candidate.id; option.selected = candidate.id === item.modelId; model.append(option); }
+      for (const candidate of state.models.filter((entry) => modelSupportsMode(entry, item.mode, { allowImageModeOverride: item.mode === 'image' }))) { const option = document.createElement('option'); option.value = candidate.id; option.textContent = candidate.id; option.selected = candidate.id === item.modelId; model.append(option); }
       model.addEventListener('change', () => { updateFavoriteModel(item, model.value); renderGroupsEditor(); });
       const mode = document.createElement('select'); mode.setAttribute('aria-label', '模式');
       for (const value of ['chat', 'image']) { const option = document.createElement('option'); option.value = value; option.textContent = value === 'chat' ? '对话' : '生图'; option.selected = value === item.mode; mode.append(option); }
-      mode.addEventListener('change', () => { item.mode = mode.value; const first = state.models.find((entry) => entry.modes.includes(item.mode)); if (first) updateFavoriteModel(item, first.id); renderGroupsEditor(); });
+      mode.addEventListener('change', () => {
+        const nextMode = mode.value;
+        const currentModelId = item.modelId || item.model;
+        const currentModel = state.models.find((entry) => entry.id === currentModelId);
+        if (!modelSupportsMode(currentModel, nextMode, { allowImageModeOverride: nextMode === 'image' })) {
+          const first = state.models.find((entry) => modelSupportsMode(entry, nextMode));
+          if (first) updateFavoriteModel(item, first.id);
+        }
+        item.mode = nextMode;
+        renderGroupsEditor();
+      });
       const label = document.createElement('input'); label.className = 'favorite-label'; label.placeholder = item.modelId || item.model || '显示名称（默认模型 ID）'; label.maxLength = 40; label.value = item.label || ''; label.addEventListener('input', () => { item.label = label.value; });
       const contextLimit = document.createElement('input'); contextLimit.className = 'favorite-context-limit'; contextLimit.type = 'number'; contextLimit.min = '1024'; contextLimit.max = String(MAX_CONTEXT_TOKENS); contextLimit.step = '1024'; contextLimit.value = String(state.editingModelContextLimits[item.modelId] || DEFAULT_CONTEXT_TOKENS); contextLimit.title = '最大上下文 token；默认 262144'; contextLimit.setAttribute('aria-label', `${item.modelId} 最大上下文 token`); contextLimit.dataset.modelId = item.modelId;
       contextLimit.addEventListener('input', () => {
@@ -4447,7 +4469,7 @@ function requiresMultimodalImageChat(model, attachments = [], earlierMessages = 
 
 function validateMessageDraft(conversation, draft) {
   if (!conversation || !draft?.selection) return reportDraftError(conversation?.id, '请先选择可用模型');
-  const requestModel = state.models.find((model) => model.id === draft.selection.modelId && model.modes.includes(draft.selection.mode));
+  const requestModel = state.models.find((model) => model.id === draft.selection.modelId && modelSupportsMode(model, draft.selection.mode, { allowImageModeOverride: draft.selection.mode === 'image' }));
   if (!requestModel) return reportDraftError(conversation.id, '所选模型当前不可用');
   const content = typeof draft.content === 'string' ? draft.content.trim() : '';
   const attachments = Array.isArray(draft.attachments) ? draft.attachments : [];
@@ -4938,7 +4960,7 @@ async function regenerateImageAssistant(messageId, modelId, { allowHistorical = 
   if (!conversation || index < 0) return;
   if (index !== conversation.messages.length - 1 && !allowHistorical) { setStatus('已有后续消息，请从对应的用户消息点击重新生成，以保留完整分支', 'error'); return; }
   if (isConversationBusy(conversation.id) || state.busyConversationIds.size >= MAX_PARALLEL_REQUESTS) { setStatus('当前会话正在响应或已达到 4 个并行请求', 'error'); return; }
-  const requestModel = state.models.find((model) => model.id === modelId && model.modes.includes('image'));
+  const requestModel = state.models.find((model) => model.id === modelId && modelSupportsMode(model, 'image', { allowImageModeOverride: true }));
   if (!requestModel) { setStatus('所选生图模型当前不可用', 'error'); return; }
   const message = conversation.messages[index];
   const submittedMessages = conversation.messages.slice(0, index);
@@ -5135,7 +5157,7 @@ function firstAvailableFavorite() {
   return state.preferences.favoriteGroups
     .flatMap((group) => group.items)
     .map((item) => ({ modelId: item.modelId || item.model, mode: item.mode }))
-    .find((item) => state.models.some((model) => model.id === item.modelId && model.modes.includes(item.mode)));
+    .find((item) => state.models.some((model) => model.id === item.modelId && modelSupportsMode(model, item.mode, { allowImageModeOverride: item.mode === 'image' })));
 }
 
 function selectGlobalConversationDefaults({ persist = true, firstFavorite = firstAvailableFavorite() } = {}) {
@@ -5887,7 +5909,12 @@ function bindEvents() {
     other.open = false;
     activateQuickMode(mode);
   });
-  elements.modeButton.addEventListener('click', () => { const mode = state.selected?.mode === 'chat' ? 'image' : 'chat'; const modelId = preferredModel(mode); if (modelId) setSelection(modelId, mode); else setStatus(`当前没有可用的${mode === 'image' ? '生图' : '对话'}模型`, 'error'); });
+  elements.modeButton.addEventListener('click', () => {
+    const mode = state.selected?.mode === 'chat' ? 'image' : 'chat';
+    const currentModel = state.models.find((model) => model.id === state.selected?.modelId);
+    const modelId = modelSupportsMode(currentModel, mode, { allowImageModeOverride: mode === 'image' }) ? currentModel.id : preferredModel(mode);
+    if (modelId) setSelection(modelId, mode); else setStatus(`当前没有可用的${mode === 'image' ? '生图' : '对话'}模型`, 'error');
+  });
   elements.streamButton.addEventListener('click', () => { state.stream = !state.stream; localStorage.setItem(STREAM_KEY, String(state.stream)); elements.streamButton.classList.toggle('active', state.stream); elements.streamButton.setAttribute('aria-pressed', String(state.stream)); elements.streamText.textContent = state.stream ? '流式' : '非流式'; });
   elements.addGroup.addEventListener('click', () => { state.editingGroups.push({ id: `group-${Date.now().toString(36)}`, name: '新收藏组', items: [] }); renderGroupsEditor(); });
   elements.addRoleFolder.addEventListener('click', () => { state.editingRoleLibrary.folders.push({ id: `folder-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, name: '新文件夹', roles: [] }); renderRolesEditor(); });

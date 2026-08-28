@@ -13,7 +13,7 @@ test('Android saves trusted page-generated conversation exports without trusting
   assert.match(appSource, /globalThis\.LightChatDownloads/);
   assert.match(appSource, /nativeDownloads\.saveBase64File\(fileName, blob\.type/);
   assert.match(activity, /addJavascriptInterface\(new SecureDownloadBridge\(\), "LightChatDownloads"\)/);
-  assert.match(activity, /TrustedNavigation\.isTrusted\(currentUrl, BuildConfig\.TRUSTED_HOST\)/);
+  assert.match(activity, /TrustedNavigation\.isTrusted\(Uri\.parse\(current\), trustedHost\)/);
   assert.match(activity, /MediaStore\.Downloads\.EXTERNAL_CONTENT_URI/);
   assert.match(activity, /DownloadPayload\.decode\(base64Data\)/);
   assert.match(payload, /MAX_BYTES = 64 \* 1024 \* 1024/);
