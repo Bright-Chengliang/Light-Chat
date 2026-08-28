@@ -29,6 +29,23 @@ test('model capability mapping exposes Gemini Flash and gpt-image-2 edit support
   assert.deepEqual(flash.imageOptions.sizes, ['1024x1024', '1536x1024', '1536x1152', '1792x1024', '1152x1536', '1024x1536', '1024x1792']);
 });
 
+test('explicit image mode overrides allow an otherwise chat-only model to use Images API', async () => {
+  const fake = await createFakeNewApi();
+  try {
+    const client = new NewApiClient({ apiKey: 'test-api-key', baseUrl: fake.baseUrl });
+    await assert.rejects(
+      client.generateImages({ model: 'chat-test', prompt: 'draw', size: '1024x1024', count: 1 }),
+      (error) => error.code === 'MODEL_NOT_ALLOWED',
+    );
+    const images = await client.generateImages({ model: 'chat-test', prompt: 'draw', size: '1024x1024', count: 1, allowImageModeOverride: true });
+    assert.equal(images.length, 1);
+    const request = fake.requests.findLast((entry) => entry.url === '/v1/images/generations');
+    assert.equal(JSON.parse(request.bodyText).model, 'chat-test');
+  } finally {
+    await fake.close();
+  }
+});
+
 test('chat first-token watchdog stops after the first generated token', async () => {
   const beforeFirstToken = testing.createLinkedController(undefined, 20);
   await wait(35);
