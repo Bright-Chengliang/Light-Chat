@@ -3454,7 +3454,10 @@ async function savePreferences(nextPreferences = state.preferences) {
     // payload aligned with the catalog that is currently rendered instead of
     // submitting stale favorite rows or a stale selection to the server.
     const sanitizedFavoriteGroups = sanitizeFavoriteGroups(nextPreferences.favoriteGroups, state.models);
-    const selected = normalizeSelection(nextPreferences.selected || state.selected);
+    const selectedValue = Object.prototype.hasOwnProperty.call(nextPreferences, 'selected')
+      ? nextPreferences.selected
+      : state.selected;
+    const selected = normalizeSelection(selectedValue);
     const requestedContextLimits = sanitizeContextLimits(nextPreferences.modelContextLimits, state.models);
     const requestedTitleModel = availableConversationTitleModel(nextPreferences.conversationTitleModel);
     for (const [modelId, limit] of Object.entries(requestedContextLimits)) if (limit === DEFAULT_CONTEXT_TOKENS) delete requestedContextLimits[modelId];
