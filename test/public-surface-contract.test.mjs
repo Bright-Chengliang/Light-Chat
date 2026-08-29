@@ -413,6 +413,8 @@ test('favorite mode changes retain the selected model and support explicit image
   assert.match(publicSource, /modelSupportsMode\(currentModel, mode, \{ allowImageModeOverride: mode === 'image' \}\)/);
   assert.match(publicSource, /allowImageModeOverride: nextMode === 'image'/);
   assert.match(publicSource, /mode === 'image' \|\| model\.modes\.includes\(mode\)/);
+  assert.match(publicSource, /state\.preferences\.favoriteGroups = sanitizeFavoriteGroups\(state\.preferences\.favoriteGroups, state\.models\)/);
+  assert.match(publicSource, /state\.editingGroups = sanitizeFavoriteGroups\(state\.editingGroups, state\.models\)/);
   assert.match(backendSource, /entry\.mode !== 'image' && !model\.modes\.includes\(entry\.mode\)/);
   assert.match(backendSource, /allowImageModeOverride: true/);
 });
