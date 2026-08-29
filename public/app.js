@@ -3449,18 +3449,24 @@ function sanitizeFavoriteGroups(groups, models) {
 async function savePreferences(nextPreferences = state.preferences) {
   preferenceWritesInFlight += 1;
   try {
+    // The model catalog can change while the settings dialog is open (for
+    // example after a refresh or an upstream model removal). Keep the
+    // payload aligned with the catalog that is currently rendered instead of
+    // submitting stale favorite rows or a stale selection to the server.
+    const sanitizedFavoriteGroups = sanitizeFavoriteGroups(nextPreferences.favoriteGroups, state.models);
+    const selected = normalizeSelection(nextPreferences.selected || state.selected);
     const requestedContextLimits = sanitizeContextLimits(nextPreferences.modelContextLimits, state.models);
     const requestedTitleModel = availableConversationTitleModel(nextPreferences.conversationTitleModel);
     for (const [modelId, limit] of Object.entries(requestedContextLimits)) if (limit === DEFAULT_CONTEXT_TOKENS) delete requestedContextLimits[modelId];
     if (state.userRole === 'guest') {
-      state.preferences = { favoriteGroups: sanitizeFavoriteGroups(nextPreferences.favoriteGroups, state.models), selected: normalizeSelection(state.selected), modelContextLimits: requestedContextLimits, favoriteMediaIds: Array.isArray(nextPreferences.favoriteMediaIds) ? [...new Set(nextPreferences.favoriteMediaIds)] : [], conversationTitleModel: requestedTitleModel };
+      state.preferences = { favoriteGroups: sanitizedFavoriteGroups, selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: Array.isArray(nextPreferences.favoriteMediaIds) ? [...new Set(nextPreferences.favoriteMediaIds)] : [], conversationTitleModel: requestedTitleModel };
       localStorage.setItem('light-chat-guest-preferences-v2', JSON.stringify({ favoriteGroups: state.preferences.favoriteGroups, selected: state.preferences.selected, modelContextLimits: requestedContextLimits, conversationTitleModel: requestedTitleModel }));
       renderFavorites(); renderConversation();
       return;
     }
     const payload = await jsonRequest('/api/preferences', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ favoriteGroups: nextPreferences.favoriteGroups, selected: state.selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: nextPreferences.favoriteMediaIds || [], conversationTitleModel: requestedTitleModel || undefined }),
+      body: JSON.stringify({ favoriteGroups: sanitizedFavoriteGroups, selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: nextPreferences.favoriteMediaIds || [], conversationTitleModel: requestedTitleModel || undefined }),
     });
     if (!Object.prototype.hasOwnProperty.call(payload, 'modelContextLimits') && Object.keys(requestedContextLimits).length) {
       throw new Error('当前服务端尚未加载模型上下文持久化功能，请重启服务后重试');
@@ -3789,6 +3795,7 @@ function openSettings(options = {}) {
   if (preferenceContextMutationInFlight) { setStatus('收藏设置正在更新，请稍候', 'error'); return; }
   const focusFavorite = options?.focusFavorite;
   state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models);
+  state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
   state.editingGroups = cloneGroups(); state.editingModelContextLimits = { ...state.preferences.modelContextLimits }; state.editingConversationTitleModel = availableConversationTitleModel(); state.editingReadingMode = state.readingMode; applyReadingMode(state.editingReadingMode); setDialogStatus(elements.settingsStatus, ''); renderConversationTitleModelSelect(); renderGroupsEditor({ preserveScroll: false, focusFavorite }); elements.settingsDialog.showModal();
   const isGuest = state.userRole === 'guest';
   elements.guestConnectionSettings.hidden = !isGuest;
@@ -5926,7 +5933,7 @@ function bindEvents() {
   elements.settingsDialog.addEventListener('close', () => applyReadingMode(state.readingMode));
   elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { if (state.userRole === 'guest') { await saveGuestApiSettings({ showStatus: false }); } await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits, conversationTitleModel: state.editingConversationTitleModel }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
   elements.conversationTitleModel.addEventListener('change', () => { state.editingConversationTitleModel = elements.conversationTitleModel.value; });
-  elements.refreshModels.addEventListener('click', async () => { elements.refreshModels.disabled = true; setDialogStatus(elements.settingsStatus, '正在刷新模型…'); try { const payload = state.userRole === 'guest' ? { models: await loadGuestDirectModels() } : await jsonRequest('/api/models?refresh=1'); state.models = payload.models || []; state.guestCatalog = state.userRole === 'guest' ? state.models : state.guestCatalog; initializeTranslationModel(); state.selected = normalizeSelection(state.selected); state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models); state.editingModelContextLimits = sanitizeContextLimits(state.editingModelContextLimits, state.models); renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi(); setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型`, 'success'); setSettingsConnectionText(state.userRole === 'guest' && !state.guestSettings.endpoint ? '尚未配置游客模型连接' : `已加载 ${state.models.length} 个模型`, state.userRole !== 'guest' || state.models.length > 0); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); setSettingsConnectionText('模型服务连接失败', false); } finally { elements.refreshModels.disabled = false; } });
+  elements.refreshModels.addEventListener('click', async () => { elements.refreshModels.disabled = true; setDialogStatus(elements.settingsStatus, '正在刷新模型…'); try { const payload = state.userRole === 'guest' ? { models: await loadGuestDirectModels() } : await jsonRequest('/api/models?refresh=1'); state.models = payload.models || []; state.guestCatalog = state.userRole === 'guest' ? state.models : state.guestCatalog; initializeTranslationModel(); state.selected = normalizeSelection(state.selected); state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models); state.editingGroups = sanitizeFavoriteGroups(state.editingGroups, state.models); state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models); state.editingModelContextLimits = sanitizeContextLimits(state.editingModelContextLimits, state.models); renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi(); setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型`, 'success'); setSettingsConnectionText(state.userRole === 'guest' && !state.guestSettings.endpoint ? '尚未配置游客模型连接' : `已加载 ${state.models.length} 个模型`, state.userRole !== 'guest' || state.models.length > 0); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); setSettingsConnectionText('模型服务连接失败', false); } finally { elements.refreshModels.disabled = false; } });
   elements.fetchGuestModels.addEventListener('click', () => { void fetchGuestModels(); });
   elements.guestClearApiKeyButton.addEventListener('click', clearGuestApiKey);
   elements.guestApiKey.addEventListener('input', () => { pendingGuestKeyClear = false; });
