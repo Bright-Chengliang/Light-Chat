@@ -35,9 +35,17 @@ test('context menu semantics, touch entry, and destructive separation remain pre
 
 test('menu scrolling and export concurrency have regression guards', () => {
   assert.match(appSource, /activeContextMenu\?\.contains\(event\.target\)/);
+  assert.match(appSource, /lastContextMenuOpenTimestamp/);
   assert.match(appSource, /markdownZipExportInFlight/);
   assert.match(appSource, /模型仍在生成，完成后再导出对话/);
   assert.match(appSource, /const conversation = structuredClone\(source\)/);
+});
+
+test('history context menu persists across render and rapid trailing click/scroll events', () => {
+  assert.match(appSource, /if \(activeContextMenu === elements\.historyContextMenu && !state\.conversations\.some\(/);
+  assert.match(appSource, /activateConversation[\s\S]*performance\.now\(\) - lastContextMenuOpenTimestamp < 350/);
+  assert.match(appSource, /restoreContextMenuFocus[\s\S]*preventScroll: true/);
+  assert.match(appSource, /positionContextMenu[\s\S]*preventScroll: true/);
 });
 
 test('history context menus can jump directly to an associated role card', () => {

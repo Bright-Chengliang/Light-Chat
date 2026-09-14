@@ -1359,7 +1359,9 @@ function handleSidebarDrawerHeader(base) {
 }
 
 function renderHistory() {
-  if (activeContextMenu === elements.historyContextMenu) closeHistoryContextMenu();
+  if (activeContextMenu === elements.historyContextMenu && !state.conversations.some((conversation) => conversation.id === state.contextConversationId)) {
+    closeHistoryContextMenu();
+  }
   elements.history.replaceChildren();
   const validFolderIds = new Set(state.historyFolders.map((folder) => folder.id));
   const sorted = [...state.conversations].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -1391,6 +1393,13 @@ function renderHistory() {
     const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '还没有本机对话。发送第一条消息后，可拖到上面的文件夹中。'; elements.history.append(empty);
   }
   renderSidebarDrawerState();
+  if (activeContextMenu === elements.historyContextMenu && state.contextConversationId) {
+    const updatedTrigger = $(`button.history-item[data-conversation-id="${state.contextConversationId}"]`, elements.history);
+    if (updatedTrigger) {
+      contextMenuReturnFocus = updatedTrigger;
+      setContextMenuTriggerExpanded(contextMenuReturnFocus, true);
+    }
+  }
   if (searchQuery) requestAnimationFrame(() => {
     const target = [...$$('.history-item.search-match', elements.history)].find((item) => item.offsetParent !== null);
     if (!target) return;
@@ -1488,12 +1497,19 @@ function createHistoryItem(conversation) {
   const query = state.historySearch.trim();
   const matches = query && conversation.title.toLocaleLowerCase('zh-CN').includes(query.toLocaleLowerCase('zh-CN'));
   const button = document.createElement('button'); button.type = 'button'; button.draggable = true; button.className = `history-item${conversation.id === state.currentId ? ' active' : ''}${busy ? ' busy' : ''}${matches ? ' search-match' : ''}`; button.title = '打开对话；可右键或使用操作菜单管理';
+  button.dataset.conversationId = conversation.id;
   const title = document.createElement('span'); appendHistoryTitleHighlight(title, conversation.title, query);
   const time = document.createElement('time'); time.textContent = busy ? '生成中…' : formatTime(conversation.updatedAt);
   button.append(title);
   button.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true }));
   const openMenu = (x, y, trigger) => openHistoryContextMenu(conversation.id, x, y, trigger);
   bindContextMenuTrigger(button, 'historyContextMenu', openMenu);
+  row.addEventListener('contextmenu', (event) => {
+    if (event.target.closest('.history-rename-button')) return;
+    event.preventDefault(); event.stopPropagation();
+    lastContextMenuOpenTimestamp = performance.now();
+    openMenu(event.clientX, event.clientY, button);
+  });
   button.addEventListener('dragstart', (event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/x-light-chat-conversation', conversation.id); event.dataTransfer.setData('text/plain', conversation.id); button.classList.add('dragging'); });
   button.addEventListener('dragend', () => { button.classList.remove('dragging'); $$('.history-drop-zone.drag-over').forEach((zone) => zone.classList.remove('drag-over')); });
   const rename = document.createElement('button'); rename.type = 'button'; rename.className = 'history-rename-button'; rename.textContent = '✏️'; rename.title = `重命名对话“${conversation.title}”`; rename.setAttribute('aria-label', `重命名对话“${conversation.title}”`); rename.addEventListener('click', (event) => { event.stopPropagation(); renameConversationById(conversation.id); });
@@ -1518,6 +1534,7 @@ function appendHistoryTitleHighlight(container, title, query) {
 }
 
 function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar = true, keepDrawer = false } = {}) {
+  if (performance.now() - lastContextMenuOpenTimestamp < 350) return;
   const conversation = state.conversations.find((item) => item.id === conversationId);
   if (!conversation) return;
   state.currentId = conversationId;
@@ -1576,6 +1593,8 @@ function moveConversationToFolder(conversationId, folderId) {
   return true;
 }
 
+let lastContextMenuOpenTimestamp = 0;
+
 function contextMenus() {
   return [elements.historyContextMenu, elements.roleFolderContextMenu, elements.roleContextMenu, elements.favoriteContextMenu, elements.recentFileContextMenu, elements.imageLightboxContextMenu, elements.variantModelMenu];
 }
@@ -1604,7 +1623,7 @@ function hideContextMenu(menu) {
 }
 
 function restoreContextMenuFocus(trigger) {
-  requestAnimationFrame(() => { if (trigger?.isConnected && !trigger.disabled) trigger.focus(); });
+  requestAnimationFrame(() => { if (trigger?.isConnected && !trigger.disabled) trigger.focus({ preventScroll: true }); });
 }
 
 function setContextMenuTriggerExpanded(trigger, expanded) {
@@ -1704,6 +1723,7 @@ function updateContextMenuAvailability(menu) {
 }
 
 function positionContextMenu(menu, x, y, trigger) {
+  lastContextMenuOpenTimestamp = performance.now();
   activeContextMenu = menu; contextMenuReturnFocus = trigger || document.activeElement;
   setContextMenuTriggerExpanded(contextMenuReturnFocus, true);
   menu.hidden = false; updateContextMenuAvailability(menu);
@@ -1716,7 +1736,7 @@ function positionContextMenu(menu, x, y, trigger) {
   menu.style.top = `${Math.max(8, Math.min(Number.isFinite(targetY) ? targetY : 8, innerHeight - bounds.height - 8))}px`;
   const items = contextMenuItems(menu);
   contextMenuItems(menu, { includeDisabled: true }).forEach((button) => { button.tabIndex = -1; });
-  if (items[0]) { items[0].tabIndex = 0; items[0].focus(); } else { menu.tabIndex = -1; menu.focus(); }
+  if (items[0]) { items[0].tabIndex = 0; items[0].focus({ preventScroll: true }); } else { menu.tabIndex = -1; menu.focus({ preventScroll: true }); }
 }
 
 function handleContextMenuKeydown(event) {
@@ -1739,10 +1759,16 @@ function handleContextMenuKeydown(event) {
 function bindContextMenuTrigger(trigger, menuId, openMenu) {
   trigger.setAttribute('aria-haspopup', 'menu'); trigger.setAttribute('aria-controls', menuId);
   if (trigger.tagName !== 'SUMMARY') trigger.setAttribute('aria-expanded', 'false');
-  trigger.addEventListener('contextmenu', (event) => { event.preventDefault(); event.stopPropagation(); openMenu(event.clientX, event.clientY, trigger); });
+  trigger.addEventListener('contextmenu', (event) => {
+    event.preventDefault(); event.stopPropagation();
+    lastContextMenuOpenTimestamp = performance.now();
+    openMenu(event.clientX, event.clientY, trigger);
+  });
   trigger.addEventListener('keydown', (event) => {
     if (!['ContextMenu', 'Apps'].includes(event.key) && !(event.shiftKey && event.key === 'F10')) return;
-    event.preventDefault(); event.stopPropagation(); openMenu(Number.NaN, Number.NaN, trigger);
+    event.preventDefault(); event.stopPropagation();
+    lastContextMenuOpenTimestamp = performance.now();
+    openMenu(Number.NaN, Number.NaN, trigger);
   });
 }
 
@@ -6036,9 +6062,14 @@ function bindEvents() {
   document.addEventListener('click', (event) => {
     if (!elements.headerModelMenu.hidden && !elements.headerModelPicker.contains(event.target)) closeHeaderModelMenu();
     if (!elements.headerRoleMenu.hidden && !elements.headerRolePicker.contains(event.target)) closeHeaderRoleMenu();
+    if (performance.now() - lastContextMenuOpenTimestamp < 250) return;
     if (activeContextMenu && !activeContextMenu.contains(event.target) && !contextMenuReturnFocus?.contains?.(event.target)) closeAllContextMenus();
   });
-  window.addEventListener('scroll', (event) => { if (activeContextMenu?.contains(event.target)) return; closeAllContextMenus(); }, true);
+  window.addEventListener('scroll', (event) => {
+    if (activeContextMenu?.contains(event.target)) return;
+    if (performance.now() - lastContextMenuOpenTimestamp < 250) return;
+    closeAllContextMenus();
+  }, true);
   window.addEventListener('resize', () => { closeHeaderModelMenu(); closeHeaderRoleMenu(); closeAllContextMenus(); });
   for (const button of $$('[data-close-dialog]')) button.addEventListener('click', () => document.getElementById(button.dataset.closeDialog)?.close());
   window.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closeHeaderModelMenu({ restoreFocus: true }); closeHeaderRoleMenu({ restoreFocus: true }); closeAllContextMenus({ restoreFocus: true }); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); createConversation(); } });
