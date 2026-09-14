@@ -1502,6 +1502,17 @@ function createHistoryItem(conversation) {
   const time = document.createElement('time'); time.textContent = busy ? '生成中…' : formatTime(conversation.updatedAt);
   button.append(title);
   button.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true }));
+  let startX = 0; let startY = 0; let isDragging = false;
+  button.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    startX = event.clientX; startY = event.clientY; isDragging = false;
+  });
+  button.addEventListener('pointerup', (event) => {
+    if (event.button !== 0 || isDragging) return;
+    if (Math.hypot(event.clientX - startX, event.clientY - startY) < 8) {
+      activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true });
+    }
+  });
   const openMenu = (x, y, trigger) => openHistoryContextMenu(conversation.id, x, y, trigger);
   bindContextMenuTrigger(button, 'historyContextMenu', openMenu);
   row.addEventListener('contextmenu', (event) => {
@@ -1510,8 +1521,22 @@ function createHistoryItem(conversation) {
     lastContextMenuOpenTimestamp = performance.now();
     openMenu(event.clientX, event.clientY, button);
   });
-  button.addEventListener('dragstart', (event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/x-light-chat-conversation', conversation.id); event.dataTransfer.setData('text/plain', conversation.id); button.classList.add('dragging'); });
-  button.addEventListener('dragend', () => { button.classList.remove('dragging'); $$('.history-drop-zone.drag-over').forEach((zone) => zone.classList.remove('drag-over')); });
+  row.addEventListener('click', (event) => {
+    if (event.target.closest('.history-rename-button')) return;
+    activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true });
+  });
+  button.addEventListener('dragstart', (event) => {
+    isDragging = true;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/x-light-chat-conversation', conversation.id);
+    event.dataTransfer.setData('text/plain', conversation.id);
+    button.classList.add('dragging');
+  });
+  button.addEventListener('dragend', () => {
+    isDragging = false;
+    button.classList.remove('dragging');
+    $$('.history-drop-zone.drag-over').forEach((zone) => zone.classList.remove('drag-over'));
+  });
   const rename = document.createElement('button'); rename.type = 'button'; rename.className = 'history-rename-button'; rename.textContent = '✏️'; rename.title = `重命名对话“${conversation.title}”`; rename.setAttribute('aria-label', `重命名对话“${conversation.title}”`); rename.addEventListener('click', (event) => { event.stopPropagation(); renameConversationById(conversation.id); });
   const editSlot = document.createElement('span'); editSlot.className = 'history-edit-slot'; editSlot.append(time, rename);
   row.append(button, editSlot); return row;
@@ -1534,9 +1559,14 @@ function appendHistoryTitleHighlight(container, title, query) {
 }
 
 function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar = true, keepDrawer = false } = {}) {
-  if (performance.now() - lastContextMenuOpenTimestamp < 350) return;
   const conversation = state.conversations.find((item) => item.id === conversationId);
   if (!conversation) return;
+  if (state.currentId === conversationId) {
+    if (shouldCloseSidebar) closeSidebar();
+    else if (keepDrawer) { openSidebar(); renderSidebarDrawerState(); }
+    return;
+  }
+  closeAllContextMenus();
   state.currentId = conversationId;
   const workflow = validWorkflowId(conversation.workflowId) ? findWorkflowById(conversation.workflowId) : null;
   state.selectedWorkflow = workflow;
@@ -6062,12 +6092,12 @@ function bindEvents() {
   document.addEventListener('click', (event) => {
     if (!elements.headerModelMenu.hidden && !elements.headerModelPicker.contains(event.target)) closeHeaderModelMenu();
     if (!elements.headerRoleMenu.hidden && !elements.headerRolePicker.contains(event.target)) closeHeaderRoleMenu();
-    if (performance.now() - lastContextMenuOpenTimestamp < 250) return;
+    if (performance.now() - lastContextMenuOpenTimestamp < 60) return;
     if (activeContextMenu && !activeContextMenu.contains(event.target) && !contextMenuReturnFocus?.contains?.(event.target)) closeAllContextMenus();
   });
   window.addEventListener('scroll', (event) => {
     if (activeContextMenu?.contains(event.target)) return;
-    if (performance.now() - lastContextMenuOpenTimestamp < 250) return;
+    if (performance.now() - lastContextMenuOpenTimestamp < 60) return;
     closeAllContextMenus();
   }, true);
   window.addEventListener('resize', () => { closeHeaderModelMenu(); closeHeaderRoleMenu(); closeAllContextMenus(); });
