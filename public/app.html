@@ -38,6 +38,7 @@
           <button class="sidebar-drawer-entry" id="openRecentFilesDrawer" type="button" data-sidebar-drawer="recent-files"><span class="drawer-entry-icon" aria-hidden="true">▧</span><span><strong>最近文件</strong><small>快速浏览上传与生成文件</small></span><b aria-hidden="true">›</b></button>
           <button class="sidebar-drawer-entry" id="openFavoriteMediaDrawer" type="button" data-sidebar-drawer="favorite-media"><span class="drawer-entry-icon" aria-hidden="true">♥</span><span><strong>收藏图片</strong><small>快速浏览收藏的文件与图片</small></span><b aria-hidden="true">›</b></button>
           <button class="sidebar-drawer-entry" id="openWorkflowsDrawer" type="button" data-sidebar-drawer="workflows"><span class="drawer-entry-icon" aria-hidden="true">⛓</span><span><strong>打包工作流</strong><small>一键运行固定创作流程</small></span><b aria-hidden="true">›</b></button>
+          <button class="sidebar-drawer-entry" id="openToolsDrawer" type="button" data-sidebar-drawer="tools"><span class="drawer-entry-icon" aria-hidden="true">🧩</span><span><strong>扩展与技能 (MCP)</strong><small>Brave 联网搜索与扩展工具</small></span><b aria-hidden="true">›</b></button>
           <a class="sidebar-drawer-entry" id="openOpc" href="/opc/" target="_blank" rel="noopener" hidden><span class="drawer-entry-icon" aria-hidden="true">◉</span><span><strong>OPC</strong><small>打开受保护的 OpenOPC 工作台</small></span><b aria-hidden="true">↗</b></a>
           <a class="sidebar-drawer-entry" id="openLearning" href="/learning/" hidden><span class="drawer-entry-icon" aria-hidden="true">◈</span><span><strong>学习</strong><small>打开受保护的学习工作台</small></span><b aria-hidden="true">›</b></a>
           <button class="sidebar-drawer-entry" id="openHistoryDrawer" type="button" data-sidebar-drawer="history"><span class="drawer-entry-icon" aria-hidden="true">◷</span><span><strong>最近对话</strong><small>浏览、整理和恢复历史记录</small></span><b aria-hidden="true">›</b></button>
@@ -71,6 +72,13 @@
         <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="workflows" hidden>
           <div class="sidebar-section-heading"><button class="section-toggle" id="workflowsToggle" type="button" aria-expanded="true" aria-controls="workflowList"><span>打包工作流</span><span class="section-chevron" aria-hidden="true"></span></button></div>
           <nav class="workflow-list" id="workflowList" aria-label="打包工作流"></nav>
+        </section>
+        <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="tools" hidden>
+          <div class="sidebar-section-heading">
+            <button class="section-toggle" id="toolsToggle" type="button" aria-expanded="true" aria-controls="toolsDrawerList"><span>扩展技能与 MCP</span><span class="section-chevron" aria-hidden="true"></span></button>
+            <span class="history-heading-actions"><button id="addCustomToolButton" type="button" title="添加自定义工具">＋ 添加</button></span>
+          </div>
+          <nav class="tools-drawer-list" id="toolsDrawerList" aria-label="已配置的扩展工具与技能"></nav>
         </section>
       </div>
       <div class="sidebar-account">
@@ -170,6 +178,7 @@
                 <button class="mode-button" id="modeButton" type="button"><span id="modeIcon">◇</span><span id="modeText">对话</span></button>
                 <button class="role-button" id="roleButton" type="button" title="选择自定义角色"><span aria-hidden="true">◎</span><span id="roleButtonText">默认助手</span></button>
                 <button class="stream-button active" id="streamButton" type="button" aria-pressed="true" title="切换流式或非流式响应"><span aria-hidden="true">≈</span><span id="streamText">流式</span></button>
+                <button class="tool-button web-search-toggle" id="webSearchToggle" type="button" title="切换联网搜索 (Brave Search)"><span aria-hidden="true">🌐</span><span id="webSearchText">联网</span></button>
                 <label class="image-size-control" id="imageSizeControl" hidden><span class="sr-only">生图尺寸</span><select id="imageSizeSelect" aria-label="生图尺寸"><option value="1024x1024">方形 1:1</option><option value="1536x1024">横向 3:2</option><option value="1536x1152">横向 4:3</option><option value="1792x1024">宽屏 16:9</option><option value="1152x1536">竖向 3:4</option><option value="1024x1536">竖向 2:3</option><option value="1024x1792">竖向 9:16</option></select></label>
               </div>
               <div class="send-tools"><span class="character-count" id="messageCount">0/262144 token</span><button class="queue-send-button" id="queueSendButton" type="button" aria-label="加入发送队列" title="加入发送队列" hidden>＋</button><button class="send-button" id="sendButton" type="button" aria-label="发送消息" title="发送消息"><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></svg><svg class="send-cancel-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg></button></div>
@@ -341,6 +350,21 @@
       </div>
       <p class="dialog-message" id="upscaleStatus" role="alert"></p>
       <footer><button class="secondary-button" data-close-dialog="upscaleDialog" type="button">取消</button><button class="primary-button" id="startUpscaleButton" type="button">开始超分</button></footer>
+    </div>
+  </dialog>
+
+  <dialog class="app-dialog custom-tool-dialog" id="customToolDialog" aria-labelledby="customToolDialogTitle">
+    <div class="dialog-shell">
+      <header><div><p class="eyebrow">Client Tool & MCP</p><h2 id="customToolDialogTitle">添加自定义工具 / MCP</h2><p>支持配置本地或远程 MCP (SSE 协议) 或通用 Webhook 技能，所有配置与密钥均只保存在当前浏览器本地。</p></div><button class="icon-button" data-close-dialog="customToolDialog" type="button" aria-label="关闭">×</button></header>
+      <form class="custom-tool-form" id="customToolForm">
+        <label><span>工具名称</span><input id="customToolName" type="text" placeholder="例如：本地代码助手 或 天气查询" required></label>
+        <label><span>协议类型</span><select id="customToolType"><option value="mcp_sse">标准 MCP 协议 (SSE 端点)</option><option value="http_api">简单 HTTP Webhook API</option></select></label>
+        <label><span>服务地址 (Endpoint URL)</span><input id="customToolUrl" type="url" placeholder="例如：http://127.0.0.1:3000/sse 或 https://api.example.com/tool" required></label>
+        <label><span>请求头 Authorization (可选)</span><input id="customToolAuth" type="password" placeholder="Bearer sk-...（留空则不带鉴权）"></label>
+        <label><span>工具描述 (供大模型意图匹配)</span><textarea id="customToolDescription" rows="3" placeholder="描述此工具的功能和触发时机，例如：查询指定城市的实时气象信息"></textarea></label>
+        <p class="dialog-message" id="customToolStatus" role="alert"></p>
+        <footer><button class="secondary-button" data-close-dialog="customToolDialog" type="button">取消</button><button class="primary-button" id="saveCustomToolButton" type="submit">保存工具</button></footer>
+      </form>
     </div>
   </dialog>
 
