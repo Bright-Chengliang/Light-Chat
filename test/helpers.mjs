@@ -32,7 +32,7 @@ export async function listen(server) {
   return `http://127.0.0.1:${address.port}`;
 }
 
-export async function createFakeNewApi({ imageUrlOnly = false, imageMime = 'png', responseText = '', chatResponseText = '', failImageGenerationAttempts = 0 } = {}) {
+export async function createFakeNewApi({ imageUrlOnly = false, imageMime = 'png', responseText = '', chatResponseText = '', chatToolCalls = null, failImageGenerationAttempts = 0 } = {}) {
   const pngBase64 = tinyPng().toString('base64');
   const generatedBase64 = (imageMime === 'jpeg' ? tinyJpeg() : tinyPng()).toString('base64');
   const requests = [];
@@ -55,8 +55,12 @@ export async function createFakeNewApi({ imageUrlOnly = false, imageMime = 'png'
     }
     if (req.method === 'POST' && req.url === '/v1/chat/completions') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream' });
-      const chunks = chatResponseText ? [chatResponseText] : ['你好，图片如下：', `![image](data:image/png;base64,${pngBase64})`];
-      for (const content of chunks) res.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
+      if (chatToolCalls) {
+        res.write(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: chatToolCalls } }] })}\n\n`);
+      } else {
+        const chunks = chatResponseText ? [chatResponseText] : ['你好，图片如下：', `![image](data:image/png;base64,${pngBase64})`];
+        for (const content of chunks) res.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
+      }
       res.write(`data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 1234, completion_tokens: 56, total_tokens: 1290 } })}\n\n`);
       res.end('data: [DONE]\n\n');
       return;

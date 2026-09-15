@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { AccountStore, sequentialUserUid } from '../lib/account-store.mjs';
 import { LoginLimiter } from '../lib/login-limiter.mjs';
 import { decodeDataImage, inspectRaster, MediaStore } from '../lib/media-store.mjs';
-import { hashPassword, validatePassword, verifyPassword } from '../lib/security.mjs';
+import { hashPassword, isSafePublicUrl, validatePassword, verifyPassword } from '../lib/security.mjs';
 import { tinyPng } from './helpers.mjs';
 
 test('scrypt password records verify without retaining plaintext', async () => {
@@ -141,3 +141,22 @@ test('login throttling blocks at the configured threshold and survives reload', 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('isSafePublicUrl allows public web targets while strictly blocking loopback and private IP SSRF', () => {
+  assert.equal(isSafePublicUrl('https://api.search.brave.com/res/v1/web/search'), true);
+  assert.equal(isSafePublicUrl('http://example.com/api/mcp'), true);
+
+  assert.equal(isSafePublicUrl('http://localhost:3000'), false);
+  assert.equal(isSafePublicUrl('http://127.0.0.1:8080'), false);
+  assert.equal(isSafePublicUrl('http://0.0.0.0:8080'), false);
+  assert.equal(isSafePublicUrl('http://192.168.1.1/api'), false);
+  assert.equal(isSafePublicUrl('http://10.0.0.5/api'), false);
+  assert.equal(isSafePublicUrl('http://172.20.0.1/api'), false);
+  assert.equal(isSafePublicUrl('http://169.254.169.254/latest/meta-data'), false);
+  assert.equal(isSafePublicUrl('http://service.local/api'), false);
+  assert.equal(isSafePublicUrl('http://internal.company.corp/api'), false);
+  assert.equal(isSafePublicUrl('file:///etc/passwd'), false);
+  assert.equal(isSafePublicUrl('javascript:alert(1)'), false);
+  assert.equal(isSafePublicUrl('not-a-url'), false);
+});
+

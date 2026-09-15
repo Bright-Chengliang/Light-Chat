@@ -3,7 +3,7 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 const elements = {
   appShell: $('.app-shell'), sidebar: $('#sidebar'), sidebarResizer: $('#sidebarResizer'), sidebarBackdrop: $('#sidebarBackdrop'), sidebarClose: $('#sidebarCloseButton'), menu: $('#menuButton'),
-  sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openFavoriteMediaDrawer: $('#openFavoriteMediaDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), openOpc: $('#openOpc'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
+  sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openFavoriteMediaDrawer: $('#openFavoriteMediaDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), openToolsDrawer: $('#openToolsDrawer'), toolsToggle: $('#toolsToggle'), addCustomToolButton: $('#addCustomToolButton'), toolsDrawerList: $('#toolsDrawerList'), openOpc: $('#openOpc'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
   recentFiles: $('#recentFilesList'), recentFilesToggle: $('#recentFilesToggle'), recentFilesPagination: $('#recentFilesPagination'), previousRecentFilesPage: $('#previousRecentFilesPage'), nextRecentFilesPage: $('#nextRecentFilesPage'), recentFilesPageStatus: $('#recentFilesPageStatus'), refreshRecentFiles: $('#refreshRecentFilesButton'), favoriteMedia: $('#favoriteMediaList'), favoriteMediaToggle: $('#favoriteMediaToggle'), favoriteMediaPagination: $('#favoriteMediaPagination'), previousFavoriteMediaPage: $('#previousFavoriteMediaPage'), nextFavoriteMediaPage: $('#nextFavoriteMediaPage'), favoriteMediaPageStatus: $('#favoriteMediaPageStatus'), refreshFavoriteMedia: $('#refreshFavoriteMediaButton'),
   newConversation: $('#newConversationButton'), currentModelNewConversation: $('#currentModelNewConversationButton'), addHistoryFolder: $('#addHistoryFolderButton'), addFavoriteConversationFolder: $('#addFavoriteConversationFolderButton'), clearHistory: $('#clearHistoryButton'), history: $('#historyList'), historyToggle: $('#historyToggle'), historySearch: $('#historySearchInput'), favoriteConversations: $('#favoriteConversations'), favoriteConversationsToggle: $('#favoriteConversationsToggle'),
   sidebarFavorites: $('#sidebarFavorites'), sidebarFavoritesToggle: $('#sidebarFavoritesToggle'),
@@ -17,7 +17,7 @@ const elements = {
   attachmentStrip: $('#attachmentStrip'), messageQueue: $('#messageQueue'), queueSend: $('#queueSendButton'), modeButton: $('#modeButton'), modeText: $('#modeText'), modeIcon: $('#modeIcon'),
   imageSizeControl: $('#imageSizeControl'), imageSize: $('#imageSizeSelect'),
   roleButton: $('#roleButton'), roleButtonText: $('#roleButtonText'), headerRolePicker: $('#headerRolePicker'), currentRoleCard: $('#currentRoleCard'), currentRoleName: $('#currentRoleName'), currentRoleMeta: $('#currentRoleMeta'), headerRoleMenu: $('#headerRoleMenu'),
-  streamButton: $('#streamButton'), streamText: $('#streamText'), headerModelPicker: $('#headerModelPicker'), headerModelMenu: $('#headerModelMenu'), modelButton: $('#modelButton'), modelButtonText: $('#modelButtonText'),
+  streamButton: $('#streamButton'), streamText: $('#streamText'), webSearchToggle: $('#webSearchToggle'), webSearchText: $('#webSearchText'), headerModelPicker: $('#headerModelPicker'), headerModelMenu: $('#headerModelMenu'), modelButton: $('#modelButton'), modelButtonText: $('#modelButtonText'),
   settingsButton: $('#settingsButton'), modelDialog: $('#modelDialog'), modelSearch: $('#modelSearchInput'),
   modelMode: $('#modelModeSelect'), modelList: $('#modelList'), openSettingsFromModel: $('#openSettingsFromModel'),
   settingsDialog: $('#settingsDialog'), groupsEditor: $('#groupsEditor'), addGroup: $('#addGroupButton'), conversationTitleModel: $('#conversationTitleModelSelect'),
@@ -34,6 +34,7 @@ const elements = {
   conversationFolderDialog: $('#conversationFolderDialog'), conversationFolderTitle: $('#conversationFolderDialogTitle'), conversationFolderDescription: $('#conversationFolderDescription'), conversationFolderSelect: $('#conversationFolderSelect'), conversationFolderStatus: $('#conversationFolderStatus'), confirmConversationFolder: $('#confirmConversationFolderButton'),
   imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxPosition: $('#imageLightboxPosition'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'), imageLightboxContextMenu: $('#imageLightboxContextMenu'), jumpToLightboxFileMessage: $('#jumpToLightboxFileMessage'), toggleLightboxFavoriteMediaButton: $('#toggleLightboxFavoriteMediaButton'), copyLightboxImageButton: $('#copyLightboxImageButton'), downloadLightboxFileButton: $('#downloadLightboxFileButton'),
   upscaleDialog: $('#upscaleDialog'), upscaleMode: $('#upscaleMode'), upscaleWidth: $('#upscaleWidth'), upscaleHeight: $('#upscaleHeight'), upscaleStatus: $('#upscaleStatus'), startUpscaleButton: $('#startUpscaleButton'),
+  customToolDialog: $('#customToolDialog'), customToolForm: $('#customToolForm'), customToolName: $('#customToolName'), customToolType: $('#customToolType'), customToolUrl: $('#customToolUrl'), customToolAuth: $('#customToolAuth'), customToolDescription: $('#customToolDescription'), customToolStatus: $('#customToolStatus'), saveCustomToolButton: $('#saveCustomToolButton'),
   historyContextMenu: $('#historyContextMenu'), renameConversation: $('#renameConversation'), regenerateConversationTitle: $('#regenerateConversationTitle'), toggleFavoriteConversation: $('#toggleFavoriteConversation'), moveConversationToFolder: $('#moveConversationToFolder'), jumpToRoleFromConversation: $('#jumpToRoleFromConversation'), jumpToSourceConversation: $('#jumpToSourceConversation'), exportTxt: $('#exportConversationTxt'), exportMarkdownText: $('#exportConversationMarkdownText'), exportMarkdown: $('#exportConversationMarkdown'), deleteConversation: $('#deleteConversation'),
   roleFolderContextMenu: $('#roleFolderContextMenu'), addRoleToFolder: $('#addRoleToFolder'), deleteRoleFolder: $('#deleteRoleFolder'),
   roleContextMenu: $('#roleContextMenu'), toggleRoleConversations: $('#toggleRoleConversations'), toggleRoleConversationsLabel: $('#toggleRoleConversationsLabel'), toggleRoleConversationsCount: $('#toggleRoleConversationsCount'), editRole: $('#editRole'), duplicateRole: $('#duplicateRole'), copyRoleToFolder: $('#copyRoleToFolder'), moveRoleToFolder: $('#moveRoleToFolder'), deleteRole: $('#deleteRole'),
@@ -811,7 +812,7 @@ function formatTime(timestamp) {
 function sidebarDrawerBase(view) {
   if (view?.startsWith('role:')) return 'roles';
   if (view?.startsWith('workflow:')) return 'workflows';
-  return ['favorites', 'favorite-conversations', 'roles', 'recent-files', 'favorite-media', 'workflows', 'history'].includes(view) ? view : 'root';
+  return ['favorites', 'favorite-conversations', 'roles', 'recent-files', 'favorite-media', 'workflows', 'tools', 'history'].includes(view) ? view : 'root';
 }
 
 function findWorkflowById(workflowId) { return state.workflows.find((workflow) => workflow.id === workflowId) || null; }
@@ -2831,13 +2832,53 @@ function createMessageElement(message) {
   if (message.role === 'assistant') { const avatar = document.createElement('span'); avatar.className = 'assistant-avatar'; avatar.textContent = '⚡'; avatar.setAttribute('aria-hidden', 'true'); article.append(avatar); }
   const body = document.createElement('div'); body.className = 'message-body';
   const meta = document.createElement('div'); meta.className = 'message-meta';
-  const metaLabel = document.createElement('span'); metaLabel.textContent = message.role === 'assistant' ? `${message.modelId || 'AI 助手'} · ${formatTime(message.createdAt)}` : `你 · ${formatTime(message.createdAt)}`;
+  const metaLabel = document.createElement('span');
+  if (message.role === 'tool') {
+    metaLabel.textContent = `工具返回 · ${formatTime(message.createdAt)}`;
+  } else {
+    metaLabel.textContent = message.role === 'assistant' ? `${message.modelId || 'AI 助手'} · ${formatTime(message.createdAt)}` : `你 · ${formatTime(message.createdAt)}`;
+  }
   const actions = createMessageActions(message); meta.append(metaLabel, actions);
   const floatingActions = createMessageActions(message); floatingActions.classList.add('message-actions-floating'); floatingActions.hidden = true;
   articleFloatingActions.set(article, floatingActions);
   appendMessageJumpActions(floatingActions, article);
-  const text = document.createElement('div'); text.className = `message-text${message.streaming ? ' streaming' : ''}`; renderRichText(text, message.streaming ? streamingMarkdownSource(message.content) : message.content, { streaming: message.streaming, sourceValue: message.content });
   body.append(meta, floatingActions);
+
+  if (message.role === 'tool') {
+    const details = document.createElement('details'); details.className = 'tool-result-details'; details.open = false;
+    const isError = message.content?.includes('失败') || message.content?.includes('错误') || message.content?.includes('Unauthorized');
+    const summary = document.createElement('summary');
+    const isSearch = message.tool_name === 'brave_web_search' || message.tool_name === 'tavily_web_search';
+    const icon = isError ? '⚠️' : (isSearch ? '🌐' : '⚙️');
+    const titleName = isSearch ? '联网搜索返回' : (message.tool_name || '工具返回');
+    summary.textContent = `${icon} ${titleName} · 点击展开详情`;
+    const resultBody = document.createElement('div'); resultBody.className = 'tool-result-body'; resultBody.textContent = message.content;
+    details.append(summary, resultBody);
+    body.append(details);
+    article.append(body);
+    return article;
+  }
+
+  if (Array.isArray(message.toolCalls) && message.toolCalls.length > 0) {
+    for (const call of message.toolCalls) {
+      const callCard = document.createElement('div'); callCard.className = 'tool-call-card';
+      const callHeader = document.createElement('div'); callHeader.className = 'tool-call-header';
+      const isSearch = call.function?.name === 'brave_web_search' || call.function?.name === 'tavily_web_search';
+      const icon = document.createElement('span'); icon.textContent = isSearch ? '🌐' : '⚡';
+      const label = document.createElement('span'); label.textContent = isSearch ? '正在执行联网搜索…' : `调用工具: ${call.function?.name}`;
+      callHeader.append(icon, label);
+      callCard.append(callHeader);
+      if (call.function?.arguments) {
+        let argObj; try { argObj = JSON.parse(call.function.arguments); } catch {}
+        const q = argObj?.query || call.function.arguments;
+        const qSpan = document.createElement('div'); qSpan.className = 'tool-call-query'; qSpan.textContent = `关键词: ${q}`;
+        callCard.append(qSpan);
+      }
+      body.append(callCard);
+    }
+  }
+
+  const text = document.createElement('div'); text.className = `message-text${message.streaming ? ' streaming' : ''}`; renderRichText(text, message.streaming ? streamingMarkdownSource(message.content) : message.content, { streaming: message.streaming, sourceValue: message.content });
   if (message.reasoning) {
     const details = document.createElement('details'); details.className = 'reasoning-block';
     const summary = document.createElement('summary'); summary.textContent = '查看思考过程';
@@ -4436,6 +4477,486 @@ async function saveRoleLibrary() {
   } catch (error) { setDialogStatus(elements.rolesStatus, error.message, 'error'); }
 }
 
+const TOOLS_STORAGE_KEY = 'light-chat-client-tools-v1';
+
+const DEFAULT_TAVILY_TOOL = Object.freeze({
+  id: 'tavily-search',
+  name: '联网搜索 (Tavily Search)',
+  icon: '🌐',
+  type: 'tavily-search',
+  description: '专为大模型打造的实时联网搜索，返回最新网页、事实与事实摘要（支持国内网络）',
+  enabled: true,
+  apiKey: '',
+  count: 5,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'tavily_web_search',
+      description: '实时搜索互联网最新网页内容、新闻和权威事实',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '用于搜索的关键词或查询短语' },
+          count: { type: 'number', description: '返回结果数量(1-10)，默认 5' }
+        },
+        required: ['query']
+      }
+    }
+  }
+});
+
+const DEFAULT_BRAVE_TOOL = Object.freeze({
+  id: 'brave-search',
+  name: 'Brave 搜索 (Brave Search)',
+  icon: '🦁',
+  type: 'brave-search',
+  description: '使用 Brave Search 实时搜索互联网最新网页、新闻与事实',
+  enabled: false,
+  apiKey: '',
+  count: 5,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'brave_web_search',
+      description: '实时搜索互联网最新网页内容、新闻和权威事实',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '用于搜索的关键词或查询短语' },
+          count: { type: 'number', description: '返回结果数量(1-10)，默认 5' }
+        },
+        required: ['query']
+      }
+    }
+  }
+});
+
+function loadToolsConfig() {
+  try {
+    const raw = localStorage.getItem(TOOLS_STORAGE_KEY);
+    if (!raw) return [structuredClone(DEFAULT_TAVILY_TOOL), structuredClone(DEFAULT_BRAVE_TOOL)];
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return [structuredClone(DEFAULT_TAVILY_TOOL), structuredClone(DEFAULT_BRAVE_TOOL)];
+    if (!list.some((item) => item?.id === 'tavily-search')) {
+      list.unshift(structuredClone(DEFAULT_TAVILY_TOOL));
+    }
+    if (!list.some((item) => item?.id === 'brave-search')) {
+      list.push(structuredClone(DEFAULT_BRAVE_TOOL));
+    }
+    return list;
+  } catch {
+    return [structuredClone(DEFAULT_TAVILY_TOOL), structuredClone(DEFAULT_BRAVE_TOOL)];
+  }
+}
+
+function saveToolsConfig(list) {
+  try {
+    localStorage.setItem(TOOLS_STORAGE_KEY, JSON.stringify(list));
+  } catch {}
+  updateWebSearchToggleState();
+}
+
+function getActiveTools() {
+  const list = loadToolsConfig();
+  const active = [];
+  for (const item of list) {
+    if (item.enabled && item.schema) {
+      active.push(item.schema);
+    }
+  }
+  return active;
+}
+
+function isWebSearchEnabled() {
+  const list = loadToolsConfig();
+  return list.some((item) => (item.id === 'tavily-search' || item.id === 'brave-search') && item.enabled);
+}
+
+function updateWebSearchToggleState() {
+  if (!elements.webSearchToggle) return;
+  const active = isWebSearchEnabled();
+  elements.webSearchToggle.classList.toggle('active', active);
+  elements.webSearchToggle.setAttribute('aria-pressed', String(active));
+}
+
+function toggleWebSearchFromComposer() {
+  const list = loadToolsConfig();
+  const tavily = list.find((item) => item.id === 'tavily-search');
+  const brave = list.find((item) => item.id === 'brave-search');
+  const target = tavily || brave;
+  if (!target) return;
+  const hasKey = Boolean(tavily?.apiKey?.trim() || brave?.apiKey?.trim());
+  if (!hasKey && !isWebSearchEnabled()) {
+    setStatus('请在「扩展与技能」中配置搜索 API 密钥后启用', 'error');
+    openSidebarDrawer('tools');
+    renderToolsDrawer();
+    openSidebar();
+    return;
+  }
+  const nextState = !isWebSearchEnabled();
+  if (tavily) tavily.enabled = nextState;
+  if (brave) brave.enabled = nextState && !tavily?.apiKey?.trim();
+  saveToolsConfig(list);
+  renderToolsDrawer();
+  setStatus(nextState ? '已开启联网搜索' : '已关闭联网搜索', 'success');
+}
+
+async function executeTavilySearch({ query, count = 5 }) {
+  const list = loadToolsConfig();
+  const tavily = list.find((item) => item.id === 'tavily-search');
+  const brave = list.find((item) => item.id === 'brave-search');
+  const apiKey = (tavily?.apiKey || (brave?.apiKey?.startsWith('tvly-') ? brave.apiKey : '')).trim();
+  if (!apiKey) {
+    return '错误：用户尚未配置 Tavily Search API 密钥，请在工具设置中配置后重试。';
+  }
+  const cleanQuery = String(query || '').trim();
+  if (!cleanQuery) return '搜索关键词为空。';
+  const safeCount = Math.min(10, Math.max(1, Number(count) || 5));
+  try {
+    const response = await fetch('/api/tools/proxy', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': state.csrf,
+      },
+      body: JSON.stringify({
+        url: 'https://api.tavily.com/search',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: {
+          api_key: apiKey,
+          query: cleanQuery,
+          max_results: safeCount,
+        },
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return `Tavily 搜索请求失败 (HTTP ${response.status}): ${err.error || '网络错误'}`;
+    }
+    const wrapped = await response.json();
+    let data;
+    try {
+      data = typeof wrapped.data === 'string' ? JSON.parse(wrapped.data) : wrapped.data;
+    } catch {
+      return 'Tavily 搜索返回了无法解析的响应格式。';
+    }
+    if (data?.detail?.error) {
+      return `Tavily 认证失败: ${data.detail.error}`;
+    }
+    const results = data?.results;
+    if (!Array.isArray(results) || results.length === 0) {
+      return `未检索到关于 "${cleanQuery}" 的网页结果。`;
+    }
+    const formatted = results.map((item, idx) => (
+      `[${idx + 1}] ${item.title || '无标题'}\n网址: ${item.url}\n摘要: ${item.content || ''}`
+    )).join('\n\n');
+    return `针对 "${cleanQuery}" 的实时搜索结果：\n\n${formatted}`;
+  } catch (error) {
+    return `Tavily 搜索过程出错: ${error.message}`;
+  }
+}
+
+async function executeBraveSearch({ query, count = 5 }) {
+  const list = loadToolsConfig();
+  const brave = list.find((item) => item.id === 'brave-search');
+  const apiKey = (brave?.apiKey || '').trim();
+  if (apiKey.startsWith('tvly-')) {
+    return executeTavilySearch({ query, count });
+  }
+  if (!apiKey) {
+    return '错误：用户尚未在设置中配置 Brave Search API 密钥，请在工具设置中配置后重试。';
+  }
+  const cleanQuery = String(query || '').trim();
+  if (!cleanQuery) return '搜索关键词为空。';
+  const safeCount = Math.min(10, Math.max(1, Number(count) || 5));
+  const searchUrl = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(cleanQuery)}&count=${safeCount}`;
+  try {
+    const response = await fetch('/api/tools/proxy', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': state.csrf,
+      },
+      body: JSON.stringify({
+        url: searchUrl,
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'X-Subscription-Token': apiKey,
+        },
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return `Brave 搜索请求失败 (HTTP ${response.status}): ${err.error || '网络错误'}`;
+    }
+    const wrapped = await response.json();
+    let data;
+    try {
+      data = typeof wrapped.data === 'string' ? JSON.parse(wrapped.data) : wrapped.data;
+    } catch {
+      return 'Brave 搜索返回了无法解析的响应格式。';
+    }
+    const webResults = data?.web?.results;
+    if (!Array.isArray(webResults) || webResults.length === 0) {
+      return `未检索到关于 "${cleanQuery}" 的网页结果。`;
+    }
+    const formatted = webResults.map((item, idx) => (
+      `[${idx + 1}] ${item.title || '无标题'}\n网址: ${item.url}\n摘要: ${item.description || ''}`
+    )).join('\n\n');
+    return `针对 "${cleanQuery}" 的 Brave 实时搜索结果：\n\n${formatted}`;
+  } catch (error) {
+    return `Brave 搜索过程出错: ${error.message}`;
+  }
+}
+
+async function executeCustomTool(tool, args) {
+  const endpoint = tool.url;
+  if (!endpoint) return '自定义工具缺少服务地址。';
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (tool.auth) headers['Authorization'] = tool.auth;
+    const response = await fetch('/api/tools/proxy', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': state.csrf,
+      },
+      body: JSON.stringify({
+        url: endpoint,
+        method: 'POST',
+        headers,
+        body: args,
+      }),
+    });
+    const wrapped = await response.json();
+    return wrapped.data || JSON.stringify(wrapped);
+  } catch (error) {
+    return `调用工具失败: ${error.message}`;
+  }
+}
+
+async function executeClientToolCall(call) {
+  const name = call.function?.name;
+  let args = {};
+  try {
+    args = typeof call.function?.arguments === 'string' ? JSON.parse(call.function.arguments) : (call.function?.arguments || {});
+  } catch {
+    args = { query: call.function?.arguments || '' };
+  }
+  if (name === 'tavily_web_search') {
+    return executeTavilySearch(args);
+  }
+  if (name === 'brave_web_search') {
+    const list = loadToolsConfig();
+    const tavily = list.find((item) => item.id === 'tavily-search');
+    const brave = list.find((item) => item.id === 'brave-search');
+    if ((!brave?.apiKey || brave?.apiKey.startsWith('tvly-')) && tavily?.apiKey) {
+      return executeTavilySearch(args);
+    }
+    return executeBraveSearch(args);
+  }
+  const list = loadToolsConfig();
+  const matched = list.find((item) => item.schema?.function?.name === name);
+  if (matched) {
+    return executeCustomTool(matched, args);
+  }
+  return `未识别的客户端工具: ${name}`;
+}
+
+function renderToolsDrawer() {
+  if (!elements.toolsDrawerList) return;
+  elements.toolsDrawerList.replaceChildren();
+  const list = loadToolsConfig();
+  for (const item of list) {
+    const card = document.createElement('div');
+    card.className = 'tool-card';
+
+    const header = document.createElement('div');
+    header.className = 'tool-card-header';
+    const titleGroup = document.createElement('div');
+    titleGroup.className = 'tool-card-title';
+    const icon = document.createElement('span');
+    icon.className = 'tool-card-icon';
+    icon.textContent = item.icon || '🧩';
+    const name = document.createElement('strong');
+    name.className = 'tool-card-name';
+    name.textContent = item.name;
+    titleGroup.append(icon, name);
+
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.className = 'tool-card-toggle';
+    toggle.checked = Boolean(item.enabled);
+    toggle.setAttribute('aria-label', `启用或关闭 ${item.name}`);
+    toggle.addEventListener('change', () => {
+      item.enabled = toggle.checked;
+      saveToolsConfig(list);
+      renderToolsDrawer();
+    });
+
+    header.append(titleGroup, toggle);
+    card.append(header);
+
+    const desc = document.createElement('div');
+    desc.className = 'tool-card-desc';
+    desc.textContent = item.description;
+    card.append(desc);
+
+    if (item.type === 'brave-search' || item.type === 'tavily-search') {
+      const config = document.createElement('div');
+      config.className = 'tool-card-config';
+      const keyLabel = document.createElement('label');
+      keyLabel.textContent = `${item.name} API 密钥 (本地安全保存，默认留空)：`;
+
+      const keyWrap = document.createElement('div');
+      keyWrap.className = 'tool-key-input-wrap';
+
+      const keyInput = document.createElement('input');
+      keyInput.type = 'password';
+      keyInput.value = item.apiKey || '';
+      keyInput.placeholder = item.type === 'tavily-search' ? '输入 Tavily API Key (如 tvly-...)' : '输入 Brave API Key';
+      keyInput.autocomplete = 'off';
+
+      const eyeBtn = document.createElement('button');
+      eyeBtn.type = 'button';
+      eyeBtn.className = 'tool-toggle-eye';
+      eyeBtn.title = '切换明文/密文查看模式';
+      eyeBtn.setAttribute('aria-label', '切换明文查看');
+      eyeBtn.textContent = '👁️';
+      eyeBtn.addEventListener('click', () => {
+        const isPwd = keyInput.type === 'password';
+        keyInput.type = isPwd ? 'text' : 'password';
+        eyeBtn.textContent = isPwd ? '🙈' : '👁️';
+      });
+
+      keyWrap.append(keyInput, eyeBtn);
+      keyLabel.append(keyWrap);
+      config.append(keyLabel);
+
+      const saveRow = document.createElement('div');
+      saveRow.className = 'tool-save-row';
+
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'tool-save-button';
+      saveBtn.textContent = '💾 保存配置';
+
+      const feedback = document.createElement('span');
+      feedback.className = 'tool-save-feedback';
+      feedback.textContent = '已保存 ✓';
+
+      saveBtn.addEventListener('click', () => {
+        item.apiKey = keyInput.value.trim();
+        saveToolsConfig(list);
+        renderToolsDrawer();
+        setStatus(`已保存 ${item.name} 密钥`, 'success');
+        feedback.classList.add('visible');
+        setTimeout(() => feedback.classList.remove('visible'), 2000);
+      });
+
+      saveRow.append(saveBtn, feedback);
+      config.append(saveRow);
+
+      const actions = document.createElement('div');
+      actions.className = 'tool-card-actions';
+      const badge = document.createElement('span');
+      badge.className = `tool-status-badge ${item.apiKey ? 'ready' : 'unconfigured'}`;
+      badge.textContent = item.apiKey ? '✅ 已配置密钥' : '⚠️ 密钥未配置';
+
+      const helpLink = document.createElement('a');
+      helpLink.href = item.type === 'tavily-search' ? 'https://app.tavily.com/home' : 'https://brave.com/search/api/';
+      helpLink.target = '_blank';
+      helpLink.rel = 'noopener';
+      helpLink.style.fontSize = '0.53rem';
+      helpLink.style.color = 'var(--accent)';
+      helpLink.textContent = item.type === 'tavily-search' ? '获取 Tavily Key ↗' : '获取 Brave Key ↗';
+
+      actions.append(badge, helpLink);
+      config.append(actions);
+      card.append(config);
+    } else {
+      const actions = document.createElement('div');
+      actions.className = 'tool-card-actions';
+      const urlText = document.createElement('small');
+      urlText.style.fontSize = '0.52rem';
+      urlText.style.color = 'var(--text-faint)';
+      urlText.textContent = item.url ? item.url.slice(0, 32) + '…' : '';
+      const delBtn = document.createElement('button');
+      delBtn.className = 'secondary-button compact';
+      delBtn.style.fontSize = '0.52rem';
+      delBtn.textContent = '删除';
+      delBtn.addEventListener('click', () => {
+        const remaining = list.filter((t) => t.id !== item.id);
+        saveToolsConfig(remaining);
+        renderToolsDrawer();
+      });
+      actions.append(urlText, delBtn);
+      card.append(actions);
+    }
+
+    elements.toolsDrawerList.append(card);
+  }
+  updateWebSearchToggleState();
+}
+
+function openCustomToolDialog() {
+  if (!elements.customToolDialog) return;
+  elements.customToolForm?.reset();
+  setDialogStatus(elements.customToolStatus, '');
+  elements.customToolDialog.showModal();
+}
+
+function saveCustomTool(event) {
+  event?.preventDefault();
+  const name = elements.customToolName?.value.trim();
+  const type = elements.customToolType?.value;
+  const url = elements.customToolUrl?.value.trim();
+  const auth = elements.customToolAuth?.value.trim();
+  const description = elements.customToolDescription?.value.trim();
+  if (!name || !url) {
+    setDialogStatus(elements.customToolStatus, '请填写工具名称和服务地址', 'error');
+    return;
+  }
+  const toolId = `tool-${randomId()}`;
+  const funcName = `custom_${name.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 30) || 'tool'}`;
+  const newTool = {
+    id: toolId,
+    name,
+    icon: type === 'mcp_sse' ? '⚡' : '🔧',
+    type,
+    url,
+    auth,
+    description,
+    enabled: true,
+    schema: {
+      type: 'function',
+      function: {
+        name: funcName,
+        description: description || name,
+        parameters: {
+          type: 'object',
+          properties: {
+            input: { type: 'string', description: '工具输入参数' },
+          },
+        },
+      },
+    },
+  };
+  const list = loadToolsConfig();
+  list.push(newTool);
+  saveToolsConfig(list);
+  elements.customToolDialog.close();
+  renderToolsDrawer();
+  setStatus(`已添加工具“${name}”`, 'success');
+}
+
 function mimeForFile(file) {
   if (file.type) return file.type;
   const extension = file.name.toLowerCase().split('.').pop();
@@ -4686,8 +5207,15 @@ async function consumeSse(response, assistant, conversationId) {
     let event = 'message'; const dataLines = [];
     for (const line of frame.split(/\r?\n/)) { if (line.startsWith('event:')) event = line.slice(6).trim(); if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart()); }
     if (!dataLines.length) return; let payload; try { payload = JSON.parse(dataLines.join('\n')); } catch { return; }
-    if (event === 'delta' && typeof payload.text === 'string') assistant.content += payload.text;
-    else if (event === 'reasoning' && typeof payload.text === 'string') assistant.reasoning += payload.text;
+    if (event === 'delta' && typeof payload.text === 'string') {
+      assistant.content += payload.text;
+      if (conversationId === state.currentId && elements.typing) elements.typing.hidden = true;
+    }
+    else if (event === 'reasoning' && typeof payload.text === 'string') {
+      assistant.reasoning += payload.text;
+      if (conversationId === state.currentId && elements.typing) elements.typing.hidden = true;
+    }
+    else if (event === 'tool_call' && Array.isArray(payload.toolCalls)) assistant.toolCalls = payload.toolCalls;
     else if (event === 'image') { const image = sanitizeAttachment(payload); if (image) assistant.images.push(image); }
     else if (event === 'usage') assistant.usage = sanitizeUsage(payload);
     else if (event === 'error') throw new Error(payload.error || '模型响应失败');
@@ -4721,7 +5249,16 @@ function guestMessageContent(message) {
 }
 
 function guestChatMessages(submitted) {
-  const messages = submitted.map((message) => ({ role: message.role, content: guestMessageContent(message) }));
+  const messages = submitted.map((message) => {
+    if (message.role === 'tool') {
+      return { role: 'tool', tool_call_id: message.tool_call_id, content: message.content };
+    }
+    const item = { role: message.role, content: guestMessageContent(message) };
+    if (message.role === 'assistant' && Array.isArray(message.toolCalls) && message.toolCalls.length > 0) {
+      item.tool_calls = message.toolCalls;
+    }
+    return item;
+  });
   const role = findRoleById(state.selectedRoleId);
   return role?.systemPrompt ? [{ role: 'system', content: role.systemPrompt }, ...messages] : messages;
 }
@@ -4733,7 +5270,9 @@ function guestExtractResponse(payload) {
   const reasoning = guestContentText(message.reasoning || message.reasoning_content || message.thinking);
   const images = [];
   const imageMatches = content.match(/data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+/gi) || [];
-  return { text: content, reasoning, images: imageMatches.map((value) => guestImageAttachment(value)).filter(Boolean), usage: sanitizeUsage(payload?.usage || choice.usage) };
+  const rawToolCalls = message.tool_calls || choice.tool_calls || [];
+  const toolCalls = Array.isArray(rawToolCalls) ? rawToolCalls : [];
+  return { text: content, reasoning, images: imageMatches.map((value) => guestImageAttachment(value)).filter(Boolean), usage: sanitizeUsage(payload?.usage || choice.usage), toolCalls };
 }
 
 function guestChatResult(payload) { return guestExtractResponse(payload); }
@@ -4747,9 +5286,16 @@ async function consumeGuestSse(response, assistant, conversationId) {
       const raw = trimmed.slice(5).trim(); if (!raw || raw === '[DONE]') continue;
       let payload; try { payload = JSON.parse(raw); } catch { continue; }
       const extracted = guestExtractResponse(payload);
-      if (extracted.text) assistant.content += extracted.text;
-      if (extracted.reasoning) assistant.reasoning += extracted.reasoning;
+      if (extracted.text) {
+        assistant.content += extracted.text;
+        if (conversationId === state.currentId && elements.typing) elements.typing.hidden = true;
+      }
+      if (extracted.reasoning) {
+        assistant.reasoning += extracted.reasoning;
+        if (conversationId === state.currentId && elements.typing) elements.typing.hidden = true;
+      }
       if (extracted.images.length) assistant.images.push(...extracted.images);
+      if (extracted.toolCalls && extracted.toolCalls.length) assistant.toolCalls = extracted.toolCalls;
       if (extracted.usage) assistant.usage = extracted.usage;
       updateStreamingMessage(assistant, conversationId);
     }
@@ -4870,12 +5416,25 @@ async function requestGeneratedImages(url, payload, assistant, conversationId, s
 function chatSubmissionMessages(submitted) {
   if (state.userRole === 'guest') return guestChatMessages(submitted);
   const historyImageIds = submitted.flatMap((message) => (message.images || []).map((item) => item.id)).filter(Boolean).slice(-12);
-  return submitted.map((message, index) => ({
-    role: message.role,
-    content: message.content,
-    attachmentIds: message.role === 'user' ? (message.attachments || []).map((item) => item.id) : [],
-    imageIds: message.role === 'user' && index === submitted.length - 1 ? historyImageIds : [],
-  }));
+  return submitted.map((message, index) => {
+    if (message.role === 'tool') {
+      return {
+        role: 'tool',
+        tool_call_id: message.tool_call_id,
+        content: message.content,
+      };
+    }
+    const item = {
+      role: message.role,
+      content: message.content,
+      attachmentIds: message.role === 'user' ? (message.attachments || []).map((item) => item.id) : [],
+      imageIds: message.role === 'user' && index === submitted.length - 1 ? historyImageIds : [],
+    };
+    if (message.role === 'assistant' && Array.isArray(message.toolCalls) && message.toolCalls.length > 0) {
+      item.tool_calls = message.toolCalls;
+    }
+    return item;
+  });
 }
 
 function imageHistoryText(message) {
@@ -5100,7 +5659,8 @@ async function regenerateAssistant(messageId, modelId, { allowHistorical = false
   const requestController = new AbortController(); activeRequestControllers.set(conversation.id, requestController);
   resumeOutputFollow(); setConversationBusy(conversation.id, true); renderConversation(); updateSendState(); setStatus(`正在使用 ${modelId} 重新生成…`, 'pending');
   try {
-    const response = await chatRequest({ model: modelId, roleId: validRoleId(conversation.roleId) || undefined, messages: submitted, stream: state.stream }, requestController.signal);
+    const activeTools = getActiveTools();
+    const response = await chatRequest({ model: modelId, roleId: validRoleId(conversation.roleId) || undefined, messages: submitted, tools: activeTools.length > 0 ? activeTools : undefined, stream: state.stream }, requestController.signal);
     if (response.status === 401) { location.replace('/'); throw new Error('登录已失效'); }
     if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error || '模型请求失败'); }
     if ((response.headers.get('content-type') || '').includes('text/event-stream')) { await (state.userRole === 'guest' ? consumeGuestSse : consumeSse)(response, draft, conversation.id); draft.streaming = false; updateMessage(draft, conversation.id); }
@@ -5172,30 +5732,106 @@ async function sendMessage(queuedDraft = null) {
       assistant.content = assistant.images.length ? '图片已生成。' : assistant.content;
       updateMessage(assistant, conversationId);
     } else {
-      const submitted = conversation.messages.slice(0, -1);
-      const messages = chatSubmissionMessages(submitted);
-      const stream = requestSelection.mode === 'chat' ? requestStream : false;
-      const response = await chatRequest({ model: requestSelection.modelId, roleId: validRoleId(conversation.roleId) || undefined, messages, imageSize: useImageChat ? (messageDraft.imageSize || requestModel?.imageOptions?.defaultSize) : undefined, stream }, requestController.signal);
-      if (response.status === 401) { location.replace('/'); return; }
-      if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error || '模型请求失败'); }
-      if ((response.headers.get('content-type') || '').includes('text/event-stream')) { await (state.userRole === 'guest' ? consumeGuestSse : consumeSse)(response, assistant, conversationId); assistant.streaming = false; updateMessage(assistant, conversationId); }
-      else {
-        const payload = await response.json(); const direct = state.userRole === 'guest' ? guestChatResult(payload) : payload; assistant.reasoning = direct.reasoning || ''; assistant.images = (direct.images || []).map(sanitizeAttachment).filter(Boolean); assistant.usage = sanitizeUsage(direct.usage); assistant.content = direct.text || (assistant.images.length ? '图片已生成。' : ''); updateMessage(assistant, conversationId);
+      const activeTools = requestSelection.mode === 'chat' ? getActiveTools() : [];
+      let currentAssistant = assistant;
+      let loopCount = 0;
+      const maxLoops = 5;
+
+      while (loopCount < maxLoops) {
+        loopCount += 1;
+        if (state.currentId === conversationId && elements.typing) {
+          const em = elements.typing.querySelector('em');
+          if (em) em.textContent = loopCount > 1 ? '模型正在整合搜索结果…' : '模型正在回应';
+          elements.typing.hidden = false;
+        }
+        const submitted = conversation.messages.slice(0, -1);
+        const messages = chatSubmissionMessages(submitted);
+        const stream = requestSelection.mode === 'chat' ? requestStream : false;
+        const response = await chatRequest({
+          model: requestSelection.modelId,
+          roleId: validRoleId(conversation.roleId) || undefined,
+          messages,
+          tools: activeTools.length > 0 ? activeTools : undefined,
+          imageSize: useImageChat ? (messageDraft.imageSize || requestModel?.imageOptions?.defaultSize) : undefined,
+          stream,
+        }, requestController.signal);
+        if (response.status === 401) { location.replace('/'); return; }
+        if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error || '模型请求失败'); }
+        if ((response.headers.get('content-type') || '').includes('text/event-stream')) {
+          await (state.userRole === 'guest' ? consumeGuestSse : consumeSse)(response, currentAssistant, conversationId);
+          currentAssistant.streaming = false;
+          updateMessage(currentAssistant, conversationId);
+        } else {
+          const payload = await response.json();
+          const direct = state.userRole === 'guest' ? guestChatResult(payload) : payload;
+          currentAssistant.reasoning = direct.reasoning || '';
+          currentAssistant.images = (direct.images || []).map(sanitizeAttachment).filter(Boolean);
+          currentAssistant.usage = sanitizeUsage(direct.usage);
+          currentAssistant.toolCalls = direct.toolCalls || [];
+          currentAssistant.content = direct.text || (currentAssistant.images.length ? '图片已生成。' : '');
+          updateMessage(currentAssistant, conversationId);
+        }
+
+        if (!Array.isArray(currentAssistant.toolCalls) || currentAssistant.toolCalls.length === 0) {
+          break;
+        }
+
+        setStatus('正在执行联网搜索与工具…', 'pending');
+        if (state.currentId === conversationId && elements.typing) {
+          const em = elements.typing.querySelector('em');
+          if (em) em.textContent = '正在联网搜索与执行工具…';
+          elements.typing.hidden = false;
+        }
+        for (const call of currentAssistant.toolCalls) {
+          const toolResult = await executeClientToolCall(call);
+          const toolMessage = {
+            id: randomId(),
+            role: 'tool',
+            tool_call_id: call.id,
+            tool_name: call.function?.name || 'tool',
+            content: toolResult,
+            createdAt: Date.now(),
+          };
+          conversation.messages.push(toolMessage);
+        }
+        currentAssistant = {
+          id: randomId(),
+          role: 'assistant',
+          replyToId: user.id,
+          modelId: requestSelection.modelId,
+          mode: requestSelection.mode,
+          content: '',
+          reasoning: '',
+          attachments: [],
+          images: [],
+          usage: null,
+          variants: [],
+          variantIndex: 0,
+          streaming: requestSelection.mode === 'chat' && requestStream,
+          createdAt: Date.now(),
+        };
+        conversation.messages.push(currentAssistant);
+        conversation.updatedAt = Date.now();
+        renderConversation();
+      }
+      if (!currentAssistant.content && !currentAssistant.images.length && (!Array.isArray(currentAssistant.toolCalls) || currentAssistant.toolCalls.length === 0)) {
+        currentAssistant.content = '模型没有返回可展示的内容。';
+        updateMessage(currentAssistant, conversationId);
       }
     }
-    if (!assistant.content && !assistant.images.length) assistant.content = '模型没有返回可展示的内容。';
     rememberConversationRequest(conversation, requestSelection, { imageSize: messageDraft.imageSize || elements.imageSize.value, imageQuality: imageQualityForRequest(conversation, requestModel), stream: requestStream });
     conversation.updatedAt = Date.now(); saveConversations(); if (state.currentId === conversationId) setStatus(requestStream && requestSelection.mode === 'chat' ? '流式响应完成' : '响应完成', 'success');
   } catch (error) {
     const cancelled = requestController.signal.aborted;
-    assistant.streaming = false;
+    const targetAssistant = currentAssistant || assistant;
+    targetAssistant.streaming = false;
     if (cancelled) {
-      assistant.content = assistant.content || '已中断响应。';
-      updateMessage(assistant, conversationId);
+      targetAssistant.content = targetAssistant.content || '已中断响应。';
+      updateMessage(targetAssistant, conversationId);
       if (state.currentId === conversationId) setStatus('响应已中断，本次调用按正常模型费用扣除', 'success');
     } else {
-      assistant.content = assistant.content || `请求失败：${error.message}`;
-      updateMessage(assistant, conversationId);
+      targetAssistant.content = targetAssistant.content || `请求失败：${error.message}`;
+      updateMessage(targetAssistant, conversationId);
       if (state.currentId === conversationId) setStatus(error.message, 'error');
     }
     saveConversations();
@@ -5203,6 +5839,7 @@ async function sendMessage(queuedDraft = null) {
     if (activeRequestControllers.get(conversationId) === requestController) activeRequestControllers.delete(conversationId);
     setConversationBusy(conversationId, false);
     if (state.currentId === conversationId) renderConversation();
+    if (elements.typing) elements.typing.hidden = true;
     updateSendState(); elements.input.focus(); refreshQuotaSummary().catch(() => {}); drainQueuedMessages();
   }
   return true;
@@ -5905,6 +6542,11 @@ function bindEvents() {
   elements.openRecentFilesDrawer.addEventListener('click', () => { openSidebarDrawer('recent-files'); void loadRecentFiles(); });
   elements.openFavoriteMediaDrawer.addEventListener('click', () => { openSidebarDrawer('favorite-media'); void loadFavoriteMedia(); });
   elements.openWorkflowsDrawer.addEventListener('click', () => { openSidebarDrawer('workflows'); void loadWorkflows(); });
+  elements.openToolsDrawer?.addEventListener('click', () => { openSidebarDrawer('tools'); renderToolsDrawer(); });
+  elements.toolsToggle?.addEventListener('click', () => handleSidebarDrawerHeader('tools'));
+  elements.addCustomToolButton?.addEventListener('click', (event) => { event.stopPropagation(); openCustomToolDialog(); });
+  elements.customToolForm?.addEventListener('submit', saveCustomTool);
+  elements.webSearchToggle?.addEventListener('click', toggleWebSearchFromComposer);
   elements.workflowsToggle.addEventListener('click', () => handleSidebarDrawerHeader('workflows'));
   elements.exitWorkflow.addEventListener('click', () => {
     const leftWorkflow = exitWorkflow();
@@ -6124,6 +6766,7 @@ async function initialize() {
   renderSidebarWidth();
   bindEvents();
   renderSidebarDrawerState();
+  updateWebSearchToggleState();
   try { state.openRoleFolders = new Set(JSON.parse(localStorage.getItem(ROLE_FOLDERS_OPEN_KEY) || '[]').filter((value) => typeof value === 'string')); } catch { state.openRoleFolders = new Set(); }
   try { state.openRoleConversationIds = new Set(JSON.parse(localStorage.getItem(ROLE_CONVERSATIONS_OPEN_KEY) || '[]').filter((value) => typeof value === 'string')); } catch { state.openRoleConversationIds = new Set(); }
   state.historyFolders = loadHistoryFolders();

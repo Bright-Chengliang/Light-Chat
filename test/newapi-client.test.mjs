@@ -233,3 +233,48 @@ test('image generation refuses remote URL results instead of backend-fetching th
     await fake.close();
   }
 });
+
+test('chat forwards tools schema and collects streamed tool_calls without empty-response error', async () => {
+  const toolCallPayload = [
+    {
+      index: 0,
+      id: 'call_test_brave_search',
+      type: 'function',
+      function: {
+        name: 'brave_web_search',
+        arguments: JSON.stringify({ query: 'DeepMind Gemini 2026' }),
+      },
+    },
+  ];
+  const fake = await createFakeNewApi({ chatToolCalls: toolCallPayload });
+  try {
+    const client = new NewApiClient({ apiKey: 'test-api-key', baseUrl: fake.baseUrl });
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'brave_web_search',
+          description: 'Search the web',
+          parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+        },
+      },
+    ];
+    let streamedCalls = null;
+    const result = await client.chat({
+      model: 'chat-test',
+      messages: [{ role: 'user', content: 'What is the latest news?' }],
+      tools,
+      onToolCall: (calls) => { streamedCalls = calls; },
+    });
+    assert.ok(result.toolCalls && result.toolCalls.length === 1);
+    assert.equal(result.toolCalls[0].id, 'call_test_brave_search');
+    assert.equal(result.toolCalls[0].function.name, 'brave_web_search');
+    assert.deepEqual(streamedCalls, result.toolCalls);
+    const lastRequest = fake.requests.findLast((entry) => entry.url === '/v1/chat/completions');
+    const parsedBody = JSON.parse(lastRequest.bodyText);
+    assert.deepEqual(parsedBody.tools, tools);
+  } finally {
+    await fake.close();
+  }
+});
+

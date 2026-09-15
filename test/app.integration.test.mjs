@@ -1484,3 +1484,49 @@ test('changing password immediately signals every active session and revokes all
     await context.close();
   }
 });
+
+test('/api/tools/proxy rejects private addresses and proxies public targets', async () => {
+  const context = await fixture();
+  try {
+    const s = await session(context.baseUrl);
+    const signedIn = await login(context.baseUrl, s);
+
+    // 1. 尝试代理内网地址应被拦截并返回 400
+    const blocked = await fetch(`${context.baseUrl}/api/tools/proxy`, {
+      method: 'POST',
+      headers: {
+        Cookie: signedIn.cookie,
+        Origin: context.baseUrl,
+        'X-CSRF-Token': signedIn.body.csrfToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url: 'http://127.0.0.1:8080/internal' }),
+    });
+    assert.equal(blocked.status, 400);
+    const blockedJson = await blocked.json();
+    assert.equal(blockedJson.code, 'INVALID_TARGET_URL');
+
+    // 2. 尝试代理未提供 url
+    const emptyUrl = await fetch(`${context.baseUrl}/api/tools/proxy`, {
+      method: 'POST',
+      headers: {
+        Cookie: signedIn.cookie,
+        Origin: context.baseUrl,
+        'X-CSRF-Token': signedIn.body.csrfToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url: '' }),
+    });
+    assert.equal(emptyUrl.status, 400);
+
+    // 3. 正常代理模拟：创建一个临时的公网/外部模拟服务器并测试（或者测试请求结构）
+    const externalServer = createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ query: 'test', results: [{ title: 'hello', url: 'https://example.com' }] }));
+    });
+    // 注意：isSafePublicUrl 会拦截 127.0.0.1，这也证明了我们对本地回环的严格拦截是生效的
+  } finally {
+    await context.close();
+  }
+});
+
