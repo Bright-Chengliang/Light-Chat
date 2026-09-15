@@ -183,12 +183,17 @@ function scheduleAdministratorConversationSync() {
     adminConversationSyncTimer = null;
     const revision = ++adminConversationRevision;
     const snapshot = structuredClone(state.conversations);
+    const foldersSnapshot = structuredClone(state.historyFolders);
     adminConversationSyncQueue = adminConversationSyncQueue.then(async () => {
       const payload = await jsonRequest('/api/conversations', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, conversations: snapshot }),
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, folders: foldersSnapshot, conversations: snapshot }),
       });
       if (!Array.isArray(payload.conversations) || revision !== adminConversationRevision) return;
       state.conversations = mergeConversations(state.conversations, payload.conversations);
+      if (Array.isArray(payload.folders)) {
+        state.historyFolders = normalizeHistoryFolders(payload.folders);
+        saveHistoryFoldersToBrowser();
+      }
       clearAdministratorBrowserConversationData(); renderHistory(); renderFavoriteConversations(); renderRoles(); renderWorkflows();
       adminConversationSyncFailed = false;
     }).catch((error) => {
@@ -206,6 +211,10 @@ async function loadPersistedConversations() {
     const merged = mergeConversations([], payload.conversations);
     state.conversations = merged;
     clearAdministratorBrowserConversationData();
+    if (Array.isArray(payload.folders)) {
+      state.historyFolders = normalizeHistoryFolders(payload.folders);
+      saveHistoryFoldersToBrowser();
+    }
     return merged;
   } catch (error) {
     setStatus(`管理员会话读取失败，无法从服务器恢复历史：${error.message}`, 'error');
@@ -643,25 +652,42 @@ function loadConversations() {
   } catch { return []; }
 }
 
+function normalizeHistoryFolders(folders) {
+  if (!Array.isArray(folders)) return [];
+  const ids = new Set();
+  return folders.flatMap((folder) => {
+    if (!folder || typeof folder.id !== 'string' || !/^[A-Za-z0-9_-]{3,64}$/.test(folder.id) || ids.has(folder.id)) return [];
+    const name = typeof folder.name === 'string' ? folder.name.trim().slice(0, 40) : '';
+    if (!name) return [];
+    ids.add(folder.id); return [{ id: folder.id, name }];
+  }).slice(0, 30);
+}
+
+function mergeFolderLists(localFolders = [], serverFolders = []) {
+  const merged = new Map((Array.isArray(serverFolders) ? serverFolders : []).map((folder) => [folder.id, folder]));
+  for (const folder of Array.isArray(localFolders) ? localFolders : []) {
+    if (!merged.has(folder.id)) merged.set(folder.id, folder);
+  }
+  return [...merged.values()].slice(0, 30);
+}
+
 function loadHistoryFolders() {
   try {
     const parsed = JSON.parse(localStorage.getItem(HISTORY_FOLDERS_KEY) || '[]');
-    if (!Array.isArray(parsed)) return [];
-    const ids = new Set();
-    return parsed.flatMap((folder) => {
-      if (!folder || typeof folder.id !== 'string' || !/^[A-Za-z0-9_-]{3,64}$/.test(folder.id) || ids.has(folder.id)) return [];
-      const name = typeof folder.name === 'string' ? folder.name.trim().slice(0, 40) : '';
-      if (!name) return [];
-      ids.add(folder.id); return [{ id: folder.id, name }];
-    }).slice(0, 30);
+    return normalizeHistoryFolders(parsed);
   } catch { return []; }
 }
 
-function saveHistoryFolders() {
+function saveHistoryFoldersToBrowser() {
   localStorage.setItem(HISTORY_FOLDERS_KEY, JSON.stringify(state.historyFolders));
   localStorage.setItem(HISTORY_FOLDERS_OPEN_KEY, JSON.stringify([...state.openHistoryFolders]));
   localStorage.setItem(HISTORY_UNFILED_COLLAPSED_KEY, String(state.historyUnfiledCollapsed));
   localStorage.setItem(FAVORITE_UNFILED_COLLAPSED_KEY, String(state.favoriteUnfiledCollapsed));
+}
+
+function saveHistoryFolders() {
+  saveHistoryFoldersToBrowser();
+  if (state.userRole === 'admin') scheduleAdministratorConversationSync();
 }
 
 function saveConversations() {
@@ -706,6 +732,7 @@ function normalizeFavoriteConversationOrder() {
 function setConversationFavorite(conversationId, favorite) {
   const conversation = state.conversations.find((item) => item.id === conversationId);
   if (!conversation) return false;
+  conversation.updatedAt = Date.now();
   if (favorite) {
     conversation.favoritedAt = Date.now();
     conversation.favoriteOrder = 0;
@@ -1390,7 +1417,7 @@ function renderHistory() {
   }
   if (searchQuery && !visibleConversations.length) {
     const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = `没有匹配“${state.historySearch.trim()}”的对话标题。`; elements.history.append(empty);
-  } else if (!state.conversations.length) {
+  }   else if (!state.conversations.length) {
     const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '还没有本机对话。发送第一条消息后，可拖到上面的文件夹中。'; elements.history.append(empty);
   }
   renderSidebarDrawerState();
@@ -1502,7 +1529,18 @@ function createHistoryItem(conversation) {
   const title = document.createElement('span'); appendHistoryTitleHighlight(title, conversation.title, query);
   const time = document.createElement('time'); time.textContent = busy ? '生成中…' : formatTime(conversation.updatedAt);
   button.append(title);
-  button.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true }));
+  let ignoreNextHistoryClick = false;
+  button.addEventListener('click', (event) => {
+    if (ignoreNextHistoryClick) {
+      ignoreNextHistoryClick = false;
+      event.stopPropagation();
+      return;
+    }
+    if (event.detail === 0) {
+      activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true });
+      event.stopPropagation();
+    }
+  });
   let startX = 0; let startY = 0; let isDragging = false;
   button.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
@@ -1511,6 +1549,7 @@ function createHistoryItem(conversation) {
   button.addEventListener('pointerup', (event) => {
     if (event.button !== 0 || isDragging) return;
     if (Math.hypot(event.clientX - startX, event.clientY - startY) < 8) {
+      ignoreNextHistoryClick = true;
       activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true });
     }
   });
@@ -1523,7 +1562,7 @@ function createHistoryItem(conversation) {
     openMenu(event.clientX, event.clientY, button);
   });
   row.addEventListener('click', (event) => {
-    if (event.target.closest('.history-rename-button')) return;
+    if (event.target.closest('.history-rename-button, .history-item')) return;
     activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true });
   });
   button.addEventListener('dragstart', (event) => {
@@ -1615,6 +1654,7 @@ function moveConversationToFolder(conversationId, folderId) {
   const targetFolderId = state.historyFolders.some((folder) => folder.id === folderId) ? folderId : '';
   const shouldFavorite = Boolean(targetFolderId) && !isFavoriteConversation(conversation);
   if (conversation.folderId === targetFolderId && !shouldFavorite) return false;
+  conversation.updatedAt = Date.now();
   conversation.folderId = targetFolderId;
   if (shouldFavorite) {
     conversation.favoritedAt = Date.now();
@@ -3558,15 +3598,17 @@ async function savePreferences(nextPreferences = state.preferences) {
     const requestedContextLimits = sanitizeContextLimits(nextPreferences.modelContextLimits, state.models);
     const requestedTitleModel = availableConversationTitleModel(nextPreferences.conversationTitleModel);
     for (const [modelId, limit] of Object.entries(requestedContextLimits)) if (limit === DEFAULT_CONTEXT_TOKENS) delete requestedContextLimits[modelId];
+    const requestedReadingMode = nextPreferences.readingMode || state.editingReadingMode || state.readingMode || 'classic';
+    const requestedStream = typeof nextPreferences.stream === 'boolean' ? nextPreferences.stream : state.stream;
     if (state.userRole === 'guest') {
-      state.preferences = { favoriteGroups: sanitizedFavoriteGroups, selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: Array.isArray(nextPreferences.favoriteMediaIds) ? [...new Set(nextPreferences.favoriteMediaIds)] : [], conversationTitleModel: requestedTitleModel };
-      localStorage.setItem('light-chat-guest-preferences-v2', JSON.stringify({ favoriteGroups: state.preferences.favoriteGroups, selected: state.preferences.selected, modelContextLimits: requestedContextLimits, conversationTitleModel: requestedTitleModel }));
+      state.preferences = { favoriteGroups: sanitizedFavoriteGroups, selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: Array.isArray(nextPreferences.favoriteMediaIds) ? [...new Set(nextPreferences.favoriteMediaIds)] : [], conversationTitleModel: requestedTitleModel, readingMode: requestedReadingMode, stream: requestedStream };
+      localStorage.setItem('light-chat-guest-preferences-v2', JSON.stringify({ favoriteGroups: state.preferences.favoriteGroups, selected: state.preferences.selected, modelContextLimits: requestedContextLimits, conversationTitleModel: requestedTitleModel, readingMode: requestedReadingMode, stream: requestedStream }));
       renderFavorites(); renderConversation();
       return;
     }
     const payload = await jsonRequest('/api/preferences', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ favoriteGroups: sanitizedFavoriteGroups, selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: nextPreferences.favoriteMediaIds || [], conversationTitleModel: requestedTitleModel || undefined }),
+      body: JSON.stringify({ favoriteGroups: sanitizedFavoriteGroups, selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: nextPreferences.favoriteMediaIds || [], conversationTitleModel: requestedTitleModel || undefined, readingMode: requestedReadingMode, stream: requestedStream }),
     });
     if (!Object.prototype.hasOwnProperty.call(payload, 'modelContextLimits') && Object.keys(requestedContextLimits).length) {
       throw new Error('当前服务端尚未加载模型上下文持久化功能，请重启服务后重试');
@@ -3577,7 +3619,17 @@ async function savePreferences(nextPreferences = state.preferences) {
     const contextLimitsMatch = requestedEntries.length === persistedEntries.length
       && requestedEntries.every(([modelId, limit]) => persistedContextLimits[modelId] === limit);
     if (!contextLimitsMatch) throw new Error('服务器未完整保存模型上下文配置，请重试');
-    state.preferences = { favoriteGroups: payload.favoriteGroups || [], selected: payload.selected || state.selected, modelContextLimits: persistedContextLimits, favoriteMediaIds: Array.isArray(payload.favoriteMediaIds) ? payload.favoriteMediaIds : [], conversationTitleModel: typeof payload.conversationTitleModel === 'string' ? payload.conversationTitleModel : requestedTitleModel };
+    state.preferences = { favoriteGroups: payload.favoriteGroups || [], selected: payload.selected || state.selected, modelContextLimits: persistedContextLimits, favoriteMediaIds: Array.isArray(payload.favoriteMediaIds) ? payload.favoriteMediaIds : [], conversationTitleModel: typeof payload.conversationTitleModel === 'string' ? payload.conversationTitleModel : requestedTitleModel, readingMode: payload.readingMode || requestedReadingMode, stream: payload.stream !== false };
+    if (payload.readingMode) {
+      state.readingMode = applyReadingMode(payload.readingMode, { persist: true });
+    }
+    if (typeof payload.stream === 'boolean') {
+      state.stream = payload.stream;
+      localStorage.setItem(STREAM_KEY, String(state.stream));
+      elements.streamButton.classList.toggle('active', state.stream);
+      elements.streamButton.setAttribute('aria-pressed', String(state.stream));
+      elements.streamText.textContent = state.stream ? '流式' : '非流式';
+    }
     state.selected = normalizeSelection(state.preferences.selected);
     renderFavorites(); renderConversation();
   } finally { preferenceWritesInFlight = Math.max(0, preferenceWritesInFlight - 1); }
@@ -4080,7 +4132,7 @@ function renderRoles() {
     const conversationButton = document.createElement('button'); conversationButton.type = 'button'; conversationButton.className = `role-conversation-item${conversation.id === state.currentId ? ' active' : ''}${busy ? ' busy' : ''}`; conversationButton.title = `跳转到对话：${conversation.title}；右键管理`;
     const conversationTitle = document.createElement('span'); conversationTitle.textContent = conversation.title;
     const conversationTime = document.createElement('time'); conversationTime.textContent = busy ? '生成中…' : formatTime(conversation.updatedAt);
-  conversationButton.append(conversationTitle, conversationTime); conversationButton.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true })); bindContextMenuTrigger(conversationButton, 'historyContextMenu', (x, y, trigger) => openHistoryContextMenu(conversation.id, x, y, trigger)); defaultList.append(conversationButton);
+    conversationButton.append(conversationTitle, conversationTime); conversationButton.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true })); bindContextMenuTrigger(conversationButton, 'historyContextMenu', (x, y, trigger) => openHistoryContextMenu(conversation.id, x, y, trigger)); defaultList.append(conversationButton);
   }
   if (!defaultConversations.length && state.sidebarDrawerStack.at(-1) === 'role:__default__') { const empty = document.createElement('p'); empty.className = 'role-conversation-empty'; empty.textContent = '默认助手还没有关联对话'; defaultList.append(empty); defaultList.hidden = false; }
   defaultToggle.addEventListener('click', () => {
@@ -6626,13 +6678,13 @@ function bindEvents() {
     const modelId = modelSupportsMode(currentModel, mode, { allowImageModeOverride: mode === 'image' }) ? currentModel.id : preferredModel(mode);
     if (modelId) setSelection(modelId, mode); else setStatus(`当前没有可用的${mode === 'image' ? '生图' : '对话'}模型`, 'error');
   });
-  elements.streamButton.addEventListener('click', () => { state.stream = !state.stream; localStorage.setItem(STREAM_KEY, String(state.stream)); elements.streamButton.classList.toggle('active', state.stream); elements.streamButton.setAttribute('aria-pressed', String(state.stream)); elements.streamText.textContent = state.stream ? '流式' : '非流式'; });
+  elements.streamButton.addEventListener('click', () => { state.stream = !state.stream; localStorage.setItem(STREAM_KEY, String(state.stream)); elements.streamButton.classList.toggle('active', state.stream); elements.streamButton.setAttribute('aria-pressed', String(state.stream)); elements.streamText.textContent = state.stream ? '流式' : '非流式'; if (state.userRole !== 'guest') savePreferences({ ...state.preferences, stream: state.stream }).catch(() => {}); });
   elements.addGroup.addEventListener('click', () => { state.editingGroups.push({ id: `group-${Date.now().toString(36)}`, name: '新收藏组', items: [] }); renderGroupsEditor(); });
   elements.addRoleFolder.addEventListener('click', () => { state.editingRoleLibrary.folders.push({ id: `folder-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, name: '新文件夹', roles: [] }); renderRolesEditor(); });
   elements.saveRoles.addEventListener('click', saveRoleLibrary);
   for (const input of $$('input[name="readingMode"]', elements.settingsDialog)) input.addEventListener('change', () => { if (!input.checked) return; state.editingReadingMode = applyReadingMode(input.value); });
   elements.settingsDialog.addEventListener('close', () => applyReadingMode(state.readingMode));
-  elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { if (state.userRole === 'guest') { await saveGuestApiSettings({ showStatus: false }); } await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits, conversationTitleModel: state.editingConversationTitleModel }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
+  elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { if (state.userRole === 'guest') { await saveGuestApiSettings({ showStatus: false }); } await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits, conversationTitleModel: state.editingConversationTitleModel, readingMode: state.editingReadingMode }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
   elements.conversationTitleModel.addEventListener('change', () => { state.editingConversationTitleModel = elements.conversationTitleModel.value; });
   elements.refreshModels.addEventListener('click', async () => { elements.refreshModels.disabled = true; setDialogStatus(elements.settingsStatus, '正在刷新模型…'); try { const payload = state.userRole === 'guest' ? { models: await loadGuestDirectModels() } : await jsonRequest('/api/models?refresh=1'); state.models = payload.models || []; state.guestCatalog = state.userRole === 'guest' ? state.models : state.guestCatalog; initializeTranslationModel(); state.selected = normalizeSelection(state.selected); state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models); state.editingGroups = sanitizeFavoriteGroups(state.editingGroups, state.models); state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models); state.editingModelContextLimits = sanitizeContextLimits(state.editingModelContextLimits, state.models); renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi(); setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型`, 'success'); setSettingsConnectionText(state.userRole === 'guest' && !state.guestSettings.endpoint ? '尚未配置游客模型连接' : `已加载 ${state.models.length} 个模型`, state.userRole !== 'guest' || state.models.length > 0); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); setSettingsConnectionText('模型服务连接失败', false); } finally { elements.refreshModels.disabled = false; } });
   elements.fetchGuestModels.addEventListener('click', () => { void fetchGuestModels(); });
@@ -6808,7 +6860,17 @@ async function initialize() {
     state.openRoleConversationIds = new Set([...state.openRoleConversationIds].filter((id) => id === DEFAULT_ROLE_CONVERSATIONS_ID || validRoleIds.has(id)));
     persistOpenRoleConversations();
     state.selectedRoleId = validRoleId(state.selectedRoleId);
-    state.preferences = { favoriteGroups: preferencesPayload.favoriteGroups || [], selected: preferencesPayload.selected || null, modelContextLimits: sanitizeContextLimits(preferencesPayload.modelContextLimits, state.models), favoriteMediaIds: Array.isArray(preferencesPayload.favoriteMediaIds) ? preferencesPayload.favoriteMediaIds : [], conversationTitleModel: typeof preferencesPayload.conversationTitleModel === 'string' ? preferencesPayload.conversationTitleModel : DEFAULT_CONVERSATION_TITLE_MODEL };
+    state.preferences = { favoriteGroups: preferencesPayload.favoriteGroups || [], selected: preferencesPayload.selected || null, modelContextLimits: sanitizeContextLimits(preferencesPayload.modelContextLimits, state.models), favoriteMediaIds: Array.isArray(preferencesPayload.favoriteMediaIds) ? preferencesPayload.favoriteMediaIds : [], conversationTitleModel: typeof preferencesPayload.conversationTitleModel === 'string' ? preferencesPayload.conversationTitleModel : DEFAULT_CONVERSATION_TITLE_MODEL, readingMode: preferencesPayload.readingMode || 'classic', stream: preferencesPayload.stream !== false };
+    if (preferencesPayload.readingMode && state.userRole !== 'guest') {
+      state.readingMode = applyReadingMode(preferencesPayload.readingMode, { persist: true });
+    }
+    if (typeof preferencesPayload.stream === 'boolean' && state.userRole !== 'guest') {
+      state.stream = preferencesPayload.stream;
+      localStorage.setItem(STREAM_KEY, String(state.stream));
+      elements.streamButton.classList.toggle('active', state.stream);
+      elements.streamButton.setAttribute('aria-pressed', String(state.stream));
+      elements.streamText.textContent = state.stream ? '流式' : '非流式';
+    }
     state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
     if (isLegacyAutomaticFavoriteGroups(state.preferences.favoriteGroups) && ['user', 'guest'].includes(state.userRole) && state.models.length <= 20) {
       state.preferences.favoriteGroups = automaticFavoriteGroupsForModels(state.models);

@@ -44,6 +44,9 @@ test('menu scrolling and export concurrency have regression guards', () => {
 test('history context menu persists across render and rapid trailing click/scroll events', () => {
   assert.match(appSource, /if \(activeContextMenu === elements\.historyContextMenu && !state\.conversations\.some\(/);
   assert.match(appSource, /activateConversation[\s\S]*closeAllContextMenus\(\);/);
+  assert.match(appSource, /event\.detail === 0[\s\S]*event\.stopPropagation\(\)/);
+  assert.match(appSource, /Math\.hypot\(event\.clientX - startX, event\.clientY - startY\) < 8/);
+  assert.match(appSource, /event\.target\.closest\('\.history-rename-button, \.history-item'\)/);
   assert.match(appSource, /restoreContextMenuFocus[\s\S]*preventScroll: true/);
   assert.match(appSource, /positionContextMenu[\s\S]*preventScroll: true/);
 });

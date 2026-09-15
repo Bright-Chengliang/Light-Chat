@@ -277,7 +277,7 @@ test('the sidebar uses full-height hierarchical drawers with enter and back navi
   assert.doesNotMatch(publicSource, /const (?:defaultExpanded|expanded) = [^;]*\.length > 0 && state\.sidebarDrawerStack/);
   assert.match(publicSource, /activateConversation\(conversation\.id, \{ closeSidebar: false, keepDrawer: true \}\)/);
   assert.match(publicSource, /function activateConversation\(conversationId, \{ closeSidebar: shouldCloseSidebar = true, keepDrawer = false \} = \{\}\)/);
-  assert.match(publicSource, /button\.addEventListener\('click', \(\) => activateConversation\(conversation\.id, \{ closeSidebar: false, keepDrawer: true \}\)\)/);
+  assert.match(publicSource, /button\.addEventListener\('click', \(event\) => \{[\s\S]*activateConversation\(conversation\.id, \{ closeSidebar: false, keepDrawer: true \}\)/);
   assert.match(publicSource, /role-entry\[data-role-drawer-active="true"\] \{ margin: 0; background: transparent; border-left: 0/);
   assert.match(publicSource, /\.sidebar-roles \{[^}]*padding-left: 0;[^}]*border-left: 0/);
   assert.match(publicSource, /\.sidebar-drawer-panel > \.sidebar-favorites, \.sidebar-drawer-panel > \.sidebar-roles, \.sidebar-drawer-panel > \.history-list/);

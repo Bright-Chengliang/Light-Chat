@@ -258,6 +258,64 @@ test('administrator conversation history merges device-local records on the serv
   }
 });
 
+test('administrator conversation history synchronizes favorite state, folders, and preferences across devices', async () => {
+  const context = await fixture();
+  try {
+    const admin = await signIn(context);
+    const favoriteConv = {
+      id: 'conv-fav-1',
+      title: '已收藏重要论文',
+      titleCustomized: true,
+      createdAt: 1000,
+      updatedAt: 2000,
+      roleId: '',
+      workflowId: '',
+      folderId: 'folder-papers',
+      copiedFromConversationId: '',
+      favoriteOrder: 0,
+      favoritedAt: 1999,
+      lastRequest: null,
+      messages: [{ id: 'msg-1', role: 'user', content: '分析这篇论文', reasoning: '', modelId: '', mode: 'chat', replyToId: '', attachments: [], images: [], usage: null, variants: [], variantIndex: 0, createdAt: 1000 }],
+    };
+    const putRes = await api(context, admin, 'PUT', '/api/conversations', {
+      version: 1,
+      folders: [{ id: 'folder-papers', name: '论文精读' }],
+      conversations: [favoriteConv],
+    });
+    assert.equal(putRes.response.status, 200);
+    assert.equal(putRes.body.folders.length, 1);
+    assert.equal(putRes.body.folders[0].id, 'folder-papers');
+    assert.equal(putRes.body.folders[0].name, '论文精读');
+    assert.equal(putRes.body.conversations[0].favoritedAt, 1999);
+    assert.equal(putRes.body.conversations[0].favoriteOrder, 0);
+    assert.equal(putRes.body.conversations[0].folderId, 'folder-papers');
+
+    // Simulate another machine fetching conversations
+    const getRes = await api(context, admin, 'GET', '/api/conversations');
+    assert.equal(getRes.response.status, 200);
+    assert.equal(getRes.body.folders.length, 1);
+    assert.equal(getRes.body.folders[0].name, '论文精读');
+    assert.equal(getRes.body.conversations[0].favoritedAt, 1999);
+    assert.equal(getRes.body.conversations[0].folderId, 'folder-papers');
+
+    // Sync preferences (readingMode, stream)
+    const prefRes = await api(context, admin, 'PUT', '/api/preferences', {
+      favoriteGroups: [],
+      readingMode: 'fluid',
+      stream: false,
+    });
+    assert.equal(prefRes.response.status, 200);
+    assert.equal(prefRes.body.readingMode, 'fluid');
+    assert.equal(prefRes.body.stream, false);
+
+    const getPref = await api(context, admin, 'GET', '/api/preferences');
+    assert.equal(getPref.body.readingMode, 'fluid');
+    assert.equal(getPref.body.stream, false);
+  } finally {
+    await context.close();
+  }
+});
+
 test('administrator history restores a missing image ID only from a unique owned media equivalent', async () => {
   const context = await fixture();
   try {
