@@ -278,8 +278,24 @@
           </form>
         </section>
         <section class="account-panel" data-account-panel-content="users" hidden>
+          <div class="admin-default-key-card">
+            <div class="account-section-heading">
+              <div><strong>全局默认 API Key</strong><span>未单独设置 Key 的用户（及 admin 默认）将统一使用此 Key</span></div>
+            </div>
+            <div class="default-key-row">
+              <input id="defaultApiKeyInput" type="password" maxlength="512" placeholder="sk-...（留空则继承系统启动环境变量默认 Key）" autocomplete="off">
+              <button class="icon-button" id="toggleDefaultApiKeyButton" type="button" title="明文/密文切换" aria-label="明文/密文切换">👁️</button>
+              <button class="secondary-button" id="saveDefaultApiKeyButton" type="button">保存默认 Key</button>
+            </div>
+          </div>
           <div class="account-section-heading"><div><strong>系统用户</strong><span id="adminUserCount">0 位用户</span></div></div>
-          <form class="create-user-form" id="createUserForm"><input id="createUsernameInput" maxlength="64" placeholder="新用户名" required><input id="createPasswordInput" type="password" maxlength="128" placeholder="初始密码（至少 10 位）" required><input id="createCreditsInput" type="number" min="0" max="1000000000000" step="1" value="0" aria-label="初始积分"><button class="primary-button" type="submit">＋ 创建用户</button></form>
+          <form class="create-user-form" id="createUserForm">
+            <input id="createUsernameInput" maxlength="64" placeholder="新用户名" required>
+            <input id="createPasswordInput" type="password" maxlength="128" placeholder="初始密码（至少 10 位）" required>
+            <input id="createCreditsInput" type="number" min="0" max="1000000000000" step="1" value="0" aria-label="初始积分">
+            <input id="createApiKeyInput" type="password" maxlength="512" placeholder="专属 API Key（可选，留空使用默认Key）" autocomplete="off">
+            <button class="primary-button" type="submit">＋ 创建用户</button>
+          </form>
           <div class="admin-users-list" id="adminUsersList"></div>
         </section>
         <section class="account-panel" data-account-panel-content="groups" hidden>

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EMPTY_ROLE_LIBRARY, findRole, validateRoleLibrary } from '../lib/role-store.mjs';
+import { EMPTY_ROLE_LIBRARY, compileRoleSystemPrompt, findRole, validateRoleLibrary } from '../lib/role-store.mjs';
 
 const role = (id, overrides = {}) => ({
   id,
@@ -103,4 +103,35 @@ test('findRole returns a detached role and null for an unknown ID', () => {
   assert.equal(library.folders[0].roles[0].name, 'Role one-r');
   assert.equal(findRole(library, 'missing'), null);
   assert.equal(findRole(library, null), null);
+});
+
+test('validates role attachments and compiles system prompt with attached text/documents', () => {
+  const customRole = role('expert-r', {
+    systemPrompt: '你是一名资深分析师。',
+    attachments: [
+      {
+        fileName: '财报数据.pdf',
+        mimeType: 'application/pdf',
+        extractedText: '2024Q3 净利润增长 35%',
+      },
+      {
+        fileName: '架构.png',
+        mimeType: 'image/png',
+        isImage: true,
+        url: 'data:image/png;base64,iVBORw0KGgo=',
+      },
+    ],
+  });
+  const library = { version: 1, folders: [folder('f-analyst', [customRole])] };
+  const validated = validateRoleLibrary(library);
+  const foundRole = findRole(validated, 'expert-r');
+  assert.equal(foundRole.attachments.length, 2);
+  assert.equal(foundRole.attachments[0].fileName, '财报数据.pdf');
+  assert.equal(foundRole.attachments[0].extractedText, '2024Q3 净利润增长 35%');
+  assert.equal(foundRole.attachments[1].isImage, true);
+
+  const compiledPrompt = compileRoleSystemPrompt(foundRole);
+  assert.match(compiledPrompt, /你是一名资深分析师。/);
+  assert.match(compiledPrompt, /【角色关联参考资料\/知识库：财报数据\.pdf】/);
+  assert.match(compiledPrompt, /2024Q3 净利润增长 35%/);
 });
