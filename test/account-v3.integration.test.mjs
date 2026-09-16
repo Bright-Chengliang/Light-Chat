@@ -29,7 +29,7 @@ function controlledUpstream() {
   });
   state.fetch = async (url, options = {}) => {
     const pathname = new URL(url).pathname;
-    state.requests.push({ pathname, method: options.method || 'GET', body: options.body });
+    state.requests.push({ pathname, method: options.method || 'GET', headers: options.headers, body: options.body });
     if (pathname === '/v1/models') return jsonResponse({ data: MODELS.map((id) => ({ id })) });
     if (pathname === '/v1/chat/completions') {
       if (state.failChat) return jsonResponse({ error: { message: 'forced chat failure' } }, 500);
@@ -253,6 +253,64 @@ test('administrator conversation history merges device-local records on the serv
       method: 'PUT', headers: { Cookie: admin.cookie, Origin: context.baseUrl, 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, conversations: [] }),
     });
     assert.equal(noCsrf.status, 403);
+  } finally {
+    await context.close();
+  }
+});
+
+test('administrator conversation history synchronizes favorite state, folders, and preferences across devices', async () => {
+  const context = await fixture();
+  try {
+    const admin = await signIn(context);
+    const favoriteConv = {
+      id: 'conv-fav-1',
+      title: '已收藏重要论文',
+      titleCustomized: true,
+      createdAt: 1000,
+      updatedAt: 2000,
+      roleId: '',
+      workflowId: '',
+      folderId: 'folder-papers',
+      copiedFromConversationId: '',
+      favoriteOrder: 0,
+      favoritedAt: 1999,
+      lastRequest: null,
+      messages: [{ id: 'msg-1', role: 'user', content: '分析这篇论文', reasoning: '', modelId: '', mode: 'chat', replyToId: '', attachments: [], images: [], usage: null, variants: [], variantIndex: 0, createdAt: 1000 }],
+    };
+    const putRes = await api(context, admin, 'PUT', '/api/conversations', {
+      version: 1,
+      folders: [{ id: 'folder-papers', name: '论文精读' }],
+      conversations: [favoriteConv],
+    });
+    assert.equal(putRes.response.status, 200);
+    assert.equal(putRes.body.folders.length, 1);
+    assert.equal(putRes.body.folders[0].id, 'folder-papers');
+    assert.equal(putRes.body.folders[0].name, '论文精读');
+    assert.equal(putRes.body.conversations[0].favoritedAt, 1999);
+    assert.equal(putRes.body.conversations[0].favoriteOrder, 0);
+    assert.equal(putRes.body.conversations[0].folderId, 'folder-papers');
+
+    // Simulate another machine fetching conversations
+    const getRes = await api(context, admin, 'GET', '/api/conversations');
+    assert.equal(getRes.response.status, 200);
+    assert.equal(getRes.body.folders.length, 1);
+    assert.equal(getRes.body.folders[0].name, '论文精读');
+    assert.equal(getRes.body.conversations[0].favoritedAt, 1999);
+    assert.equal(getRes.body.conversations[0].folderId, 'folder-papers');
+
+    // Sync preferences (readingMode, stream)
+    const prefRes = await api(context, admin, 'PUT', '/api/preferences', {
+      favoriteGroups: [],
+      readingMode: 'fluid',
+      stream: false,
+    });
+    assert.equal(prefRes.response.status, 200);
+    assert.equal(prefRes.body.readingMode, 'fluid');
+    assert.equal(prefRes.body.stream, false);
+
+    const getPref = await api(context, admin, 'GET', '/api/preferences');
+    assert.equal(getPref.body.readingMode, 'fluid');
+    assert.equal(getPref.body.stream, false);
   } finally {
     await context.close();
   }
@@ -656,6 +714,93 @@ test('legacy automatic favorites migrate into explicit chat and image groups', a
     assert.deepEqual(migrated.body.favoriteGroups.flatMap((group) => group.items.map((item) => [group.id, item.modelId, item.mode])), [
       ['default-chat', 'chat-basic', 'chat'], ['default-image', 'gpt-image-basic', 'image'],
     ]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('administrator can configure user-specific apiKey, update it online, and set default apiKey', async () => {
+  const context = await fixture();
+  try {
+    const admin = await signIn(context);
+
+    // 1. Initial default API key is null
+    const defaultKeyRes = await api(context, admin, 'GET', '/api/admin/default-api-key');
+    assert.equal(defaultKeyRes.response.status, 200);
+    assert.equal(defaultKeyRes.body.defaultApiKey, null);
+
+    // 2. Administrator creates user with custom API Key
+    const userWithKey = await createUser(context, admin, {
+      username: 'custom-key-user',
+      password: 'custom-key-password',
+      credits: 10,
+      apiKey: 'sk-custom-user-123456',
+      extraModels: ['chat-basic'],
+    });
+    assert.equal(userWithKey.apiKey, 'sk-custom-user-123456');
+
+    // 3. Administrator creates user without API Key
+    const userWithoutKey = await createUser(context, admin, {
+      username: 'default-key-user',
+      password: 'default-key-password',
+      credits: 10,
+      extraModels: ['chat-basic'],
+    });
+    assert.equal(userWithoutKey.apiKey, null);
+
+    // 4. Administrator modifies user's API Key online
+    const updatedUser = await api(context, admin, 'PUT', `/api/admin/users/${userWithKey.uid}/api-key`, {
+      apiKey: 'sk-custom-user-updated-999',
+    });
+    assert.equal(updatedUser.response.status, 200);
+    assert.equal(updatedUser.body.user.apiKey, 'sk-custom-user-updated-999');
+
+    // 5. Administrator sets global default API Key
+    const setDef = await api(context, admin, 'PUT', '/api/admin/default-api-key', {
+      apiKey: 'sk-global-default-888',
+    });
+    assert.equal(setDef.response.status, 200);
+    assert.equal(setDef.body.defaultApiKey, 'sk-global-default-888');
+
+    // 6. Test requests with custom key vs default key
+    const customUserSession = await signIn(context, 'custom-key-user', 'custom-key-password');
+    context.upstream.requests.length = 0;
+    const chat1 = await api(context, customUserSession, 'POST', '/api/chat', {
+      model: 'chat-basic',
+      messages: [{ role: 'user', content: 'hello custom key' }],
+    });
+    assert.equal(chat1.response.status, 200);
+    const chat1Req = context.upstream.requests.find((r) => r.pathname === '/v1/chat/completions');
+    const auth1 = chat1Req.headers?.authorization || chat1Req.headers?.Authorization;
+    assert.equal(auth1, 'Bearer sk-custom-user-updated-999');
+
+    const defaultUserSession = await signIn(context, 'default-key-user', 'default-key-password');
+    context.upstream.requests.length = 0;
+    const chat2 = await api(context, defaultUserSession, 'POST', '/api/chat', {
+      model: 'chat-basic',
+      messages: [{ role: 'user', content: 'hello default key' }],
+    });
+    assert.equal(chat2.response.status, 200);
+    const chat2Req = context.upstream.requests.find((r) => r.pathname === '/v1/chat/completions');
+    const auth2 = chat2Req.headers?.authorization || chat2Req.headers?.Authorization;
+    assert.equal(auth2, 'Bearer sk-global-default-888');
+
+    // 7. Clear user's custom key to fallback to default key
+    const resetUser = await api(context, admin, 'PUT', `/api/admin/users/${userWithKey.uid}/api-key`, {
+      apiKey: null,
+    });
+    assert.equal(resetUser.response.status, 200);
+    assert.equal(resetUser.body.user.apiKey, null);
+
+    context.upstream.requests.length = 0;
+    const chat3 = await api(context, customUserSession, 'POST', '/api/chat', {
+      model: 'chat-basic',
+      messages: [{ role: 'user', content: 'hello fallback' }],
+    });
+    assert.equal(chat3.response.status, 200);
+    const chat3Req = context.upstream.requests.find((r) => r.pathname === '/v1/chat/completions');
+    const auth3 = chat3Req.headers?.authorization || chat3Req.headers?.Authorization;
+    assert.equal(auth3, 'Bearer sk-global-default-888');
   } finally {
     await context.close();
   }

@@ -43,6 +43,7 @@ import org.json.JSONObject;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @SuppressWarnings("deprecation")
 public final class MainActivity extends Activity {
@@ -379,16 +380,53 @@ public final class MainActivity extends Activity {
     }
 
     private final class LightChatChromeClient extends WebChromeClient {
+        private void appendMimeType(List<String> accepted, String mimeType) {
+            if (!accepted.contains(mimeType)) accepted.add(mimeType);
+        }
+
+        private void appendMimeTypesForExtension(List<String> accepted, String value) {
+            String extension = value.toLowerCase(Locale.ROOT);
+            if (extension.equals(".txt")) {
+                appendMimeType(accepted, "text/plain");
+                // Several Android document providers label plain text as this generic type.
+                appendMimeType(accepted, "application/octet-stream");
+            } else if (extension.equals(".pdf")) {
+                appendMimeType(accepted, "application/pdf");
+            } else if (extension.equals(".md") || extension.equals(".markdown")) {
+                appendMimeType(accepted, "text/markdown");
+            } else if (extension.equals(".epub") || extension.equals(".epub.zip")) {
+                appendMimeType(accepted, "application/epub+zip");
+            } else if (extension.equals(".doc")) {
+                appendMimeType(accepted, "application/msword");
+            } else if (extension.equals(".docx")) {
+                appendMimeType(accepted, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            } else if (extension.equals(".ppt")) {
+                appendMimeType(accepted, "application/vnd.ms-powerpoint");
+            } else if (extension.equals(".pptx")) {
+                appendMimeType(accepted, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+            }
+        }
+
         @Override
         public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
             if (filePathCallback != null) filePathCallback.onReceiveValue(null);
             filePathCallback = callback;
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
             List<String> accepted = new ArrayList<>();
             for (String type : params.getAcceptTypes()) {
-                if (type != null && !type.isBlank()) accepted.add(type.trim());
+                if (type == null || type.isBlank()) continue;
+                for (String candidate : type.split(",")) {
+                    String value = candidate.trim().toLowerCase(Locale.ROOT);
+                    if (value.isEmpty()) continue;
+                    if (value.startsWith(".")) {
+                        appendMimeTypesForExtension(accepted, value);
+                    } else if (value.equals("*/*") || value.contains("/")) {
+                        appendMimeType(accepted, value);
+                    }
+                }
             }
             if (accepted.size() == 1) intent.setType(accepted.get(0));
             else {

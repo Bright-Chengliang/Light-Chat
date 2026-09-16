@@ -19,7 +19,7 @@ const WORKFLOW_ROLES = {
   }],
 };
 
-async function fixture({ imageUpscaler = null, fakeOptions = {}, opcPort = undefined, preferences = null } = {}) {
+async function fixture({ imageUpscaler = null, fakeOptions = {}, opcPort = undefined, learningPort = undefined, preferences = null } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'chat-app-'));
   await mkdir(join(root, 'public'), { recursive: true });
   await mkdir(join(root, '.data'), { recursive: true });
@@ -39,6 +39,7 @@ async function fixture({ imageUpscaler = null, fakeOptions = {}, opcPort = undef
     port: 0,
     newApiBaseUrl: fake.baseUrl,
     ...(opcPort === undefined ? {} : { opcPort }),
+    ...(learningPort === undefined ? {} : { learningPort }),
     pdfTextExtractor: { extract: async () => '[Page 1]\nLeft column first.\nRight column second.' },
     imageUpscaler,
   });
@@ -67,7 +68,7 @@ test('OpenOPC is available only through an authenticated LightChat proxy session
   const requests = [];
   const opcServer = createServer((req, res) => {
     requests.push({ url: req.url, headers: { ...req.headers } });
-    if (req.url === '/') {
+    if (req.url === '/' || req.url.startsWith('/?')) {
       const html = '<!doctype html><html><head><title>OpenOPC</title></head><body><script type="module" src="./assets/app.js"></script></body></html>';
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': Buffer.byteLength(html), 'Set-Cookie': 'upstream-session=must-not-leak' });
       res.end(html);
@@ -136,6 +137,160 @@ test('OpenOPC is available only through an authenticated LightChat proxy session
   } finally {
     await context.close();
     await new Promise((resolve) => opcServer.close(resolve));
+  }
+});
+
+test('learning service is available only through an authenticated administrator proxy session', async () => {
+  const requests = [];
+  const learningServer = createServer(async (req, res) => {
+    const bodyChunks = [];
+    for await (const chunk of req) bodyChunks.push(chunk);
+    requests.push({ url: req.url, headers: { ...req.headers }, body: Buffer.concat(bodyChunks).toString('utf8') });
+    if (req.headers.accept?.includes('text/x-component')) {
+      res.writeHead(200, { 'Content-Type': 'text/x-component' });
+      res.end(':HL["/_next/static/css/app.css","style"]\\n1:{"api":"/api"} const api="/api"');
+      return;
+    }
+    if (req.url === '/' || req.url.startsWith('/?')) {
+      const html = '<!doctype html><html><head><title>Learning</title><link rel="stylesheet" href="/_next/app.css"></head><body><script type="module" src="/_next/app.js"></script><script>self.__next_f.push([1,"\\"/_next/embedded.css\\""])</script></body></html>';
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Set-Cookie': 'upstream-session=must-not-leak' });
+      res.end(html);
+      return;
+    }
+    if (req.url === '/_next/app.css') {
+      res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
+      res.end('body { background: url(/_next/background.svg); }');
+      return;
+    }
+    if (req.url === '/_next/app.js') {
+      const bundle = 'window.location.hostname}:${window.location.port||"3021"}/ws; const api="/api"; addPathPrefix)(e,"")); pathHasPrefix(e,""); 95888:(e,t,r)=>{"use strict";function n(e){return e} fetch("/api/progress"); fetch(`/api/courses/x`);';
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
+      res.end(bundle);
+      return;
+    }
+    if (req.url === '/redirect') {
+      res.writeHead(302, { Location: `http://127.0.0.1:${learningServer.address().port}/next` });
+      res.end();
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ url: req.url }));
+  });
+  const learningBaseUrl = await listen(learningServer);
+  const context = await fixture({ learningPort: Number(new URL(learningBaseUrl).port) });
+  try {
+    const unauthenticated = await fetch(`${context.baseUrl}/learning/`, { redirect: 'manual' });
+    assert.equal(unauthenticated.status, 401);
+    assert.equal(requests.length, 0);
+
+    const signedIn = await authenticated(context);
+    const ordinaryUser = await context.app.stores.accountStore.createUser({
+      username: 'learning-ordinary-user', password: 'learning-ordinary-password', credits: 0, extraModels: [],
+    });
+    const ordinaryInitial = await session(context.baseUrl);
+    const ordinarySignedIn = await login(context.baseUrl, {
+      ...ordinaryInitial, username: ordinaryUser.username, password: 'learning-ordinary-password',
+    });
+    assert.equal(ordinarySignedIn.response.status, 200);
+    const ordinaryDenied = await fetch(`${context.baseUrl}/learning/`, { headers: { Cookie: ordinarySignedIn.cookie } });
+    assert.equal(ordinaryDenied.status, 403);
+    assert.equal(requests.length, 0);
+
+    const redirect = await fetch(`${context.baseUrl}/learning?course=security`, { headers: { Cookie: signedIn.cookie }, redirect: 'manual' });
+    assert.equal(redirect.status, 303);
+    assert.equal(redirect.headers.get('location'), '/learning/?course=security');
+
+    const page = await fetch(`${context.baseUrl}/learning/?course=security`, { headers: { Cookie: signedIn.cookie } });
+    assert.equal(page.status, 200);
+    const pageHtml = await page.text();
+    assert.match(pageHtml, /<title>Learning<\/title>/);
+    assert.match(pageHtml, /href="\/learning\/_next\/app\.css\?proxy=1"/);
+    assert.match(pageHtml, /src="\/learning\/_next\/app\.js\?proxy=1"/);
+
+    const workerRoot = await fetch(`${context.baseUrl}/`, {
+      headers: { Cookie: signedIn.cookie, 'X-Light-Chat-Learning-Client': '1' },
+    });
+    assert.equal(workerRoot.status, 200);
+    assert.match(await workerRoot.text(), /<title>Learning<\/title>/);
+
+    const serviceWorker = await fetch(`${context.baseUrl}/learning/service-worker.js`, { headers: { Cookie: signedIn.cookie } });
+    assert.equal(serviceWorker.status, 200);
+    assert.equal(serviceWorker.headers.get('service-worker-allowed'), '/');
+    const serviceWorkerSource = await serviceWorker.text();
+    assert.match(serviceWorkerSource, /x-light-chat-learning-client/);
+    assert.match(serviceWorkerSource, /startsWith\(PREFIX \+ '\/'\)/);
+    assert.doesNotMatch(serviceWorkerSource, /else target\.pathname = PREFIX/);
+    assert.match(serviceWorkerSource, /init\.body = await request\.blob\(\)/);
+    assert.match(serviceWorkerSource, /request\.headers\.get\(CLIENT_HEADER\) === CLIENT_VALUE/);
+
+    const workerApi = await fetch(`${context.baseUrl}/api/progress`, {
+      headers: { Cookie: signedIn.cookie, 'X-Light-Chat-Learning-Client': '1' },
+    });
+    assert.equal(workerApi.status, 200);
+    assert.equal((await workerApi.json()).url, '/api/progress');
+    assert.match(serviceWorkerSource, /\nconst CLIENT_HEADER/);
+    assert.doesNotMatch(serviceWorkerSource, /\\n/);
+
+    const document = await fetch(`${context.baseUrl}/learning/_next/app.js`, { headers: { Cookie: signedIn.cookie } });
+    assert.equal(document.status, 200);
+    assert.equal(document.headers.get('set-cookie'), null);
+    assert.equal(requests.at(-1).url, '/_next/app.js');
+    assert.equal(requests.at(-1).headers.cookie, undefined);
+
+    const stylesheet = await fetch(`${context.baseUrl}/learning/_next/app.css`, { headers: { Cookie: signedIn.cookie } });
+    assert.equal(stylesheet.status, 200);
+    assert.match(await stylesheet.text(), /url\(\/learning\/_next\/background\.svg\)/);
+
+    const flight = await fetch(`${context.baseUrl}/learning/_next/app.js`, { headers: { Cookie: signedIn.cookie, Accept: 'text/x-component', RSC: '1' } });
+    assert.equal(flight.status, 200);
+    const flightSource = await flight.text();
+    assert.match(flightSource, /"\/learning\/_next\/static\/css\/app\.css"/);
+    assert.match(flightSource, /const api="\/learning\/api"/);
+
+    const bundle = await fetch(`${context.baseUrl}/learning/_next/app.js`, { headers: { Cookie: signedIn.cookie } });
+    assert.equal(bundle.status, 200);
+    const rewrittenBundle = await bundle.text();
+    assert.match(rewrittenBundle, /window\.location\.host}\/learning\/ws/);
+    assert.match(rewrittenBundle, /fetch\("\/learning\/api\/progress"\)/);
+    assert.match(rewrittenBundle, /fetch\(`\/learning\/api\/courses\/x`\)/);
+    assert.match(rewrittenBundle, /const api="\/learning\/api"/);
+
+    const upstreamRedirect = await fetch(`${context.baseUrl}/learning/redirect`, { headers: { Cookie: signedIn.cookie }, redirect: 'manual' });
+    assert.equal(upstreamRedirect.status, 302);
+    assert.equal(upstreamRedirect.headers.get('location'), '/learning/next');
+
+    const rejectedMutation = await fetch(`${context.baseUrl}/learning/api/progress`, {
+      method: 'PUT', headers: { Cookie: signedIn.cookie, 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(rejectedMutation.status, 403);
+
+    const proxiedMutation = await fetch(`${context.baseUrl}/learning/api/progress`, {
+      method: 'PUT',
+      headers: { Cookie: signedIn.cookie, Origin: context.baseUrl, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    assert.equal(proxiedMutation.status, 200);
+    assert.equal((await proxiedMutation.json()).url, '/api/progress');
+    assert.equal(requests.at(-1).headers.cookie, undefined);
+    assert.equal(requests.at(-1).headers.origin, `http://127.0.0.1:${new URL(learningBaseUrl).port}`);
+
+    const importedMaterial = new FormData();
+    importedMaterial.set('file', new Blob(['# Mobile import\n'], { type: 'text/markdown' }), 'mobile-notes.md');
+    importedMaterial.set('profileId', 'default');
+    importedMaterial.set('worldId', 'world-mobile');
+    const imported = await fetch(`${context.baseUrl}/learning/api/textbook`, {
+      method: 'POST',
+      headers: { Cookie: signedIn.cookie, Origin: context.baseUrl, 'X-Light-Chat-Learning-Client': '1' },
+      body: importedMaterial,
+    });
+    assert.equal(imported.status, 200);
+    assert.equal((await imported.json()).url, '/api/textbook');
+    assert.match(requests.at(-1).headers['content-type'], /^multipart\/form-data; boundary=/);
+    assert.match(requests.at(-1).body, /mobile-notes\.md/);
+    assert.match(requests.at(-1).body, /Mobile import/);
+  } finally {
+    await context.close();
+    await new Promise((resolve) => learningServer.close(resolve));
   }
 });
 

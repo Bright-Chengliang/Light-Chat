@@ -3,7 +3,7 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 const elements = {
   appShell: $('.app-shell'), sidebar: $('#sidebar'), sidebarResizer: $('#sidebarResizer'), sidebarBackdrop: $('#sidebarBackdrop'), sidebarClose: $('#sidebarCloseButton'), menu: $('#menuButton'),
-  sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openFavoriteMediaDrawer: $('#openFavoriteMediaDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), openToolsDrawer: $('#openToolsDrawer'), toolsToggle: $('#toolsToggle'), addCustomToolButton: $('#addCustomToolButton'), toolsDrawerList: $('#toolsDrawerList'), openOpc: $('#openOpc'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
+  sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openFavoriteMediaDrawer: $('#openFavoriteMediaDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), openToolsDrawer: $('#openToolsDrawer'), toolsToggle: $('#toolsToggle'), addCustomToolButton: $('#addCustomToolButton'), toolsDrawerList: $('#toolsDrawerList'), openOpc: $('#openOpc'), openLearning: $('#openLearning'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
   recentFiles: $('#recentFilesList'), recentFilesToggle: $('#recentFilesToggle'), recentFilesPagination: $('#recentFilesPagination'), previousRecentFilesPage: $('#previousRecentFilesPage'), nextRecentFilesPage: $('#nextRecentFilesPage'), recentFilesPageStatus: $('#recentFilesPageStatus'), refreshRecentFiles: $('#refreshRecentFilesButton'), favoriteMedia: $('#favoriteMediaList'), favoriteMediaToggle: $('#favoriteMediaToggle'), favoriteMediaPagination: $('#favoriteMediaPagination'), previousFavoriteMediaPage: $('#previousFavoriteMediaPage'), nextFavoriteMediaPage: $('#nextFavoriteMediaPage'), favoriteMediaPageStatus: $('#favoriteMediaPageStatus'), refreshFavoriteMedia: $('#refreshFavoriteMediaButton'),
   newConversation: $('#newConversationButton'), currentModelNewConversation: $('#currentModelNewConversationButton'), addHistoryFolder: $('#addHistoryFolderButton'), addFavoriteConversationFolder: $('#addFavoriteConversationFolderButton'), clearHistory: $('#clearHistoryButton'), history: $('#historyList'), historyToggle: $('#historyToggle'), historySearch: $('#historySearchInput'), favoriteConversations: $('#favoriteConversations'), favoriteConversationsToggle: $('#favoriteConversationsToggle'),
   sidebarFavorites: $('#sidebarFavorites'), sidebarFavoritesToggle: $('#sidebarFavoritesToggle'),
@@ -27,7 +27,8 @@ const elements = {
   accountDialog: $('#accountDialog'), accountForm: $('#accountForm'), currentUsername: $('#currentUsernameInput'),
   currentPassword: $('#currentPasswordInput'), newUsername: $('#newUsernameInput'), newPassword: $('#newPasswordInput'),
   accountStatus: $('#accountStatus'), accountTabs: $('#accountTabs'), quotaBalance: $('#quotaBalance'), quotaIdentity: $('#quotaIdentity'), quotaUsed: $('#quotaUsed'), quotaChatCalls: $('#quotaChatCalls'), quotaImageCalls: $('#quotaImageCalls'),
-  createUserForm: $('#createUserForm'), createUsername: $('#createUsernameInput'), createPassword: $('#createPasswordInput'), createCredits: $('#createCreditsInput'), adminUserCount: $('#adminUserCount'), adminUsersList: $('#adminUsersList'),
+  defaultApiKeyInput: $('#defaultApiKeyInput'), toggleDefaultApiKey: $('#toggleDefaultApiKeyButton'), saveDefaultApiKey: $('#saveDefaultApiKeyButton'),
+  createUserForm: $('#createUserForm'), createUsername: $('#createUsernameInput'), createPassword: $('#createPasswordInput'), createCredits: $('#createCreditsInput'), createApiKey: $('#createApiKeyInput'), adminUserCount: $('#adminUserCount'), adminUsersList: $('#adminUsersList'),
   addModelAccessGroup: $('#addModelAccessGroupButton'), saveModelAccessGroups: $('#saveModelAccessGroupsButton'), modelAccessGroupsEditor: $('#modelAccessGroupsEditor'), workflowEditor: $('#workflowEditor'), addWorkflow: $('#addWorkflowButton'), saveWorkflows: $('#saveWorkflowsButton'),
   rolesDialog: $('#rolesDialog'), rolesEditor: $('#rolesEditor'), addRoleFolder: $('#addRoleFolderButton'), saveRoles: $('#saveRolesButton'), rolesStatus: $('#rolesStatus'),
   roleTransferDialog: $('#roleTransferDialog'), roleTransferTitle: $('#roleTransferDialogTitle'), roleTransferDescription: $('#roleTransferDescription'), roleTransferFolder: $('#roleTransferFolderSelect'), roleTransferStatus: $('#roleTransferStatus'), confirmRoleTransfer: $('#confirmRoleTransferButton'),
@@ -183,12 +184,17 @@ function scheduleAdministratorConversationSync() {
     adminConversationSyncTimer = null;
     const revision = ++adminConversationRevision;
     const snapshot = structuredClone(state.conversations);
+    const foldersSnapshot = structuredClone(state.historyFolders);
     adminConversationSyncQueue = adminConversationSyncQueue.then(async () => {
       const payload = await jsonRequest('/api/conversations', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, conversations: snapshot }),
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, folders: foldersSnapshot, conversations: snapshot }),
       });
       if (!Array.isArray(payload.conversations) || revision !== adminConversationRevision) return;
       state.conversations = mergeConversations(state.conversations, payload.conversations);
+      if (Array.isArray(payload.folders)) {
+        state.historyFolders = mergeFolderLists(state.historyFolders, payload.folders);
+        saveHistoryFoldersToBrowser();
+      }
       clearAdministratorBrowserConversationData(); renderHistory(); renderFavoriteConversations(); renderRoles(); renderWorkflows();
       adminConversationSyncFailed = false;
     }).catch((error) => {
@@ -206,6 +212,12 @@ async function loadPersistedConversations() {
     const merged = mergeConversations([], payload.conversations);
     state.conversations = merged;
     clearAdministratorBrowserConversationData();
+    if (Array.isArray(payload.folders)) {
+      state.historyFolders = mergeFolderLists(state.historyFolders, payload.folders);
+      saveHistoryFoldersToBrowser();
+      renderHistory();
+      renderFavoriteConversations();
+    }
     return merged;
   } catch (error) {
     setStatus(`管理员会话读取失败，无法从服务器恢复历史：${error.message}`, 'error');
@@ -577,7 +589,17 @@ function sanitizeAssistantVariant(value, continuationDepth = 0) {
 }
 
 function sanitizeMessage(value, continuationDepth = 0) {
-  if (!value || !['user', 'assistant'].includes(value.role)) return null;
+  if (!value || !['user', 'assistant', 'tool'].includes(value.role)) return null;
+  if (value.role === 'tool') {
+    return {
+      id: typeof value.id === 'string' ? value.id.slice(0, 80) : randomId(),
+      role: 'tool',
+      tool_call_id: typeof value.tool_call_id === 'string' ? value.tool_call_id.slice(0, 100) : '',
+      tool_name: typeof value.tool_name === 'string' ? value.tool_name.slice(0, 100) : '',
+      content: typeof value.content === 'string' ? value.content.slice(0, MAX_STORED_MESSAGE_CHARS) : '',
+      createdAt: Number.isFinite(value.createdAt) ? value.createdAt : Date.now(),
+    };
+  }
   const variants = value.role === 'assistant' && Array.isArray(value.variants)
     ? value.variants.map((variant) => sanitizeAssistantVariant(variant, continuationDepth)).filter(Boolean).slice(0, MAX_RESPONSE_VARIANTS)
     : [];
@@ -592,6 +614,7 @@ function sanitizeMessage(value, continuationDepth = 0) {
     replyToId: value.role === 'assistant' && typeof value.replyToId === 'string' ? value.replyToId.slice(0, 80) : '',
     attachments: Array.isArray(value.attachments) ? value.attachments.map(sanitizeAttachment).filter(Boolean).slice(0, 8) : [],
     images: Array.isArray(value.images) ? value.images.map(sanitizeAttachment).filter(Boolean).slice(0, 8) : [],
+    toolCalls: Array.isArray(value.toolCalls) ? value.toolCalls : [],
     usage: sanitizeUsage(value.usage),
     variants,
     variantIndex,
@@ -643,25 +666,51 @@ function loadConversations() {
   } catch { return []; }
 }
 
+function normalizeHistoryFolders(folders) {
+  if (!Array.isArray(folders)) return [];
+  const ids = new Set();
+  return folders.flatMap((folder) => {
+    if (!folder || typeof folder.id !== 'string' || !/^[A-Za-z0-9_-]{3,64}$/.test(folder.id) || ids.has(folder.id)) return [];
+    const name = typeof folder.name === 'string' ? folder.name.trim().slice(0, 40) : '';
+    if (!name) return [];
+    ids.add(folder.id); return [{ id: folder.id, name }];
+  }).slice(0, 30);
+}
+
+function mergeFolderLists(localFolders = [], serverFolders = []) {
+  const merged = new Map();
+  for (const folder of Array.isArray(serverFolders) ? serverFolders : []) {
+    if (folder?.id && folder.name) merged.set(folder.id, folder);
+  }
+  for (const local of Array.isArray(localFolders) ? localFolders : []) {
+    if (!local?.id || !local.name) continue;
+    const existing = merged.get(local.id);
+    if (!existing) {
+      merged.set(local.id, local);
+    } else if (existing.name === '未命名文件夹' && local.name !== '未命名文件夹') {
+      merged.set(local.id, { ...existing, name: local.name });
+    }
+  }
+  return [...merged.values()].slice(0, 30);
+}
+
 function loadHistoryFolders() {
   try {
     const parsed = JSON.parse(localStorage.getItem(HISTORY_FOLDERS_KEY) || '[]');
-    if (!Array.isArray(parsed)) return [];
-    const ids = new Set();
-    return parsed.flatMap((folder) => {
-      if (!folder || typeof folder.id !== 'string' || !/^[A-Za-z0-9_-]{3,64}$/.test(folder.id) || ids.has(folder.id)) return [];
-      const name = typeof folder.name === 'string' ? folder.name.trim().slice(0, 40) : '';
-      if (!name) return [];
-      ids.add(folder.id); return [{ id: folder.id, name }];
-    }).slice(0, 30);
+    return normalizeHistoryFolders(parsed);
   } catch { return []; }
 }
 
-function saveHistoryFolders() {
+function saveHistoryFoldersToBrowser() {
   localStorage.setItem(HISTORY_FOLDERS_KEY, JSON.stringify(state.historyFolders));
   localStorage.setItem(HISTORY_FOLDERS_OPEN_KEY, JSON.stringify([...state.openHistoryFolders]));
   localStorage.setItem(HISTORY_UNFILED_COLLAPSED_KEY, String(state.historyUnfiledCollapsed));
   localStorage.setItem(FAVORITE_UNFILED_COLLAPSED_KEY, String(state.favoriteUnfiledCollapsed));
+}
+
+function saveHistoryFolders() {
+  saveHistoryFoldersToBrowser();
+  if (state.userRole === 'admin') scheduleAdministratorConversationSync();
 }
 
 function saveConversations() {
@@ -706,6 +755,7 @@ function normalizeFavoriteConversationOrder() {
 function setConversationFavorite(conversationId, favorite) {
   const conversation = state.conversations.find((item) => item.id === conversationId);
   if (!conversation) return false;
+  conversation.updatedAt = Date.now();
   if (favorite) {
     conversation.favoritedAt = Date.now();
     conversation.favoriteOrder = 0;
@@ -745,9 +795,15 @@ function findRoleById(roleId) { return allRoles().find((role) => role.id === rol
 function validRoleId(roleId) { return findRoleById(roleId)?.id || ''; }
 
 function createConversation({ activate = true, roleId = validRoleId(state.selectedRoleId), workflowId = '', close = true } = {}) {
+  if (activate) saveCurrentConversationDraft();
   const conversation = { id: randomId(), title: '新对话', titleCustomized: false, createdAt: Date.now(), updatedAt: Date.now(), roleId, workflowId: validWorkflowId(workflowId), folderId: '', messages: [] };
   state.conversations.unshift(conversation);
-  if (activate) { state.currentId = conversation.id; state.editingMessageId = ''; resumeOutputFollow(); }
+  if (activate) {
+    state.currentId = conversation.id;
+    state.editingMessageId = '';
+    resumeOutputFollow();
+    restoreConversationDraft(conversation.id);
+  }
   saveConversations();
   renderConversation();
   elements.input.focus();
@@ -1312,9 +1368,10 @@ function renderSidebarDrawerState() {
 
   const roleTitle = $('span:first-child', elements.sidebarRolesToggle);
   const historyTitle = $('span:first-child', elements.historyToggle);
-  if (roleTitle) roleTitle.textContent = roleId === '__default__' ? '默认助手' : roleId ? findRoleById(roleId)?.name || '角色详情' : '自定义角色';
-  if (historyTitle) historyTitle.textContent = '最近对话';
   const activeCustomRole = roleId && roleId !== '__default__' ? findRoleById(roleId) : null;
+  const attCount = activeCustomRole?.attachments?.length ? ` 📎${activeCustomRole.attachments.length}` : '';
+  if (roleTitle) roleTitle.textContent = roleId === '__default__' ? '默认助手' : roleId ? `${findRoleById(roleId)?.name || '角色详情'}${attCount}` : '自定义角色';
+  if (historyTitle) historyTitle.textContent = '最近对话';
   elements.manageRoles.textContent = activeCustomRole ? '编辑' : '管理';
   elements.manageRoles.title = activeCustomRole ? `编辑角色“${activeCustomRole.name}”` : '管理自定义角色';
   elements.manageRoles.setAttribute('aria-label', activeCustomRole ? `编辑角色“${activeCustomRole.name}”` : '管理自定义角色');
@@ -1390,7 +1447,7 @@ function renderHistory() {
   }
   if (searchQuery && !visibleConversations.length) {
     const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = `没有匹配“${state.historySearch.trim()}”的对话标题。`; elements.history.append(empty);
-  } else if (!state.conversations.length) {
+  }   else if (!state.conversations.length) {
     const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = '还没有本机对话。发送第一条消息后，可拖到上面的文件夹中。'; elements.history.append(empty);
   }
   renderSidebarDrawerState();
@@ -1502,7 +1559,18 @@ function createHistoryItem(conversation) {
   const title = document.createElement('span'); appendHistoryTitleHighlight(title, conversation.title, query);
   const time = document.createElement('time'); time.textContent = busy ? '生成中…' : formatTime(conversation.updatedAt);
   button.append(title);
-  button.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true }));
+  let ignoreNextHistoryClick = false;
+  button.addEventListener('click', (event) => {
+    if (ignoreNextHistoryClick) {
+      ignoreNextHistoryClick = false;
+      event.stopPropagation();
+      return;
+    }
+    if (event.detail === 0) {
+      activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true });
+      event.stopPropagation();
+    }
+  });
   let startX = 0; let startY = 0; let isDragging = false;
   button.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
@@ -1511,6 +1579,7 @@ function createHistoryItem(conversation) {
   button.addEventListener('pointerup', (event) => {
     if (event.button !== 0 || isDragging) return;
     if (Math.hypot(event.clientX - startX, event.clientY - startY) < 8) {
+      ignoreNextHistoryClick = true;
       activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true });
     }
   });
@@ -1523,7 +1592,7 @@ function createHistoryItem(conversation) {
     openMenu(event.clientX, event.clientY, button);
   });
   row.addEventListener('click', (event) => {
-    if (event.target.closest('.history-rename-button')) return;
+    if (event.target.closest('.history-rename-button, .history-item')) return;
     activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true });
   });
   button.addEventListener('dragstart', (event) => {
@@ -1559,6 +1628,33 @@ function appendHistoryTitleHighlight(container, title, query) {
   }
 }
 
+const conversationDrafts = new Map();
+
+function saveCurrentConversationDraft() {
+  if (!state.currentId) return;
+  const text = elements.input?.value || '';
+  const attachments = Array.isArray(state.pendingAttachments) ? [...state.pendingAttachments] : [];
+  if (text || attachments.length > 0) {
+    conversationDrafts.set(state.currentId, { text, attachments });
+  } else {
+    conversationDrafts.delete(state.currentId);
+  }
+}
+
+function restoreConversationDraft(conversationId) {
+  const draft = conversationDrafts.get(conversationId);
+  if (draft) {
+    if (elements.input) elements.input.value = draft.text || '';
+    state.pendingAttachments = Array.isArray(draft.attachments) ? [...draft.attachments] : [];
+  } else {
+    if (elements.input) elements.input.value = '';
+    state.pendingAttachments = [];
+  }
+  renderPendingAttachments();
+  autoResize();
+  updateSendState();
+}
+
 function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar = true, keepDrawer = false } = {}) {
   const conversation = state.conversations.find((item) => item.id === conversationId);
   if (!conversation) return;
@@ -1568,6 +1664,7 @@ function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar
     return;
   }
   closeAllContextMenus();
+  saveCurrentConversationDraft();
   state.currentId = conversationId;
   const workflow = validWorkflowId(conversation.workflowId) ? findWorkflowById(conversation.workflowId) : null;
   state.selectedWorkflow = workflow;
@@ -1580,6 +1677,7 @@ function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar
   restoreConversationRequest(conversation);
   state.editingMessageId = '';
   resumeOutputFollow();
+  restoreConversationDraft(conversationId);
   renderWorkflowComposer(); renderWorkflows(); renderConversation(); updateSendState();
   if (shouldCloseSidebar) closeSidebar();
   else if (keepDrawer) { openSidebar(); renderSidebarDrawerState(); }
@@ -1615,6 +1713,7 @@ function moveConversationToFolder(conversationId, folderId) {
   const targetFolderId = state.historyFolders.some((folder) => folder.id === folderId) ? folderId : '';
   const shouldFavorite = Boolean(targetFolderId) && !isFavoriteConversation(conversation);
   if (conversation.folderId === targetFolderId && !shouldFavorite) return false;
+  conversation.updatedAt = Date.now();
   conversation.folderId = targetFolderId;
   if (shouldFavorite) {
     conversation.favoritedAt = Date.now();
@@ -1807,6 +1906,7 @@ function createContextMenuButton(label, menuId, openMenu) {
   const button = document.createElement('button'); button.type = 'button'; button.className = 'item-menu-button'; button.textContent = '⋯'; button.title = label; button.setAttribute('aria-label', label);
   bindContextMenuTrigger(button, menuId, openMenu);
   button.addEventListener('click', (event) => {
+    event.preventDefault();
     event.stopPropagation();
     if (activeContextMenu === document.getElementById(menuId) && contextMenuReturnFocus === button) { closeAllContextMenus({ restoreFocus: true }); return; }
     openMenu(Number.NaN, Number.NaN, button);
@@ -2148,9 +2248,13 @@ function deleteHistoryConversation(conversationId) {
   if (isConversationBusy(conversationId)) { setStatus('正在响应的对话暂时不能删除', 'error'); closeHistoryContextMenu({ restoreFocus: true }); return; }
   closeHistoryContextMenu({ restoreFocus: true });
   if (!confirm(`删除对话“${conversation.title}”（共 ${conversation.messages.length} 条消息）？\n\n此操作无法撤销，仅影响当前浏览器。`)) return;
+  conversationDrafts.delete(conversationId);
   state.conversations = state.conversations.filter((item) => item.id !== conversationId);
   if (!state.conversations.length) { state.currentId = ''; createConversation(); return; }
-  if (state.currentId === conversationId) state.currentId = state.conversations[0].id;
+  if (state.currentId === conversationId) {
+    state.currentId = state.conversations[0].id;
+    restoreConversationDraft(state.currentId);
+  }
   saveConversations(); renderConversation(); restoreContextMenuFocus(elements.historyToggle);
 }
 
@@ -2666,6 +2770,7 @@ function applyAssistantVariant(message, variant, index) {
   message.reasoning = variant.reasoning;
   message.attachments = structuredClone(variant.attachments || []);
   message.images = structuredClone(variant.images || []);
+  message.toolCalls = structuredClone(variant.toolCalls || []);
   message.usage = sanitizeUsage(variant.usage);
   message.streaming = false;
   message.createdAt = variant.createdAt;
@@ -3558,15 +3663,17 @@ async function savePreferences(nextPreferences = state.preferences) {
     const requestedContextLimits = sanitizeContextLimits(nextPreferences.modelContextLimits, state.models);
     const requestedTitleModel = availableConversationTitleModel(nextPreferences.conversationTitleModel);
     for (const [modelId, limit] of Object.entries(requestedContextLimits)) if (limit === DEFAULT_CONTEXT_TOKENS) delete requestedContextLimits[modelId];
+    const requestedReadingMode = nextPreferences.readingMode || state.editingReadingMode || state.readingMode || 'classic';
+    const requestedStream = typeof nextPreferences.stream === 'boolean' ? nextPreferences.stream : state.stream;
     if (state.userRole === 'guest') {
-      state.preferences = { favoriteGroups: sanitizedFavoriteGroups, selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: Array.isArray(nextPreferences.favoriteMediaIds) ? [...new Set(nextPreferences.favoriteMediaIds)] : [], conversationTitleModel: requestedTitleModel };
-      localStorage.setItem('light-chat-guest-preferences-v2', JSON.stringify({ favoriteGroups: state.preferences.favoriteGroups, selected: state.preferences.selected, modelContextLimits: requestedContextLimits, conversationTitleModel: requestedTitleModel }));
+      state.preferences = { favoriteGroups: sanitizedFavoriteGroups, selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: Array.isArray(nextPreferences.favoriteMediaIds) ? [...new Set(nextPreferences.favoriteMediaIds)] : [], conversationTitleModel: requestedTitleModel, readingMode: requestedReadingMode, stream: requestedStream };
+      localStorage.setItem('light-chat-guest-preferences-v2', JSON.stringify({ favoriteGroups: state.preferences.favoriteGroups, selected: state.preferences.selected, modelContextLimits: requestedContextLimits, conversationTitleModel: requestedTitleModel, readingMode: requestedReadingMode, stream: requestedStream }));
       renderFavorites(); renderConversation();
       return;
     }
     const payload = await jsonRequest('/api/preferences', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ favoriteGroups: sanitizedFavoriteGroups, selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: nextPreferences.favoriteMediaIds || [], conversationTitleModel: requestedTitleModel || undefined }),
+      body: JSON.stringify({ favoriteGroups: sanitizedFavoriteGroups, selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: nextPreferences.favoriteMediaIds || [], conversationTitleModel: requestedTitleModel || undefined, readingMode: requestedReadingMode, stream: requestedStream }),
     });
     if (!Object.prototype.hasOwnProperty.call(payload, 'modelContextLimits') && Object.keys(requestedContextLimits).length) {
       throw new Error('当前服务端尚未加载模型上下文持久化功能，请重启服务后重试');
@@ -3577,7 +3684,17 @@ async function savePreferences(nextPreferences = state.preferences) {
     const contextLimitsMatch = requestedEntries.length === persistedEntries.length
       && requestedEntries.every(([modelId, limit]) => persistedContextLimits[modelId] === limit);
     if (!contextLimitsMatch) throw new Error('服务器未完整保存模型上下文配置，请重试');
-    state.preferences = { favoriteGroups: payload.favoriteGroups || [], selected: payload.selected || state.selected, modelContextLimits: persistedContextLimits, favoriteMediaIds: Array.isArray(payload.favoriteMediaIds) ? payload.favoriteMediaIds : [], conversationTitleModel: typeof payload.conversationTitleModel === 'string' ? payload.conversationTitleModel : requestedTitleModel };
+    state.preferences = { favoriteGroups: payload.favoriteGroups || [], selected: payload.selected || state.selected, modelContextLimits: persistedContextLimits, favoriteMediaIds: Array.isArray(payload.favoriteMediaIds) ? payload.favoriteMediaIds : [], conversationTitleModel: typeof payload.conversationTitleModel === 'string' ? payload.conversationTitleModel : requestedTitleModel, readingMode: payload.readingMode || requestedReadingMode, stream: payload.stream !== false };
+    if (payload.readingMode) {
+      state.readingMode = applyReadingMode(payload.readingMode, { persist: true });
+    }
+    if (typeof payload.stream === 'boolean') {
+      state.stream = payload.stream;
+      localStorage.setItem(STREAM_KEY, String(state.stream));
+      elements.streamButton.classList.toggle('active', state.stream);
+      elements.streamButton.setAttribute('aria-pressed', String(state.stream));
+      elements.streamText.textContent = state.stream ? '流式' : '非流式';
+    }
     state.selected = normalizeSelection(state.preferences.selected);
     renderFavorites(); renderConversation();
   } finally { preferenceWritesInFlight = Math.max(0, preferenceWritesInFlight - 1); }
@@ -4048,7 +4165,12 @@ function createRoleConversationButton(roleId, label) {
 }
 
 function renderRoles() {
-  if ([elements.roleFolderContextMenu, elements.roleContextMenu].includes(activeContextMenu)) closeAllContextMenus();
+  if (activeContextMenu === elements.roleFolderContextMenu && !state.roleLibrary.folders.some((folder) => folder.id === state.contextRoleFolderId)) {
+    closeRoleFolderContextMenu();
+  }
+  if (activeContextMenu === elements.roleContextMenu && !findRoleById(state.contextRoleId)) {
+    closeRoleContextMenu();
+  }
   elements.sidebarRoles.replaceChildren();
   const currentRoleId = validRoleId(currentConversation()?.roleId);
   const conversationsByRole = new Map();
@@ -4080,7 +4202,7 @@ function renderRoles() {
     const conversationButton = document.createElement('button'); conversationButton.type = 'button'; conversationButton.className = `role-conversation-item${conversation.id === state.currentId ? ' active' : ''}${busy ? ' busy' : ''}`; conversationButton.title = `跳转到对话：${conversation.title}；右键管理`;
     const conversationTitle = document.createElement('span'); conversationTitle.textContent = conversation.title;
     const conversationTime = document.createElement('time'); conversationTime.textContent = busy ? '生成中…' : formatTime(conversation.updatedAt);
-  conversationButton.append(conversationTitle, conversationTime); conversationButton.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true })); bindContextMenuTrigger(conversationButton, 'historyContextMenu', (x, y, trigger) => openHistoryContextMenu(conversation.id, x, y, trigger)); defaultList.append(conversationButton);
+    conversationButton.append(conversationTitle, conversationTime); conversationButton.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true })); bindContextMenuTrigger(conversationButton, 'historyContextMenu', (x, y, trigger) => openHistoryContextMenu(conversation.id, x, y, trigger)); defaultList.append(conversationButton);
   }
   if (!defaultConversations.length && state.sidebarDrawerStack.at(-1) === 'role:__default__') { const empty = document.createElement('p'); empty.className = 'role-conversation-empty'; empty.textContent = '默认助手还没有关联对话'; defaultList.append(empty); defaultList.hidden = false; }
   defaultToggle.addEventListener('click', () => {
@@ -4213,7 +4335,7 @@ async function roleRequest(url, options = {}) {
 }
 
 function createDraftRole() {
-  return { id: `role-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, name: '新角色', description: '', systemPrompt: '请以该角色的专业视角，准确、清晰地回答用户。' };
+  return { id: `role-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, name: '新角色', description: '', systemPrompt: '请以该角色的专业视角，准确、清晰地回答用户。', attachments: [] };
 }
 
 function findRoleLocation(roleId, library = state.roleLibrary) {
@@ -4236,7 +4358,7 @@ function createCopiedRole(source, library, targetFolder) {
   while (usedNames.has(name)) {
     copyIndex += 1; suffix = ` 副本 ${copyIndex}`; name = `${source.name.slice(0, 60 - suffix.length)}${suffix}`;
   }
-  return { id, name, description: source.description, systemPrompt: source.systemPrompt };
+  return { id, name, description: source.description, systemPrompt: source.systemPrompt, attachments: structuredClone(source.attachments || []) };
 }
 
 async function moveRoleByDrag(sourceRoleId, { targetRoleId = '', targetFolderId = '', before = false } = {}) {
@@ -4280,6 +4402,204 @@ function smallAction(label, action, { disabled = false, danger = false } = {}) {
   const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.disabled = disabled; button.className = danger ? 'danger-action' : ''; button.addEventListener('click', action); return button;
 }
 
+async function compressImageToDataUrl(file, maxDimension = 1280, quality = 0.8) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const format = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          resolve(canvas.toDataURL(format, quality));
+        } else {
+          resolve(String(reader.result || ''));
+        }
+      };
+      img.onerror = () => resolve(String(reader.result || ''));
+      img.src = String(reader.result || '');
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderRoleAttachmentsEditor(role, container) {
+  container.replaceChildren();
+  if (!Array.isArray(role.attachments)) role.attachments = [];
+
+  const list = document.createElement('div');
+  list.className = 'role-attachments-list';
+
+  role.attachments.forEach((att, attIndex) => {
+    const item = document.createElement('div');
+    item.className = 'role-attachment-item';
+
+    if (att.isImage && att.url) {
+      const img = document.createElement('img');
+      img.className = 'role-attachment-thumb';
+      img.src = att.url;
+      img.alt = att.fileName;
+      img.title = '点击预览大图';
+      img.addEventListener('click', () => {
+        openImageLightbox([{ ...att, isImage: true }], att);
+      });
+      item.append(img);
+    } else {
+      const icon = document.createElement('span');
+      icon.className = 'role-attachment-icon';
+      icon.textContent = att.mimeType === 'application/pdf' ? '📕' : '📄';
+      item.append(icon);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'role-attachment-meta';
+    const name = document.createElement('strong');
+    name.textContent = att.fileName || '未命名附件';
+    name.title = att.fileName;
+    const detail = document.createElement('small');
+    const bytes = Number(att.size || 0);
+    const sizeStr = bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    const textLen = att.extractedText ? ` · 提取知识 ${att.extractedText.length.toLocaleString('zh-CN')} 字` : '';
+    detail.textContent = `${sizeStr}${textLen}`;
+    meta.append(name, detail);
+    item.append(meta);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'role-attachment-remove';
+    removeBtn.innerHTML = '&times;';
+    removeBtn.title = '删除资料';
+    removeBtn.setAttribute('aria-label', `删除资料 ${att.fileName}`);
+    removeBtn.addEventListener('click', () => {
+      role.attachments.splice(attIndex, 1);
+      renderRoleAttachmentsEditor(role, container);
+    });
+    item.append(removeBtn);
+
+    list.append(item);
+  });
+
+  const uploadRow = document.createElement('div');
+  uploadRow.className = 'role-attachment-upload-row';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.multiple = true;
+  fileInput.accept = 'image/*,application/pdf,text/plain,text/markdown,.txt,.md,.pdf,.json';
+  fileInput.style.display = 'none';
+
+  const uploadBtn = document.createElement('button');
+  uploadBtn.type = 'button';
+  uploadBtn.className = 'role-upload-attachment-btn';
+  uploadBtn.textContent = '📎 添加资料文件（图片 / PDF / 知识库文档）';
+  uploadBtn.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', async () => {
+    const files = [...(fileInput.files || [])];
+    if (!files.length) return;
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = '正在读取并处理多媒体资料…';
+    try {
+      for (const file of files) {
+        if (role.attachments.length >= 12) {
+          alert('单个角色最多关联 12 份多媒体资料');
+          break;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+          alert(`文件 ${file.name} 超过 20MB 上限`);
+          continue;
+        }
+        const mime = mimeForFile(file);
+        const isImg = mime.startsWith('image/');
+        let url = '';
+        let extractedText = '';
+
+        if (isImg) {
+          if (state.userRole !== 'guest' && state.csrf) {
+            try {
+              const res = await fetch('/api/uploads', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': mime, 'X-CSRF-Token': state.csrf, 'X-File-Name': encodeURIComponent(file.name) },
+                body: file,
+              });
+              const payload = await res.json().catch(() => ({}));
+              if (res.ok && payload.attachment) {
+                url = payload.attachment.url || '';
+              }
+            } catch {
+              // fallback
+            }
+          }
+          if (!url) {
+            url = await compressImageToDataUrl(file);
+          }
+        } else if (file.name.endsWith('.pdf') || mime === 'application/pdf') {
+          if (state.userRole !== 'guest') {
+            try {
+              const res = await fetch('/api/uploads', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': mime, 'X-CSRF-Token': state.csrf, 'X-File-Name': encodeURIComponent(file.name) },
+                body: file,
+              });
+              const payload = await res.json().catch(() => ({}));
+              if (res.ok && payload.attachment) {
+                url = payload.attachment.url || '';
+                extractedText = payload.extractedText || '';
+              }
+            } catch {
+              // fallback
+            }
+          }
+        } else {
+          extractedText = await new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = () => res(String(reader.result || ''));
+            reader.onerror = rej;
+            reader.readAsText(file);
+          });
+        }
+
+        role.attachments.push({
+          id: `att-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+          fileName: file.name,
+          name: file.name,
+          mimeType: mime,
+          isImage: isImg,
+          size: file.size,
+          url,
+          extractedText,
+        });
+      }
+      renderRoleAttachmentsEditor(role, container);
+    } catch (err) {
+      alert(`上传资料失败：${err.message}`);
+    } finally {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = '📎 添加资料文件（图片 / PDF / 知识库文档）';
+      fileInput.value = '';
+    }
+  });
+
+  uploadRow.append(fileInput, uploadBtn);
+  container.append(list, uploadRow);
+}
+
 function renderRolesEditor() {
   elements.rolesEditor.replaceChildren();
   const library = state.editingRoleLibrary;
@@ -4310,6 +4630,19 @@ function renderRolesEditor() {
       const descriptionInput = document.createElement('input'); descriptionInput.value = role.description; descriptionInput.maxLength = 240; descriptionInput.addEventListener('input', () => { role.description = descriptionInput.value; caption.textContent = role.description || '展开编辑系统提示词'; }); description.append(descriptionInput);
       const prompt = document.createElement('label'); prompt.className = 'prompt-field'; prompt.append(Object.assign(document.createElement('span'), { textContent: '系统提示词' }));
       const promptInput = document.createElement('textarea'); promptInput.value = role.systemPrompt; promptInput.maxLength = MAX_CONTEXT_TOKENS; promptInput.rows = 8; promptInput.title = '系统提示词长度上限与最大上下文一致'; promptInput.addEventListener('input', () => { role.systemPrompt = promptInput.value; }); prompt.append(promptInput);
+
+      const attachmentsSection = document.createElement('div');
+      attachmentsSection.className = 'role-attachments-editor-section';
+      const attLabel = document.createElement('div');
+      attLabel.className = 'role-attachments-label';
+      attLabel.append(
+        Object.assign(document.createElement('span'), { textContent: '📁 关联参考资料与知识库（图片/PDF/文档）' }),
+        Object.assign(document.createElement('small'), { textContent: '对话时资料将自动作为知识背景注入大模型上下文' })
+      );
+      const attContainer = document.createElement('div');
+      renderRoleAttachmentsEditor(role, attContainer);
+      attachmentsSection.append(attLabel, attContainer);
+
       const roleControls = document.createElement('div'); roleControls.className = 'role-row-actions';
       const folderSelect = document.createElement('select'); folderSelect.setAttribute('aria-label', '移动到文件夹');
       library.folders.forEach((candidate, index) => { const option = document.createElement('option'); option.value = candidate.id; option.textContent = `移动到：${candidate.name}`; option.selected = index === folderIndex; folderSelect.append(option); });
@@ -4320,7 +4653,7 @@ function renderRolesEditor() {
         folderSelect,
         smallAction('删除角色', () => { folder.roles.splice(roleIndex, 1); renderRolesEditor(); }, { danger: true }),
       );
-      fields.append(roleName, description, prompt, roleControls); drawer.append(fields); roleList.append(drawer);
+      fields.append(roleName, description, prompt, attachmentsSection, roleControls); drawer.append(fields); roleList.append(drawer);
     });
     const addRole = document.createElement('button'); addRole.type = 'button'; addRole.className = 'add-model-button'; addRole.textContent = '＋ 添加角色'; addRole.addEventListener('click', () => { folder.roles.push(createDraftRole()); renderRolesEditor(); });
     card.append(roleList, addRole); elements.rolesEditor.append(card);
@@ -4597,7 +4930,10 @@ function toggleWebSearchFromComposer() {
   if (tavily) tavily.enabled = nextState;
   if (brave) brave.enabled = nextState && !tavily?.apiKey?.trim();
   saveToolsConfig(list);
-  renderToolsDrawer();
+  const toolsPanel = elements.sidebarDrawerShell?.querySelector('[data-sidebar-drawer-panel="tools"]');
+  if (toolsPanel && !toolsPanel.hidden) {
+    renderToolsDrawer();
+  }
   setStatus(nextState ? '已开启联网搜索' : '已关闭联网搜索', 'success');
 }
 
@@ -4612,57 +4948,75 @@ async function executeTavilySearch({ query, count = 5 }) {
   const cleanQuery = String(query || '').trim();
   if (!cleanQuery) return '搜索关键词为空。';
   const safeCount = Math.min(10, Math.max(1, Number(count) || 5));
+
+  const tavilyPayload = {
+    api_key: apiKey,
+    query: cleanQuery,
+    search_depth: 'basic',
+    max_results: safeCount,
+  };
+
+  let data = null;
+  let status = 200;
+  let ok = true;
+
   try {
-    const response = await fetch('/api/tools/proxy', {
+    const directRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': state.csrf,
-      },
-      body: JSON.stringify({
-        url: 'https://api.tavily.com/search',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tavilyPayload),
+    });
+    status = directRes.status;
+    ok = directRes.ok;
+    data = await directRes.json().catch(() => ({}));
+  } catch (directError) {
+    try {
+      const proxyRes = await fetch('/api/tools/proxy', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': state.csrf,
         },
-        body: {
-          api_key: apiKey,
-          query: cleanQuery,
-          search_depth: 'basic',
-          max_results: safeCount,
-        },
-      }),
-    });
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      return `代理服务请求失败 (HTTP ${response.status}): ${err.error || '网络错误'}`;
-    }
-    const wrapped = await response.json();
-    let data;
-    try {
-      data = typeof wrapped.data === 'string' ? JSON.parse(wrapped.data) : wrapped.data;
-    } catch {
-      data = wrapped.data;
-    }
-    if (wrapped.status !== 200 || !wrapped.ok) {
-      const errorMsg = data?.detail?.error || data?.message || data?.error || (typeof data === 'string' ? data : `HTTP ${wrapped.status}`);
-      if (wrapped.status === 401 || String(errorMsg).includes('Unauthorized') || String(errorMsg).includes('invalid API key')) {
-        return `Tavily API 认证失败 (HTTP 401): 提供的 API Key 无效或未授权，请前往 Tavily 控制台 (https://app.tavily.com) 检查密钥是否有效，并在左侧栏「扩展与技能」中重新填入保存。`;
+        body: JSON.stringify({
+          url: 'https://api.tavily.com/search',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: tavilyPayload,
+        }),
+      });
+      if (!proxyRes.ok) {
+        const err = await proxyRes.json().catch(() => ({}));
+        return '搜索请求失败: ' + (directError.message || err.error || '网络连接不可用');
       }
-      return `Tavily 搜索请求失败 (HTTP ${wrapped.status}): ${errorMsg}`;
+      const wrapped = await proxyRes.json();
+      status = wrapped.status;
+      ok = wrapped.ok;
+      try {
+        data = typeof wrapped.data === 'string' ? JSON.parse(wrapped.data) : wrapped.data;
+      } catch {
+        data = wrapped.data;
+      }
+    } catch (proxyError) {
+      return '搜索请求失败: ' + (directError.message || proxyError.message);
     }
-    const results = data?.results;
-    if (!Array.isArray(results) || results.length === 0) {
-      return `未检索到关于 "${cleanQuery}" 的网页结果。`;
-    }
-    const formatted = results.map((item, idx) => (
-      `[${idx + 1}] ${item.title || '无标题'}\n网址: ${item.url}\n摘要: ${item.content || item.description || ''}`
-    )).join('\n\n');
-    return `针对 "${cleanQuery}" 的 Tavily 实时搜索结果：\n\n${formatted}`;
-  } catch (error) {
-    return `Tavily 搜索过程出错: ${error.message}`;
   }
+
+  if (status !== 200 || !ok) {
+    const errorMsg = data?.detail?.error || data?.message || data?.error || (typeof data === 'string' ? data : ('HTTP ' + status));
+    if (status === 401 || String(errorMsg).includes('Unauthorized') || String(errorMsg).includes('invalid API key')) {
+      return 'Tavily API 认证失败 (HTTP 401): 提供的 API Key 无效或未授权，请前往 Tavily 控制台 (https://app.tavily.com) 检查密钥是否有效，并在左侧栏「扩展与技能」中重新填入保存。';
+    }
+    return 'Tavily 搜索请求失败 (HTTP ' + status + '): ' + errorMsg;
+  }
+  const results = data?.results;
+  if (!Array.isArray(results) || results.length === 0) {
+    return [String.fromCharCode(26410,26816,32034,21040,20851,20110,32,34), cleanQuery, String.fromCharCode(34,32,30340,32593,39029,32467,26524,12290)].join('');
+  }
+  const formatted = results.map((item, idx) => (
+    ['[', idx + 1, '] ', item.title || String.fromCharCode(26080,26631,39064), String.fromCharCode(10,32593,22336,58,32), item.url, String.fromCharCode(10,25688,35201,58,32), item.content || item.description || ''].join('')
+  )).join('\n\n');
+  return [String.fromCharCode(38024,23545,32,34), cleanQuery, String.fromCharCode(34,32,30340,32,84,97,118,105,108,121,32,23454,26102,25628,32034,32467,26524,65306,10,10), formatted].join('');
 }
 
 async function executeBraveSearch({ query, count = 5 }) {
@@ -4822,8 +5176,10 @@ function renderToolsDrawer() {
     card.append(desc);
 
     if (item.type === 'brave-search' || item.type === 'tavily-search') {
-      const config = document.createElement('div');
+      const config = document.createElement('form');
       config.className = 'tool-card-config';
+      config.autocomplete = 'off';
+      config.setAttribute('onsubmit', 'return false');
       const keyLabel = document.createElement('label');
       keyLabel.textContent = `${item.name} API 密钥 (本地安全保存，默认留空)：`;
 
@@ -4832,9 +5188,13 @@ function renderToolsDrawer() {
 
       const keyInput = document.createElement('input');
       keyInput.type = 'password';
+      keyInput.name = `tool-key-${item.id}`;
       keyInput.value = item.apiKey || '';
       keyInput.placeholder = item.type === 'tavily-search' ? '输入 Tavily API Key (如 tvly-...)' : '输入 Brave API Key';
-      keyInput.autocomplete = 'off';
+      keyInput.autocomplete = 'new-password';
+      keyInput.setAttribute('data-lpignore', 'true');
+      keyInput.setAttribute('data-1p-ignore', 'true');
+      keyInput.setAttribute('data-form-type', 'other');
 
       const eyeBtn = document.createElement('button');
       eyeBtn.type = 'button';
@@ -4970,9 +5330,12 @@ function saveCustomTool(event) {
 }
 
 function mimeForFile(file) {
-  if (file.type) return file.type;
   const extension = file.name.toLowerCase().split('.').pop();
-  return ({ txt: 'text/plain', md: 'text/markdown', pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' })[extension] || 'application/octet-stream';
+  const byExtension = ({ txt: 'text/plain', md: 'text/markdown', pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' })[extension];
+  // Android/WebView may report text and document files as octet-stream (or
+  // leave the type empty). The filename is authoritative for supported docs.
+  if (byExtension && (!file.type || file.type === 'application/octet-stream' || file.type === 'binary/octet-stream')) return byExtension;
+  return file.type || byExtension || 'application/octet-stream';
 }
 
 async function uploadAttachmentFile(file, { signal } = {}) {
@@ -5000,6 +5363,9 @@ async function uploadAttachmentFile(file, { signal } = {}) {
 
 async function uploadFiles(files) {
   const remaining = Math.max(0, MAX_MESSAGE_MEDIA_ITEMS - state.pendingAttachments.length);
+  if (files.length > remaining) {
+    setStatus(`单条消息最多保留 ${MAX_MESSAGE_MEDIA_ITEMS} 个附件，已截取前 ${remaining} 个文件上传`, 'error');
+  }
   for (const file of files.slice(0, remaining)) {
     setStatus(`正在上传 ${file.name}…`);
     try {
@@ -5007,6 +5373,7 @@ async function uploadFiles(files) {
       renderPendingAttachments(); setStatus('附件已就绪', 'success');
     } catch (error) { setStatus(`${file.name}：${error.message}`, 'error'); }
   }
+  saveCurrentConversationDraft();
   elements.fileInput.value = '';
 }
 
@@ -5043,7 +5410,7 @@ function renderPendingAttachments() {
     }
     else { const icon = document.createElement('span'); icon.className = 'attachment-file-icon'; icon.textContent = (item.fileName.split('.').pop() || 'FILE').toUpperCase(); card.append(icon); }
     const name = document.createElement('span'); name.textContent = item.fileName || item.mimeType;
-    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.setAttribute('aria-label', `移除 ${item.fileName}`); remove.addEventListener('click', () => { state.pendingAttachments.splice(index, 1); renderPendingAttachments(); updateSendState(); });
+    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.setAttribute('aria-label', `移除 ${item.fileName}`); remove.addEventListener('click', () => { state.pendingAttachments.splice(index, 1); saveCurrentConversationDraft(); renderPendingAttachments(); updateSendState(); });
     card.append(name, remove); elements.attachmentStrip.append(card);
   });
   updateSendState();
@@ -5107,6 +5474,7 @@ function composerMessageDraft(conversation) {
 }
 
 function clearComposerDraft() {
+  if (state.currentId) conversationDrafts.delete(state.currentId);
   state.pendingAttachments = []; renderPendingAttachments(); elements.input.value = ''; autoResize();
 }
 
@@ -5260,6 +5628,23 @@ function guestMessageContent(message) {
   return [{ type: 'text', text: message.content || '' }, ...images.map((item) => ({ type: 'image_url', image_url: { url: item.url } }))];
 }
 
+function compileRoleSystemPromptClient(role) {
+  if (!role) return '';
+  const base = role.systemPrompt || '';
+  if (!Array.isArray(role.attachments) || !role.attachments.length) return base;
+  const parts = [];
+  for (const att of role.attachments) {
+    if (att && att.extractedText && typeof att.extractedText === 'string' && att.extractedText.trim()) {
+      const name = att.fileName || att.name || '参考文档';
+      parts.push(`\n\n【角色关联参考资料/知识库：${name}】\n--- 开始文档内容 ---\n${att.extractedText.trim()}\n--- 结束文档内容 ---`);
+    } else if (att && att.isImage) {
+      const name = att.fileName || att.name || '设定图片';
+      parts.push(`\n\n【角色关联视觉设定资料：已附带图片《${name}》，图片文件已作为多模态输入注入对话中，请结合该视觉信息进行理解与回答】`);
+    }
+  }
+  return parts.length ? `${base}${parts.join('')}` : base;
+}
+
 function guestChatMessages(submitted) {
   const messages = submitted.map((message) => {
     if (message.role === 'tool') {
@@ -5272,7 +5657,8 @@ function guestChatMessages(submitted) {
     return item;
   });
   const role = findRoleById(state.selectedRoleId);
-  return role?.systemPrompt ? [{ role: 'system', content: role.systemPrompt }, ...messages] : messages;
+  const prompt = compileRoleSystemPromptClient(role);
+  return prompt ? [{ role: 'system', content: prompt }, ...messages] : messages;
 }
 
 function guestExtractResponse(payload) {
@@ -5333,8 +5719,37 @@ async function guestChatFetch(payload, signal) {
 
 async function chatRequest(payload, signal) {
   if (state.userRole === 'guest') {
-    const directPayload = { ...payload, messages: payload.messages || [] };
+    const directPayload = { ...payload, messages: payload.messages ? structuredClone(payload.messages) : [] };
+    const roleId = validRoleId(payload.roleId);
     delete directPayload.roleId;
+    if (roleId) {
+      const role = findRoleById(roleId);
+      if (role) {
+        const sysPrompt = compileRoleSystemPromptClient(role);
+        if (sysPrompt) {
+          directPayload.messages = [{ role: 'system', content: sysPrompt }, ...directPayload.messages.filter((m) => m.role !== 'system')];
+        }
+        if (Array.isArray(role.attachments)) {
+          const imgParts = [];
+          for (const att of role.attachments) {
+            if (att?.isImage && att.url) {
+              imgParts.push({ type: 'text', text: `【角色关联视觉设定资料：${att.fileName || '设定图片'}】` });
+              imgParts.push({ type: 'image_url', image_url: { url: att.url } });
+            }
+          }
+          if (imgParts.length > 0) {
+            const firstUser = directPayload.messages.find((m) => m.role === 'user');
+            if (firstUser) {
+              if (typeof firstUser.content === 'string') {
+                firstUser.content = [...imgParts, { type: 'text', text: firstUser.content }];
+              } else if (Array.isArray(firstUser.content)) {
+                firstUser.content = [...imgParts, ...firstUser.content];
+              }
+            }
+          }
+        }
+      }
+    }
     return guestChatFetch(directPayload, signal);
   }
   return fetch('/api/chat', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf }, body: JSON.stringify(payload), signal });
@@ -5573,7 +5988,7 @@ function finishRegenerationVariant(conversation, message, draft, { cancelled = f
   const variants = message.variants || [];
   const pendingVariant = target ? variants[target.pendingIndex] : null;
   if (!target || !pendingVariant) return;
-  const hasOutput = Boolean(draft.content || draft.reasoning || draft.images.length || draft.attachments.length);
+  const hasOutput = Boolean(draft.content || draft.reasoning || draft.images.length || draft.attachments.length || (draft.toolCalls && draft.toolCalls.length));
   if (!hasOutput && !cancelled) {
     variants.splice(target.pendingIndex, 1);
     const fallbackIndex = Math.max(0, Math.min(variants.length - 1, target.pendingIndex - 1));
@@ -5658,8 +6073,10 @@ async function regenerateAssistant(messageId, modelId, { allowHistorical = false
   if (isConversationBusy(conversation.id) || state.busyConversationIds.size >= MAX_PARALLEL_REQUESTS) { setStatus('当前会话正在响应或已达到 4 个并行请求', 'error'); return; }
   if (!state.models.some((model) => model.id === modelId && model.modes.includes('chat'))) { setStatus('所选模型当前不可用', 'error'); return; }
   const message = conversation.messages[index];
-  const submitted = chatSubmissionMessages(conversation.messages.slice(0, index));
-  if (!submitted.length || submitted.at(-1).role !== 'user') { setStatus('找不到对应的用户消息', 'error'); return; }
+  const submittedBase = conversation.messages.slice(0, index);
+  const baseSubmission = chatSubmissionMessages(submittedBase);
+  if (!baseSubmission.length || baseSubmission.at(-1).role !== 'user') { setStatus('找不到对应的用户消息', 'error');
+ return; }
   const variants = ensureAssistantVariants(message);
   const previousIndex = Math.max(0, Math.min(variants.length - 1, message.variantIndex || 0));
   if (index < conversation.messages.length - 1) {
@@ -5669,17 +6086,84 @@ async function regenerateAssistant(messageId, modelId, { allowHistorical = false
   const draft = { id: randomId(), role: 'assistant', replyToId: message.replyToId, modelId, mode: 'chat', content: '', reasoning: '', attachments: [], images: [], usage: null, variants: [], variantIndex: 0, streaming: state.stream, createdAt: Date.now(), regenerationDraft: true };
   beginRegenerationVariant(conversation, message, draft);
   const requestController = new AbortController(); activeRequestControllers.set(conversation.id, requestController);
-  resumeOutputFollow(); setConversationBusy(conversation.id, true); renderConversation(); updateSendState(); setStatus(`正在使用 ${modelId} 重新生成…`, 'pending');
+  resumeOutputFollow(); setConversationBusy(conversation.id, true); renderConversation(); updateSendState(); setStatus('正在使用 ' + modelId + ' 重新生成…', 'pending');
   try {
     const activeTools = getActiveTools();
-    const response = await chatRequest({ model: modelId, roleId: validRoleId(conversation.roleId) || undefined, messages: submitted, tools: activeTools.length > 0 ? activeTools : undefined, stream: state.stream }, requestController.signal);
-    if (response.status === 401) { location.replace('/'); throw new Error('登录已失效'); }
-    if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error || '模型请求失败'); }
-    if ((response.headers.get('content-type') || '').includes('text/event-stream')) { await (state.userRole === 'guest' ? consumeGuestSse : consumeSse)(response, draft, conversation.id); draft.streaming = false; updateMessage(draft, conversation.id); }
-    else {
-      const payload = await response.json(); const direct = state.userRole === 'guest' ? guestChatResult(payload) : payload; draft.reasoning = direct.reasoning || ''; draft.images = (direct.images || []).map(sanitizeAttachment).filter(Boolean); draft.usage = sanitizeUsage(direct.usage); draft.content = direct.text || (draft.images.length ? '图片已生成。' : ''); updateMessage(draft, conversation.id);
+    let currentAssistant = draft;
+    let loopCount = 0;
+    const maxLoops = 5;
+    while (loopCount < maxLoops) {
+      loopCount += 1;
+      if (state.currentId === conversation.id && elements.typing) {
+        const em = elements.typing.querySelector('em');
+        if (em) em.textContent = loopCount > 1 ? '模型正在整合搜索结果…' : '模型正在回应';
+        elements.typing.hidden = false;
+      }
+      const submitted = conversation.messages.slice(0, loopCount === 1 ? index : conversation.messages.length - 1);
+      const messages = chatSubmissionMessages(submitted);
+      const stream = loopCount === 1 ? state.stream : false;
+      const response = await chatRequest({ model: modelId, roleId: validRoleId(conversation.roleId) || undefined, messages, tools: activeTools.length > 0 ? activeTools : undefined, stream }, requestController.signal);
+      if (response.status === 401) { location.replace('/'); throw new Error('登录已失效'); }
+      if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error || '模型请求失败'); }
+      if ((response.headers.get('content-type') || '').includes('text/event-stream')) {
+        await (state.userRole === 'guest' ? consumeGuestSse : consumeSse)(response, currentAssistant, conversation.id);
+        currentAssistant.streaming = false;
+        updateMessage(currentAssistant, conversation.id);
+      } else {
+        const payload = await response.json();
+        const direct = state.userRole === 'guest' ? guestChatResult(payload) : payload;
+        currentAssistant.reasoning = direct.reasoning || '';
+        currentAssistant.images = (direct.images || []).map(sanitizeAttachment).filter(Boolean);
+        currentAssistant.usage = sanitizeUsage(direct.usage);
+        currentAssistant.toolCalls = direct.toolCalls || [];
+        currentAssistant.content = direct.text || (currentAssistant.images.length ? '图片已生成。' : '');
+        updateMessage(currentAssistant, conversation.id);
+      }
+      if (!Array.isArray(currentAssistant.toolCalls) || currentAssistant.toolCalls.length === 0) {
+        break;
+      }
+      setStatus('正在执行联网搜索与工具…', 'pending');
+      if (state.currentId === conversation.id && elements.typing) {
+        const em = elements.typing.querySelector('em');
+        if (em) em.textContent = '正在联网搜索与执行工具…';
+        elements.typing.hidden = false;
+      }
+      for (const call of currentAssistant.toolCalls) {
+        const toolResult = await executeClientToolCall(call);
+        const toolMessage = {
+          id: randomId(),
+          role: 'tool',
+          tool_call_id: call.id,
+          tool_name: call.function?.name || 'tool',
+          content: toolResult,
+          createdAt: Date.now(),
+        };
+        conversation.messages.push(toolMessage);
+      }
+      currentAssistant = {
+        id: randomId(),
+        role: 'assistant',
+        replyToId: message.replyToId,
+        modelId,
+        mode: 'chat',
+        content: '',
+        reasoning: '',
+        attachments: [],
+        images: [],
+        usage: null,
+        variants: [],
+        variantIndex: 0,
+        streaming: false,
+        createdAt: Date.now(),
+      };
+      conversation.messages.push(currentAssistant);
+      conversation.updatedAt = Date.now();
+      renderConversation();
     }
-    if (!draft.content && !draft.images.length) draft.content = '模型没有返回可展示的内容。';
+    if (!currentAssistant.content && !currentAssistant.images.length && (!Array.isArray(currentAssistant.toolCalls) || currentAssistant.toolCalls.length === 0)) {
+      currentAssistant.content = '模型没有返回可展示的内容。';
+      updateMessage(currentAssistant, conversation.id);
+    }
     finishRegenerationVariant(conversation, message, draft);
     rememberConversationRequest(conversation, { modelId, mode: 'chat' }, { stream: state.stream });
     conversation.updatedAt = Date.now(); saveConversations(); setStatus('已完成重新生成，可用左右按钮切换对比版本', 'success');
@@ -6165,6 +6649,9 @@ async function loadAdminUsers() {
   const payload = await jsonRequest('/api/admin/users');
   state.adminUsers = Array.isArray(payload.users) ? payload.users : [];
   state.adminRevision = Number(payload.revision || 0);
+  if (elements.defaultApiKeyInput) {
+    elements.defaultApiKeyInput.value = payload.defaultApiKey || '';
+  }
   renderAdminUsers();
 }
 
@@ -6431,7 +6918,84 @@ function renderAdminUsers() {
           setDialogStatus(elements.accountStatus, `${user.username} 的模型权限已保存`, 'success');
         } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); saveAccess.disabled = false; }
       });
-      card.append(access, saveAccess);
+
+      const keySection = document.createElement('form');
+      keySection.className = 'user-key-editor';
+      keySection.autocomplete = 'off';
+      keySection.setAttribute('onsubmit', 'return false');
+      const keyLabel = document.createElement('label');
+      keyLabel.className = 'user-key-label';
+      const keyTextSpan = document.createElement('span');
+      keyTextSpan.textContent = user.apiKey ? '专属 API Key（已设置专属 Key）' : '专属 API Key（当前继承全局默认 Key）';
+      const keyInputGroup = document.createElement('div');
+      keyInputGroup.className = 'user-key-input-group';
+      const keyInput = document.createElement('input');
+      keyInput.type = 'password';
+      keyInput.name = `user-api-key-${user.uid}`;
+      keyInput.value = user.apiKey || '';
+      keyInput.placeholder = 'sk-...（留空则继承全局默认 Key）';
+      keyInput.autocomplete = 'new-password';
+      keyInput.setAttribute('data-lpignore', 'true');
+      keyInput.setAttribute('data-1p-ignore', 'true');
+      keyInput.setAttribute('data-form-type', 'other');
+
+      const toggleKeyVisibility = document.createElement('button');
+      toggleKeyVisibility.type = 'button';
+      toggleKeyVisibility.className = 'icon-button';
+      toggleKeyVisibility.textContent = '👁️';
+      toggleKeyVisibility.title = '明文/密文切换';
+      toggleKeyVisibility.addEventListener('click', () => {
+        keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+      });
+
+      const saveKeyButton = document.createElement('button');
+      saveKeyButton.type = 'button';
+      saveKeyButton.className = 'secondary-button';
+      saveKeyButton.textContent = '保存 Key';
+      saveKeyButton.addEventListener('click', async () => {
+        saveKeyButton.disabled = true;
+        try {
+          const val = keyInput.value.trim() || null;
+          await jsonRequest(`/api/admin/users/${user.uid}/api-key`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiKey: val }),
+          });
+          await loadAdminUsers();
+          setDialogStatus(elements.accountStatus, `用户“${user.username}”的 API Key 已保存`, 'success');
+        } catch (err) {
+          setDialogStatus(elements.accountStatus, err.message, 'error');
+          saveKeyButton.disabled = false;
+        }
+      });
+
+      const clearKeyButton = document.createElement('button');
+      clearKeyButton.type = 'button';
+      clearKeyButton.className = 'ghost-button';
+      clearKeyButton.textContent = '恢复默认';
+      clearKeyButton.disabled = !user.apiKey;
+      clearKeyButton.addEventListener('click', async () => {
+        if (!confirm(`将用户“${user.username}”恢复为使用全局默认 API Key？`)) return;
+        clearKeyButton.disabled = true;
+        try {
+          await jsonRequest(`/api/admin/users/${user.uid}/api-key`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiKey: null }),
+          });
+          await loadAdminUsers();
+          setDialogStatus(elements.accountStatus, `用户“${user.username}”已恢复使用全局默认 Key`, 'success');
+        } catch (err) {
+          setDialogStatus(elements.accountStatus, err.message, 'error');
+          clearKeyButton.disabled = false;
+        }
+      });
+
+      keyInputGroup.append(keyInput, toggleKeyVisibility, saveKeyButton, clearKeyButton);
+      keyLabel.append(keyTextSpan, keyInputGroup);
+      keySection.append(keyLabel);
+
+      card.append(access, saveAccess, keySection);
     }
     elements.adminUsersList.append(card);
   }
@@ -6635,13 +7199,13 @@ function bindEvents() {
     const modelId = modelSupportsMode(currentModel, mode, { allowImageModeOverride: mode === 'image' }) ? currentModel.id : preferredModel(mode);
     if (modelId) setSelection(modelId, mode); else setStatus(`当前没有可用的${mode === 'image' ? '生图' : '对话'}模型`, 'error');
   });
-  elements.streamButton.addEventListener('click', () => { state.stream = !state.stream; localStorage.setItem(STREAM_KEY, String(state.stream)); elements.streamButton.classList.toggle('active', state.stream); elements.streamButton.setAttribute('aria-pressed', String(state.stream)); elements.streamText.textContent = state.stream ? '流式' : '非流式'; });
+  elements.streamButton.addEventListener('click', () => { state.stream = !state.stream; localStorage.setItem(STREAM_KEY, String(state.stream)); elements.streamButton.classList.toggle('active', state.stream); elements.streamButton.setAttribute('aria-pressed', String(state.stream)); elements.streamText.textContent = state.stream ? '流式' : '非流式'; if (state.userRole !== 'guest') savePreferences({ ...state.preferences, stream: state.stream }).catch(() => {}); });
   elements.addGroup.addEventListener('click', () => { state.editingGroups.push({ id: `group-${Date.now().toString(36)}`, name: '新收藏组', items: [] }); renderGroupsEditor(); });
   elements.addRoleFolder.addEventListener('click', () => { state.editingRoleLibrary.folders.push({ id: `folder-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, name: '新文件夹', roles: [] }); renderRolesEditor(); });
   elements.saveRoles.addEventListener('click', saveRoleLibrary);
   for (const input of $$('input[name="readingMode"]', elements.settingsDialog)) input.addEventListener('change', () => { if (!input.checked) return; state.editingReadingMode = applyReadingMode(input.value); });
   elements.settingsDialog.addEventListener('close', () => applyReadingMode(state.readingMode));
-  elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { if (state.userRole === 'guest') { await saveGuestApiSettings({ showStatus: false }); } await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits, conversationTitleModel: state.editingConversationTitleModel }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
+  elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { if (state.userRole === 'guest') { await saveGuestApiSettings({ showStatus: false }); } await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits, conversationTitleModel: state.editingConversationTitleModel, readingMode: state.editingReadingMode }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
   elements.conversationTitleModel.addEventListener('change', () => { state.editingConversationTitleModel = elements.conversationTitleModel.value; });
   elements.refreshModels.addEventListener('click', async () => { elements.refreshModels.disabled = true; setDialogStatus(elements.settingsStatus, '正在刷新模型…'); try { const payload = state.userRole === 'guest' ? { models: await loadGuestDirectModels() } : await jsonRequest('/api/models?refresh=1'); state.models = payload.models || []; state.guestCatalog = state.userRole === 'guest' ? state.models : state.guestCatalog; initializeTranslationModel(); state.selected = normalizeSelection(state.selected); state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models); state.editingGroups = sanitizeFavoriteGroups(state.editingGroups, state.models); state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models); state.editingModelContextLimits = sanitizeContextLimits(state.editingModelContextLimits, state.models); renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi(); setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型`, 'success'); setSettingsConnectionText(state.userRole === 'guest' && !state.guestSettings.endpoint ? '尚未配置游客模型连接' : `已加载 ${state.models.length} 个模型`, state.userRole !== 'guest' || state.models.length > 0); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); setSettingsConnectionText('模型服务连接失败', false); } finally { elements.refreshModels.disabled = false; } });
   elements.fetchGuestModels.addEventListener('click', () => { void fetchGuestModels(); });
@@ -6657,6 +7221,27 @@ function bindEvents() {
   elements.saveGuestApi.addEventListener('click', () => { void saveGuestApiSettings().catch(() => {}); });
   elements.accountButton.addEventListener('click', openAccountCenter);
   elements.accountTabs.addEventListener('click', (event) => { const button = event.target.closest('[data-account-panel]'); if (button && !button.hidden) switchAccountPanel(button.dataset.accountPanel); });
+  elements.toggleDefaultApiKey.addEventListener('click', () => {
+    elements.defaultApiKeyInput.type = elements.defaultApiKeyInput.type === 'password' ? 'text' : 'password';
+  });
+  elements.saveDefaultApiKey.addEventListener('click', async () => {
+    elements.saveDefaultApiKey.disabled = true;
+    setDialogStatus(elements.accountStatus, '正在保存全局默认 API Key…');
+    try {
+      const val = elements.defaultApiKeyInput.value.trim() || null;
+      await jsonRequest('/api/admin/default-api-key', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: val }),
+      });
+      await loadAdminUsers();
+      setDialogStatus(elements.accountStatus, val ? '全局默认 API Key 已保存' : '已恢复使用系统内置环境变量 Key', 'success');
+    } catch (error) {
+      setDialogStatus(elements.accountStatus, error.message, 'error');
+    } finally {
+      elements.saveDefaultApiKey.disabled = false;
+    }
+  });
   elements.createUserForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const credits = Number(elements.createCredits.value);
@@ -6664,8 +7249,21 @@ function bindEvents() {
     const submit = elements.createUserForm.querySelector('button[type="submit"]'); submit.disabled = true;
     setDialogStatus(elements.accountStatus, '正在创建用户…');
     try {
-      await jsonRequest('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: elements.createUsername.value.trim(), password: elements.createPassword.value, credits }) });
-      elements.createUserForm.reset(); elements.createCredits.value = '0'; await loadAdminUsers();
+      const apiKeyVal = elements.createApiKey?.value.trim() || null;
+      await jsonRequest('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: elements.createUsername.value.trim(),
+          password: elements.createPassword.value,
+          credits,
+          apiKey: apiKeyVal,
+        }),
+      });
+      elements.createUserForm.reset();
+      elements.createCredits.value = '0';
+      if (elements.createApiKey) elements.createApiKey.value = '';
+      await loadAdminUsers();
       setDialogStatus(elements.accountStatus, '用户已创建；默认没有模型权限', 'success');
     } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); } finally { submit.disabled = false; }
   });
@@ -6769,6 +7367,7 @@ function updateAccountUi() {
   elements.accountRoleBadge.classList.toggle('admin', isAdmin);
   elements.accountCredits.textContent = `积分 ${displayCredits(state.credits)}`;
   elements.openOpc.hidden = !isAdmin;
+  elements.openLearning.hidden = !isAdmin;
   for (const element of $$('[data-admin-only]', elements.accountDialog)) element.hidden = !isAdmin;
   for (const element of $$('[data-guest-hidden]', elements.accountDialog)) element.hidden = !isGuest;
   if (!isAdmin || isGuest) switchAccountPanel('quota');
@@ -6803,20 +7402,36 @@ async function initialize() {
         setStatus(`游客模型连接失败：${error.message}`, 'error');
       }
     } else {
-      modelsPayload = await jsonRequest('/api/models');
+      modelsPayload = await jsonRequest('/api/models').catch((err) => {
+        console.warn('获取模型列表失败，使用空列表:', err);
+        return { models: [] };
+      });
     }
     const localGuestPreferences = state.userRole === 'guest' ? (() => { try { return JSON.parse(localStorage.getItem('light-chat-guest-preferences-v2') || '{}'); } catch { return {}; } })() : null;
     const localGuestRoles = state.userRole === 'guest' ? (() => { try { return JSON.parse(localStorage.getItem('light-chat-guest-roles-v2') || '{"version":1,"folders":[]}'); } catch { return { version: 1, folders: [] }; } })() : null;
     const [preferencesPayload, rolesPayload] = state.userRole === 'guest'
       ? [{ ...(localGuestPreferences || {}), favoriteGroups: localGuestPreferences?.favoriteGroups || [], selected: localGuestPreferences?.selected || null }, localGuestRoles]
-      : await Promise.all([jsonRequest('/api/preferences'), jsonRequest('/api/roles')]);
+      : await Promise.all([
+          jsonRequest('/api/preferences').catch(() => ({ favoriteGroups: [], selected: null })),
+          jsonRequest('/api/roles').catch(() => ({ version: 1, folders: [] })),
+        ]);
     state.models = modelsPayload.models || [];
     state.roleLibrary = rolesPayload?.version === 1 && Array.isArray(rolesPayload.folders) ? rolesPayload : { version: 1, folders: [] };
     const validRoleIds = new Set(allRoles().map((role) => role.id));
     state.openRoleConversationIds = new Set([...state.openRoleConversationIds].filter((id) => id === DEFAULT_ROLE_CONVERSATIONS_ID || validRoleIds.has(id)));
     persistOpenRoleConversations();
     state.selectedRoleId = validRoleId(state.selectedRoleId);
-    state.preferences = { favoriteGroups: preferencesPayload.favoriteGroups || [], selected: preferencesPayload.selected || null, modelContextLimits: sanitizeContextLimits(preferencesPayload.modelContextLimits, state.models), favoriteMediaIds: Array.isArray(preferencesPayload.favoriteMediaIds) ? preferencesPayload.favoriteMediaIds : [], conversationTitleModel: typeof preferencesPayload.conversationTitleModel === 'string' ? preferencesPayload.conversationTitleModel : DEFAULT_CONVERSATION_TITLE_MODEL };
+    state.preferences = { favoriteGroups: preferencesPayload.favoriteGroups || [], selected: preferencesPayload.selected || null, modelContextLimits: sanitizeContextLimits(preferencesPayload.modelContextLimits, state.models), favoriteMediaIds: Array.isArray(preferencesPayload.favoriteMediaIds) ? preferencesPayload.favoriteMediaIds : [], conversationTitleModel: typeof preferencesPayload.conversationTitleModel === 'string' ? preferencesPayload.conversationTitleModel : DEFAULT_CONVERSATION_TITLE_MODEL, readingMode: preferencesPayload.readingMode || 'classic', stream: preferencesPayload.stream !== false };
+    if (preferencesPayload.readingMode && state.userRole !== 'guest') {
+      state.readingMode = applyReadingMode(preferencesPayload.readingMode, { persist: true });
+    }
+    if (typeof preferencesPayload.stream === 'boolean' && state.userRole !== 'guest') {
+      state.stream = preferencesPayload.stream;
+      localStorage.setItem(STREAM_KEY, String(state.stream));
+      elements.streamButton.classList.toggle('active', state.stream);
+      elements.streamButton.setAttribute('aria-pressed', String(state.stream));
+      elements.streamText.textContent = state.stream ? '流式' : '非流式';
+    }
     state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
     if (isLegacyAutomaticFavoriteGroups(state.preferences.favoriteGroups) && ['user', 'guest'].includes(state.userRole) && state.models.length <= 20) {
       state.preferences.favoriteGroups = automaticFavoriteGroupsForModels(state.models);
@@ -6830,9 +7445,11 @@ async function initialize() {
       || isLegacyAutomaticFavoriteGroups(preferencesPayload.favoriteGroups);
     if (state.preferences.favoriteGroups.length && favoriteGroupsChanged) await savePreferences().catch(() => {});
     state.conversations = await loadPersistedConversations(); openEntryGlobalConversation();
-    elements.connection.textContent = `${state.models.length} 个模型可用 · 服务连接已就绪`;
+    renderHistory();
+    renderFavoriteConversations();
+    elements.connection.textContent = state.models.length ? `${state.models.length} 个模型可用 · 服务连接已就绪` : '模型服务未连接';
     updateSelectionUi(); renderConversation(); renderPendingAttachments(); autoResize();
-  } catch (error) { elements.connection.textContent = '模型服务连接失败'; setStatus(error.message, 'error'); }
+  } catch (error) { elements.connection.textContent = '服务初始化失败'; setStatus(error.message, 'error'); }
 }
 
 initialize();

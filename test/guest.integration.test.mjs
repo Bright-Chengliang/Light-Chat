@@ -173,6 +173,8 @@ test('guest cannot reach administrator-only surfaces', async () => {
     const signedIn = await guestLogin(context.baseUrl);
     const opcDenied = await fetch(`${context.baseUrl}/opc/`, { headers: { Cookie: signedIn.cookie }, redirect: 'manual' });
     assert.equal(opcDenied.status, 403);
+    const learningDenied = await fetch(`${context.baseUrl}/learning/`, { headers: { Cookie: signedIn.cookie }, redirect: 'manual' });
+    assert.equal(learningDenied.status, 403);
     const workflowsDenied = await guestJson(context.baseUrl, signedIn.cookie, '/api/workflows');
     assert.equal(workflowsDenied.response.status, 403);
   } finally {
