@@ -6978,6 +6978,10 @@ function renderAdminUsers() {
       groupSelect.addEventListener('change', updateDefaultModelOptions);
       defaultModelLabel.append(defaultModelTitle, defaultModelSelect);
 
+      const controlsContainer = document.createElement('div');
+      controlsContainer.className = 'user-access-controls';
+      controlsContainer.append(groupLabel, defaultModelLabel);
+
       const extrasSection = document.createElement('section');
       extrasSection.className = 'user-access-models';
       const extrasTitle = document.createElement('span');
@@ -6988,7 +6992,7 @@ function renderAdminUsers() {
         updateDefaultModelOptions();
       }, `${user.username} 的额外模型`));
       updateDefaultModelOptions();
-      access.append(groupLabel, defaultModelLabel, extrasSection);
+      access.append(controlsContainer, extrasSection);
       const saveAccess = document.createElement('button');
       saveAccess.type = 'button';
       saveAccess.className = 'save-user-access';
