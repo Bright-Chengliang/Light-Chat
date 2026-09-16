@@ -795,9 +795,15 @@ function findRoleById(roleId) { return allRoles().find((role) => role.id === rol
 function validRoleId(roleId) { return findRoleById(roleId)?.id || ''; }
 
 function createConversation({ activate = true, roleId = validRoleId(state.selectedRoleId), workflowId = '', close = true } = {}) {
+  if (activate) saveCurrentConversationDraft();
   const conversation = { id: randomId(), title: '新对话', titleCustomized: false, createdAt: Date.now(), updatedAt: Date.now(), roleId, workflowId: validWorkflowId(workflowId), folderId: '', messages: [] };
   state.conversations.unshift(conversation);
-  if (activate) { state.currentId = conversation.id; state.editingMessageId = ''; resumeOutputFollow(); }
+  if (activate) {
+    state.currentId = conversation.id;
+    state.editingMessageId = '';
+    resumeOutputFollow();
+    restoreConversationDraft(conversation.id);
+  }
   saveConversations();
   renderConversation();
   elements.input.focus();
@@ -1622,6 +1628,33 @@ function appendHistoryTitleHighlight(container, title, query) {
   }
 }
 
+const conversationDrafts = new Map();
+
+function saveCurrentConversationDraft() {
+  if (!state.currentId) return;
+  const text = elements.input?.value || '';
+  const attachments = Array.isArray(state.pendingAttachments) ? [...state.pendingAttachments] : [];
+  if (text || attachments.length > 0) {
+    conversationDrafts.set(state.currentId, { text, attachments });
+  } else {
+    conversationDrafts.delete(state.currentId);
+  }
+}
+
+function restoreConversationDraft(conversationId) {
+  const draft = conversationDrafts.get(conversationId);
+  if (draft) {
+    if (elements.input) elements.input.value = draft.text || '';
+    state.pendingAttachments = Array.isArray(draft.attachments) ? [...draft.attachments] : [];
+  } else {
+    if (elements.input) elements.input.value = '';
+    state.pendingAttachments = [];
+  }
+  renderPendingAttachments();
+  autoResize();
+  updateSendState();
+}
+
 function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar = true, keepDrawer = false } = {}) {
   const conversation = state.conversations.find((item) => item.id === conversationId);
   if (!conversation) return;
@@ -1631,6 +1664,7 @@ function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar
     return;
   }
   closeAllContextMenus();
+  saveCurrentConversationDraft();
   state.currentId = conversationId;
   const workflow = validWorkflowId(conversation.workflowId) ? findWorkflowById(conversation.workflowId) : null;
   state.selectedWorkflow = workflow;
@@ -1643,6 +1677,7 @@ function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar
   restoreConversationRequest(conversation);
   state.editingMessageId = '';
   resumeOutputFollow();
+  restoreConversationDraft(conversationId);
   renderWorkflowComposer(); renderWorkflows(); renderConversation(); updateSendState();
   if (shouldCloseSidebar) closeSidebar();
   else if (keepDrawer) { openSidebar(); renderSidebarDrawerState(); }
@@ -2213,9 +2248,13 @@ function deleteHistoryConversation(conversationId) {
   if (isConversationBusy(conversationId)) { setStatus('正在响应的对话暂时不能删除', 'error'); closeHistoryContextMenu({ restoreFocus: true }); return; }
   closeHistoryContextMenu({ restoreFocus: true });
   if (!confirm(`删除对话“${conversation.title}”（共 ${conversation.messages.length} 条消息）？\n\n此操作无法撤销，仅影响当前浏览器。`)) return;
+  conversationDrafts.delete(conversationId);
   state.conversations = state.conversations.filter((item) => item.id !== conversationId);
   if (!state.conversations.length) { state.currentId = ''; createConversation(); return; }
-  if (state.currentId === conversationId) state.currentId = state.conversations[0].id;
+  if (state.currentId === conversationId) {
+    state.currentId = state.conversations[0].id;
+    restoreConversationDraft(state.currentId);
+  }
   saveConversations(); renderConversation(); restoreContextMenuFocus(elements.historyToggle);
 }
 
@@ -4891,7 +4930,10 @@ function toggleWebSearchFromComposer() {
   if (tavily) tavily.enabled = nextState;
   if (brave) brave.enabled = nextState && !tavily?.apiKey?.trim();
   saveToolsConfig(list);
-  renderToolsDrawer();
+  const toolsPanel = elements.sidebarDrawerShell?.querySelector('[data-sidebar-drawer-panel="tools"]');
+  if (toolsPanel && !toolsPanel.hidden) {
+    renderToolsDrawer();
+  }
   setStatus(nextState ? '已开启联网搜索' : '已关闭联网搜索', 'success');
 }
 
@@ -5134,8 +5176,10 @@ function renderToolsDrawer() {
     card.append(desc);
 
     if (item.type === 'brave-search' || item.type === 'tavily-search') {
-      const config = document.createElement('div');
+      const config = document.createElement('form');
       config.className = 'tool-card-config';
+      config.autocomplete = 'off';
+      config.setAttribute('onsubmit', 'return false');
       const keyLabel = document.createElement('label');
       keyLabel.textContent = `${item.name} API 密钥 (本地安全保存，默认留空)：`;
 
@@ -5144,9 +5188,13 @@ function renderToolsDrawer() {
 
       const keyInput = document.createElement('input');
       keyInput.type = 'password';
+      keyInput.name = `tool-key-${item.id}`;
       keyInput.value = item.apiKey || '';
       keyInput.placeholder = item.type === 'tavily-search' ? '输入 Tavily API Key (如 tvly-...)' : '输入 Brave API Key';
-      keyInput.autocomplete = 'off';
+      keyInput.autocomplete = 'new-password';
+      keyInput.setAttribute('data-lpignore', 'true');
+      keyInput.setAttribute('data-1p-ignore', 'true');
+      keyInput.setAttribute('data-form-type', 'other');
 
       const eyeBtn = document.createElement('button');
       eyeBtn.type = 'button';
@@ -5315,6 +5363,9 @@ async function uploadAttachmentFile(file, { signal } = {}) {
 
 async function uploadFiles(files) {
   const remaining = Math.max(0, MAX_MESSAGE_MEDIA_ITEMS - state.pendingAttachments.length);
+  if (files.length > remaining) {
+    setStatus(`单条消息最多保留 ${MAX_MESSAGE_MEDIA_ITEMS} 个附件，已截取前 ${remaining} 个文件上传`, 'error');
+  }
   for (const file of files.slice(0, remaining)) {
     setStatus(`正在上传 ${file.name}…`);
     try {
@@ -5322,6 +5373,7 @@ async function uploadFiles(files) {
       renderPendingAttachments(); setStatus('附件已就绪', 'success');
     } catch (error) { setStatus(`${file.name}：${error.message}`, 'error'); }
   }
+  saveCurrentConversationDraft();
   elements.fileInput.value = '';
 }
 
@@ -5358,7 +5410,7 @@ function renderPendingAttachments() {
     }
     else { const icon = document.createElement('span'); icon.className = 'attachment-file-icon'; icon.textContent = (item.fileName.split('.').pop() || 'FILE').toUpperCase(); card.append(icon); }
     const name = document.createElement('span'); name.textContent = item.fileName || item.mimeType;
-    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.setAttribute('aria-label', `移除 ${item.fileName}`); remove.addEventListener('click', () => { state.pendingAttachments.splice(index, 1); renderPendingAttachments(); updateSendState(); });
+    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.setAttribute('aria-label', `移除 ${item.fileName}`); remove.addEventListener('click', () => { state.pendingAttachments.splice(index, 1); saveCurrentConversationDraft(); renderPendingAttachments(); updateSendState(); });
     card.append(name, remove); elements.attachmentStrip.append(card);
   });
   updateSendState();
@@ -5422,6 +5474,7 @@ function composerMessageDraft(conversation) {
 }
 
 function clearComposerDraft() {
+  if (state.currentId) conversationDrafts.delete(state.currentId);
   state.pendingAttachments = []; renderPendingAttachments(); elements.input.value = ''; autoResize();
 }
 
@@ -5584,6 +5637,9 @@ function compileRoleSystemPromptClient(role) {
     if (att && att.extractedText && typeof att.extractedText === 'string' && att.extractedText.trim()) {
       const name = att.fileName || att.name || '参考文档';
       parts.push(`\n\n【角色关联参考资料/知识库：${name}】\n--- 开始文档内容 ---\n${att.extractedText.trim()}\n--- 结束文档内容 ---`);
+    } else if (att && att.isImage) {
+      const name = att.fileName || att.name || '设定图片';
+      parts.push(`\n\n【角色关联视觉设定资料：已附带图片《${name}》，图片文件已作为多模态输入注入对话中，请结合该视觉信息进行理解与回答】`);
     }
   }
   return parts.length ? `${base}${parts.join('')}` : base;
@@ -5663,8 +5719,37 @@ async function guestChatFetch(payload, signal) {
 
 async function chatRequest(payload, signal) {
   if (state.userRole === 'guest') {
-    const directPayload = { ...payload, messages: payload.messages || [] };
+    const directPayload = { ...payload, messages: payload.messages ? structuredClone(payload.messages) : [] };
+    const roleId = validRoleId(payload.roleId);
     delete directPayload.roleId;
+    if (roleId) {
+      const role = findRoleById(roleId);
+      if (role) {
+        const sysPrompt = compileRoleSystemPromptClient(role);
+        if (sysPrompt) {
+          directPayload.messages = [{ role: 'system', content: sysPrompt }, ...directPayload.messages.filter((m) => m.role !== 'system')];
+        }
+        if (Array.isArray(role.attachments)) {
+          const imgParts = [];
+          for (const att of role.attachments) {
+            if (att?.isImage && att.url) {
+              imgParts.push({ type: 'text', text: `【角色关联视觉设定资料：${att.fileName || '设定图片'}】` });
+              imgParts.push({ type: 'image_url', image_url: { url: att.url } });
+            }
+          }
+          if (imgParts.length > 0) {
+            const firstUser = directPayload.messages.find((m) => m.role === 'user');
+            if (firstUser) {
+              if (typeof firstUser.content === 'string') {
+                firstUser.content = [...imgParts, { type: 'text', text: firstUser.content }];
+              } else if (Array.isArray(firstUser.content)) {
+                firstUser.content = [...imgParts, ...firstUser.content];
+              }
+            }
+          }
+        }
+      }
+    }
     return guestChatFetch(directPayload, signal);
   }
   return fetch('/api/chat', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf }, body: JSON.stringify(payload), signal });
@@ -6834,8 +6919,10 @@ function renderAdminUsers() {
         } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); saveAccess.disabled = false; }
       });
 
-      const keySection = document.createElement('div');
+      const keySection = document.createElement('form');
       keySection.className = 'user-key-editor';
+      keySection.autocomplete = 'off';
+      keySection.setAttribute('onsubmit', 'return false');
       const keyLabel = document.createElement('label');
       keyLabel.className = 'user-key-label';
       const keyTextSpan = document.createElement('span');
@@ -6844,9 +6931,13 @@ function renderAdminUsers() {
       keyInputGroup.className = 'user-key-input-group';
       const keyInput = document.createElement('input');
       keyInput.type = 'password';
+      keyInput.name = `user-api-key-${user.uid}`;
       keyInput.value = user.apiKey || '';
       keyInput.placeholder = 'sk-...（留空则继承全局默认 Key）';
-      keyInput.autocomplete = 'off';
+      keyInput.autocomplete = 'new-password';
+      keyInput.setAttribute('data-lpignore', 'true');
+      keyInput.setAttribute('data-1p-ignore', 'true');
+      keyInput.setAttribute('data-form-type', 'other');
 
       const toggleKeyVisibility = document.createElement('button');
       toggleKeyVisibility.type = 'button';

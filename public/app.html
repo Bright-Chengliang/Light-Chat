@@ -58,7 +58,7 @@
         </section>
         <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="history" hidden>
           <div class="sidebar-section-heading"><button class="section-toggle" id="historyToggle" type="button" aria-expanded="true" aria-controls="historyList"><span>最近对话</span><span class="section-chevron" aria-hidden="true"></span></button><span class="history-heading-actions"><button id="addHistoryFolderButton" type="button" title="创建对话文件夹">＋ 文件夹</button><button id="clearHistoryButton" type="button">清空</button></span></div>
-          <label class="history-search"><span class="sr-only">搜索当前历史会话标题</span><input id="historySearchInput" type="search" placeholder="搜索当前栏目会话标题" autocomplete="off"></label>
+          <form class="history-search-form" role="search" onsubmit="return false"><label class="history-search"><span class="sr-only">搜索当前历史会话标题</span><input id="historySearchInput" type="search" name="history_search_query" placeholder="搜索当前栏目会话标题" autocomplete="off" data-lpignore="true" data-form-type="other" role="searchbox"></label></form>
           <nav class="history-list" id="historyList" aria-label="本机对话历史"></nav>
         </section>
         <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="recent-files" hidden>
