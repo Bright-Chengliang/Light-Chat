@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param([ValidateRange(3020, 4000)][int]$Port = 3020)
+param(
+    [ValidateRange(3020, 4000)][int]$Port = 3020,
+    [switch]$Restart
+)
 
 $ErrorActionPreference = 'Stop'
 $ProjectRoot = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
@@ -9,11 +12,19 @@ $StartScript = Join-Path $PSScriptRoot 'start-server.ps1'
 
 $listener = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue
 if ($listener) {
-    try {
-        $health = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$Port/healthz" -TimeoutSec 3
-        if ($health.StatusCode -eq 200) { Write-Host "Light-Chat 已在 127.0.0.1:$Port 运行。"; exit 0 }
-    } catch {}
-    throw "端口 $Port 已被其他程序占用。"
+    if ($Restart) {
+        $pidsToKill = @($listener.OwningProcess | Select-Object -Unique)
+        foreach ($p in $pidsToKill) {
+            try { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } catch {}
+        }
+        Start-Sleep -Milliseconds 800
+    } else {
+        try {
+            $health = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$Port/healthz" -TimeoutSec 3
+            if ($health.StatusCode -eq 200) { Write-Host "Light-Chat 已在 127.0.0.1:$Port 运行。"; exit 0 }
+        } catch {}
+        throw "端口 $Port 已被其他程序占用。"
+    }
 }
 
 New-Item -ItemType Directory -Force -Path $LogsDir, $RunDir | Out-Null
