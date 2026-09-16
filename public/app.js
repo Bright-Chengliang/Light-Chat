@@ -3205,6 +3205,89 @@ function branchFromMessage(messageId) {
   saveConversations(); renderConversation(); updateSendState(); setStatus(`已从第 ${index + 1} 条消息创建分支`, 'success'); elements.input.focus();
 }
 
+const MESSAGE_PAGE_SIZE = 20;
+let historyLoadingObserver = null;
+let isLoadingMoreHistory = false;
+
+function createHistorySentinel(remainingCount) {
+  const sentinel = document.createElement('div');
+  sentinel.className = 'history-sentinel';
+  sentinel.dataset.historySentinel = 'true';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'load-more-history-button';
+  button.textContent = `↑ 查看更早的消息（还剩 ${remainingCount} 条）`;
+  button.addEventListener('click', () => loadMoreHistoryMessages());
+  sentinel.append(button);
+  return sentinel;
+}
+
+function updateHistorySentinel(sentinel, remainingCount) {
+  const button = sentinel.querySelector('.load-more-history-button');
+  if (button) button.textContent = `↑ 查看更早的消息（还剩 ${remainingCount} 条）`;
+}
+
+function setupHistoryObserver(sentinel) {
+  if (historyLoadingObserver) {
+    historyLoadingObserver.disconnect();
+    historyLoadingObserver = null;
+  }
+  if (!sentinel) return;
+  historyLoadingObserver = new IntersectionObserver((entries) => {
+    if (entries[0]?.isIntersecting) {
+      loadMoreHistoryMessages();
+    }
+  }, { root: elements.scroll, rootMargin: '240px 0px 0px 0px' });
+  historyLoadingObserver.observe(sentinel);
+}
+
+function loadMoreHistoryMessages() {
+  if (isLoadingMoreHistory) return;
+  const conversation = currentConversation();
+  if (!conversation) return;
+  const total = conversation.messages.length;
+  const currentCount = state.renderedMessageCount || MESSAGE_PAGE_SIZE;
+  if (currentCount >= total) {
+    const existingSentinel = elements.messageList.querySelector('[data-history-sentinel]');
+    existingSentinel?.remove();
+    setupHistoryObserver(null);
+    return;
+  }
+  isLoadingMoreHistory = true;
+  const nextCount = Math.min(total, currentCount + MESSAGE_PAGE_SIZE);
+  const newlyVisibleMessages = conversation.messages.slice(total - nextCount, total - currentCount);
+  state.renderedMessageCount = nextCount;
+
+  const previousScrollHeight = elements.scroll.scrollHeight;
+  const previousScrollTop = elements.scroll.scrollTop;
+
+  const fragment = document.createDocumentFragment();
+  for (const message of newlyVisibleMessages) {
+    fragment.append(createMessageElement(message));
+  }
+
+  const existingSentinel = elements.messageList.querySelector('[data-history-sentinel]');
+  if (existingSentinel) {
+    existingSentinel.after(fragment);
+    if (nextCount < total) {
+      updateHistorySentinel(existingSentinel, total - nextCount);
+    } else {
+      existingSentinel.remove();
+      setupHistoryObserver(null);
+    }
+  } else {
+    elements.messageList.prepend(fragment);
+  }
+
+  const newScrollHeight = elements.scroll.scrollHeight;
+  const heightDifference = newScrollHeight - previousScrollHeight;
+  setConversationScrollTop(previousScrollTop + heightDifference);
+
+  requestAnimationFrame(() => {
+    isLoadingMoreHistory = false;
+  });
+}
+
 function renderConversation() {
   clearMessageNavigation();
   editingAttachmentDropHandler = null;
@@ -3218,7 +3301,30 @@ function renderConversation() {
   state.selectedRoleId = conversation.roleId;
   localStorage.setItem(ROLE_SELECTION_KEY, state.selectedRoleId);
   elements.title.textContent = conversation.title;
-  elements.messageList.replaceChildren(...conversation.messages.map(createMessageElement));
+
+  const total = conversation.messages.length;
+  let renderCount = MESSAGE_PAGE_SIZE;
+  if (editingMessageId) {
+    const editIdx = conversation.messages.findIndex((m) => m.id === editingMessageId);
+    if (editIdx >= 0) {
+      renderCount = Math.max(MESSAGE_PAGE_SIZE, total - editIdx + 2);
+    }
+  }
+  renderCount = Math.min(total, renderCount);
+  state.renderedMessageCount = renderCount;
+
+  const visibleMessages = conversation.messages.slice(total - renderCount);
+  const mounted = visibleMessages.map(createMessageElement);
+
+  if (total > renderCount) {
+    const sentinel = createHistorySentinel(total - renderCount);
+    elements.messageList.replaceChildren(sentinel, ...mounted);
+    setupHistoryObserver(sentinel);
+  } else {
+    elements.messageList.replaceChildren(...mounted);
+    setupHistoryObserver(null);
+  }
+
   elements.emptyState.hidden = conversation.messages.length > 0;
   elements.typing.hidden = !isConversationBusy(conversation.id);
   renderHistory(); renderMessageQueue();
