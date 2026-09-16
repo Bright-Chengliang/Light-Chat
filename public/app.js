@@ -4438,6 +4438,36 @@ async function compressImageToDataUrl(file, maxDimension = 1280, quality = 0.8) 
   });
 }
 
+async function autoPersistRoleAttachments(targetRole) {
+  if (!targetRole || !targetRole.id) return;
+  const loc = findRoleLocation(targetRole.id, state.roleLibrary);
+  if (loc) {
+    loc.role.attachments = structuredClone(targetRole.attachments || []);
+  }
+  if (state.editingRoleLibrary) {
+    const editLoc = findRoleLocation(targetRole.id, state.editingRoleLibrary);
+    if (editLoc) {
+      editLoc.role.attachments = structuredClone(targetRole.attachments || []);
+    }
+  }
+  try {
+    const nextLibrary = cloneRoleLibrary();
+    if (loc) {
+      const nextLoc = findRoleLocation(targetRole.id, nextLibrary);
+      if (nextLoc) nextLoc.role.attachments = structuredClone(targetRole.attachments || []);
+    }
+    const payload = await roleRequest('/api/roles', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nextLibrary),
+    });
+    applyRoleLibrary(payload);
+    setDialogStatus(elements.rolesStatus, '资料文件已自动保存', 'success');
+  } catch (err) {
+    console.warn('自动保存角色附件失败:', err);
+  }
+}
+
 function renderRoleAttachmentsEditor(role, container) {
   container.replaceChildren();
   if (!Array.isArray(role.attachments)) role.attachments = [];
@@ -4485,9 +4515,10 @@ function renderRoleAttachmentsEditor(role, container) {
     removeBtn.innerHTML = '&times;';
     removeBtn.title = '删除资料';
     removeBtn.setAttribute('aria-label', `删除资料 ${att.fileName}`);
-    removeBtn.addEventListener('click', () => {
+    removeBtn.addEventListener('click', async () => {
       role.attachments.splice(attIndex, 1);
       renderRoleAttachmentsEditor(role, container);
+      await autoPersistRoleAttachments(role);
     });
     item.append(removeBtn);
 
@@ -4515,12 +4546,12 @@ function renderRoleAttachmentsEditor(role, container) {
     uploadBtn.textContent = '正在读取并处理多媒体资料…';
     try {
       for (const file of files) {
-        if (role.attachments.length >= 12) {
-          alert('单个角色最多关联 12 份多媒体资料');
+        if (role.attachments.length >= 100) {
+          alert('单个角色最多关联 100 份多媒体资料');
           break;
         }
-        if (file.size > 20 * 1024 * 1024) {
-          alert(`文件 ${file.name} 超过 20MB 上限`);
+        if (file.size > 50 * 1024 * 1024) {
+          alert(`文件 ${file.name} 超过 50MB 上限`);
           continue;
         }
         const mime = mimeForFile(file);
@@ -4534,7 +4565,7 @@ function renderRoleAttachmentsEditor(role, container) {
               const res = await fetch('/api/uploads', {
                 method: 'POST',
                 credentials: 'same-origin',
-                headers: { 'Content-Type': mime, 'X-CSRF-Token': state.csrf, 'X-File-Name': encodeURIComponent(file.name) },
+                headers: { 'Content-Type': mime, 'X-CSRF-Token': state.csrf, 'X-File-Name': encodeURIComponent(file.name), 'X-Role-Attachment': '1' },
                 body: file,
               });
               const payload = await res.json().catch(() => ({}));
@@ -4554,7 +4585,7 @@ function renderRoleAttachmentsEditor(role, container) {
               const res = await fetch('/api/uploads', {
                 method: 'POST',
                 credentials: 'same-origin',
-                headers: { 'Content-Type': mime, 'X-CSRF-Token': state.csrf, 'X-File-Name': encodeURIComponent(file.name) },
+                headers: { 'Content-Type': mime, 'X-CSRF-Token': state.csrf, 'X-File-Name': encodeURIComponent(file.name), 'X-Role-Attachment': '1' },
                 body: file,
               });
               const payload = await res.json().catch(() => ({}));
@@ -4587,6 +4618,7 @@ function renderRoleAttachmentsEditor(role, container) {
         });
       }
       renderRoleAttachmentsEditor(role, container);
+      await autoPersistRoleAttachments(role);
     } catch (err) {
       alert(`上传资料失败：${err.message}`);
     } finally {
@@ -5352,7 +5384,18 @@ async function uploadAttachmentFile(file, { signal } = {}) {
     attachment.size = file.size;
     return attachment;
   }
-  const response = await fetch('/api/uploads', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': mime, 'X-CSRF-Token': state.csrf, 'X-File-Name': encodeURIComponent(file.name) }, body: file, signal });
+  const response = await fetch('/api/uploads', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': mime,
+      'X-CSRF-Token': state.csrf,
+      'X-File-Name': encodeURIComponent(file.name),
+      'X-Active-Attachments-Count': String(state.pendingAttachments.length),
+    },
+    body: file,
+    signal,
+  });
   const payload = await response.json().catch(() => ({}));
   if (response.status === 401) { location.replace('/'); throw new Error('登录已失效'); }
   if (!response.ok) throw new Error(payload.error || '上传失败');
