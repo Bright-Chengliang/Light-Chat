@@ -7366,8 +7366,9 @@ function updateAccountUi() {
   elements.accountRoleBadge.textContent = isAdmin ? '管理员' : isGuest ? '游客' : '普通用户';
   elements.accountRoleBadge.classList.toggle('admin', isAdmin);
   elements.accountCredits.textContent = `积分 ${displayCredits(state.credits)}`;
-  elements.openOpc.hidden = !isAdmin;
-  elements.openLearning.hidden = !isAdmin;
+  const showWorkspaces = isAdmin && Boolean(state.enableWorkspaces);
+  elements.openOpc.hidden = !showWorkspaces;
+  elements.openLearning.hidden = !isAdmin || !state.enableWorkspaces;
   for (const element of $$('[data-admin-only]', elements.accountDialog)) element.hidden = !isAdmin;
   for (const element of $$('[data-guest-hidden]', elements.accountDialog)) element.hidden = !isGuest;
   if (!isAdmin || isGuest) switchAccountPanel('quota');
@@ -7388,7 +7389,7 @@ async function initialize() {
   try {
     const session = await jsonRequest('/api/session');
     if (!session.authenticated) { location.replace('/'); return; }
-    state.user = session.username; state.userUid = session.uid; state.userRole = session.role || 'user'; state.credits = session.credits; state.csrf = session.csrfToken; startSessionRevocationListener(); state.translationHistory = loadTranslationHistory(); state.translationModelId = loadTranslationModel(); state.lastSelectedModels = loadLastSelectedModels(); updateAccountUi();
+    state.user = session.username; state.userUid = session.uid; state.userRole = session.role || 'user'; state.credits = session.credits; state.csrf = session.csrfToken; state.enableWorkspaces = Boolean(session.enableWorkspaces); startSessionRevocationListener(); state.translationHistory = loadTranslationHistory(); state.translationModelId = loadTranslationModel(); state.lastSelectedModels = loadLastSelectedModels(); updateAccountUi();
     let modelsPayload;
     if (state.userRole === 'guest') {
       const guestConfig = loadGuestLocalConfig();

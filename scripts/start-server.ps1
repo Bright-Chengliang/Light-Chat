@@ -56,6 +56,12 @@ if (-not [Environment]::GetEnvironmentVariable('CHAT_UPSTREAM_BASE_URL', 'Proces
         $env:CHAT_UPSTREAM_BASE_URL = (Get-Content -LiteralPath $LocalUpstreamFile -Raw).Trim()
     }
 }
+if (-not [Environment]::GetEnvironmentVariable('CHAT_ENABLE_WORKSPACES', 'Process')) {
+    $LocalWorkspacesFile = Join-Path $ProjectRoot '.local\enable-workspaces'
+    if (Test-Path -LiteralPath $LocalWorkspacesFile) {
+        $env:CHAT_ENABLE_WORKSPACES = (Get-Content -LiteralPath $LocalWorkspacesFile -Raw).Trim()
+    }
+}
 
 try {
     Push-Location $ProjectRoot
@@ -76,5 +82,6 @@ finally {
     Remove-Item Env:CHAT_TRUST_PROXY -ErrorAction SilentlyContinue
     Remove-Item Env:CHAT_ALLOWED_HOSTS -ErrorAction SilentlyContinue
     Remove-Item Env:CHAT_UPSTREAM_BASE_URL -ErrorAction SilentlyContinue
+    Remove-Item Env:CHAT_ENABLE_WORKSPACES -ErrorAction SilentlyContinue
     $credentials = $null
 }

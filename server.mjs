@@ -16,6 +16,7 @@ const ALLOWED_HOSTS = (process.env.CHAT_ALLOWED_HOSTS || '')
   .map((value) => value.trim())
   .filter(Boolean);
 const DATA_DIR = process.env.CHAT_DATA_DIR ? resolve(process.env.CHAT_DATA_DIR) : undefined;
+const ENABLE_WORKSPACES = process.env.CHAT_ENABLE_WORKSPACES === 'true' || process.env.CHAT_ENABLE_WORKSPACES === '1';
 
 for (const name of [
   'CHAT_UPSTREAM_API_KEY',
@@ -25,6 +26,7 @@ for (const name of [
   'CHAT_SESSION_SECRET',
   'CHAT_ALLOWED_HOSTS',
   'CHAT_DATA_DIR',
+  'CHAT_ENABLE_WORKSPACES',
 ]) delete process.env[name];
 
 if (!Number.isInteger(PORT) || PORT < 3020 || PORT > 4000) {
@@ -58,6 +60,7 @@ try {
     trustProxy: TRUST_PROXY,
     allowedHosts: ALLOWED_HOSTS,
     newApiBaseUrl: UPSTREAM_BASE_URL,
+    enableWorkspaces: ENABLE_WORKSPACES,
   });
 } catch (error) {
   console.error(`服务初始化失败：${error?.message || '未知错误'}`);

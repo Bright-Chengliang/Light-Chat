@@ -572,3 +572,10 @@ test('quick translation provides a protected two-panel workspace with local hist
   assert.match(publicSource, /light-chat-translation-history/);
   assert.match(publicSource, /\.translator-panels \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/);
 });
+
+test('internal workspace features are hidden by default unless explicitly enabled', () => {
+  assert.match(backendSource, /enableWorkspaces\s*=\s*false/);
+  assert.match(backendSource, /enableWorkspaces:\s*Boolean\(enableWorkspaces\s*&&\s*sessionUser\?\.role\s*===\s*'admin'\)/);
+  assert.match(publicSource, /elements\.openOpc\.hidden\s*=\s*!showWorkspaces/);
+  assert.match(publicSource, /elements\.openLearning\.hidden\s*=\s*!isAdmin\s*\|\|\s*!state\.enableWorkspaces/);
+});
