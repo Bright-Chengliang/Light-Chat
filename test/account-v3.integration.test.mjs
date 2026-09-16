@@ -805,3 +805,61 @@ test('administrator can configure user-specific apiKey, update it online, and se
     await context.close();
   }
 });
+
+test('administrator can configure user default model and order available models', async () => {
+  const context = await fixture();
+  try {
+    const admin = await signIn(context);
+
+    // 1. Rejects defaultModel that is not in the user's available models
+    const invalidCreate = await api(context, admin, 'POST', '/api/admin/users', {
+      username: 'default-model-test-user',
+      password: 'default-model-test-password',
+      credits: 10,
+      extraModels: ['chat-basic'],
+      defaultModel: 'chat-denied',
+    });
+    assert.equal(invalidCreate.response.status, 400);
+    assert.equal(invalidCreate.body.code, 'DEFAULT_MODEL_NOT_ALLOWED');
+
+    // 2. Create user with a valid defaultModel
+    const created = await createUser(context, admin, {
+      username: 'default-model-test-user',
+      password: 'default-model-test-password',
+      credits: 10,
+      extraModels: ['chat-basic', 'chat-extra', 'gpt-image-basic'],
+      defaultModel: 'chat-extra',
+    });
+    assert.equal(created.defaultModel, 'chat-extra');
+
+    // 3. User session returns defaultModel
+    const userSession = await signIn(context, 'default-model-test-user', 'default-model-test-password');
+    const sessionInfo = await api(context, userSession, 'GET', '/api/session');
+    assert.equal(sessionInfo.response.status, 200);
+    assert.equal(sessionInfo.body.defaultModel, 'chat-extra');
+
+    // 4. /api/models returns defaultModel in the 1st position
+    const modelsInfo = await api(context, userSession, 'GET', '/api/models');
+    assert.equal(modelsInfo.response.status, 200);
+    assert.equal(modelsInfo.body.models[0].id, 'chat-extra');
+
+    // 5. /api/preferences automatic favorites puts defaultModel first in default-chat
+    const preferences = await api(context, userSession, 'GET', '/api/preferences');
+    assert.equal(preferences.response.status, 200);
+    assert.equal(preferences.body.favoriteGroups[0].items[0].modelId, 'chat-extra');
+
+    // 6. Update user's defaultModel via model-access endpoint
+    const updateAccess = await api(context, admin, 'PUT', `/api/admin/users/${created.uid}/model-access`, {
+      modelGroupId: null,
+      extraModels: ['chat-basic', 'chat-extra', 'gpt-image-basic'],
+      defaultModel: 'chat-basic',
+    });
+    assert.equal(updateAccess.response.status, 200);
+    assert.equal(updateAccess.body.user.defaultModel, 'chat-basic');
+
+    const updatedModels = await api(context, userSession, 'GET', '/api/models');
+    assert.equal(updatedModels.body.models[0].id, 'chat-basic');
+  } finally {
+    await context.close();
+  }
+});

@@ -3297,6 +3297,9 @@ function preferredModel(mode) {
   if (favorite) return favorite.modelId || favorite.model;
   const candidates = state.models.filter((model) => model.modes.includes(mode));
   if (!candidates.length) return '';
+  if (mode === 'chat' && state.sessionDefaultModel && candidates.some((m) => m.id === state.sessionDefaultModel)) {
+    return state.sessionDefaultModel;
+  }
   if (mode === 'chat') return (candidates.find((m) => m.id === 'claude-haiku-4-5') || candidates.find((m) => /claude.*sonnet/i.test(m.id)) || candidates.find((m) => /gpt-5/i.test(m.id)) || candidates[0]).id;
   return (candidates.find((m) => m.id === 'gpt-image-2') || candidates[0]).id;
 }
@@ -6872,7 +6875,8 @@ function renderAdminUsers() {
     name.textContent = user.username;
     const details = document.createElement('small');
     const accessSource = isAdmin ? '全部模型' : user.modelGroupName ? `组：${user.modelGroupName}` : '未分组';
-    details.textContent = `UID ${user.uid} · 积分 ${displayCredits(user.credits, user.role)} · ${accessSource}${user.extraModels?.length ? ` + ${user.extraModels.length} 个额外模型` : ''}`;
+    const defaultModelText = user.defaultModel ? ` · 默认：${user.defaultModel}` : '';
+    details.textContent = `UID ${user.uid} · 积分 ${displayCredits(user.credits, user.role)} · ${accessSource}${user.extraModels?.length ? ` + ${user.extraModels.length} 个额外模型` : ''}${defaultModelText}`;
     copy.append(name, details);
     const role = document.createElement('span');
     role.className = `user-role-badge${isAdmin ? ' admin' : ''}`;
@@ -6941,14 +6945,50 @@ function renderAdminUsers() {
       groupSelect.value = user.modelGroupId || '';
       groupLabel.append(groupSelect);
 
+      const defaultModelLabel = document.createElement('label');
+      defaultModelLabel.className = 'user-default-model-label';
+      const defaultModelTitle = document.createElement('span');
+      defaultModelTitle.textContent = '默认优先模型（开会话/置顶）';
+      const defaultModelSelect = document.createElement('select');
+
+      const extraModels = new Set(user.extraModels || []);
+      const updateDefaultModelOptions = () => {
+        const selectedGroup = state.modelAccessGroups.find((g) => g.id === groupSelect.value);
+        const groupModels = selectedGroup?.modelIds || [];
+        const allAvailable = Array.from(new Set([...groupModels, ...extraModels]));
+        const previousVal = defaultModelSelect.value || user.defaultModel || '';
+        defaultModelSelect.replaceChildren();
+        const autoOption = document.createElement('option');
+        autoOption.value = '';
+        autoOption.textContent = '自动（按可用列表首位）';
+        defaultModelSelect.append(autoOption);
+        for (const mId of allAvailable) {
+          const opt = document.createElement('option');
+          opt.value = mId;
+          opt.textContent = mId;
+          defaultModelSelect.append(opt);
+        }
+        if (allAvailable.includes(previousVal)) {
+          defaultModelSelect.value = previousVal;
+        } else {
+          defaultModelSelect.value = '';
+        }
+      };
+
+      groupSelect.addEventListener('change', updateDefaultModelOptions);
+      defaultModelLabel.append(defaultModelTitle, defaultModelSelect);
+
       const extrasSection = document.createElement('section');
       extrasSection.className = 'user-access-models';
       const extrasTitle = document.createElement('span');
       extrasTitle.className = 'user-access-label';
       extrasTitle.textContent = '额外开放模型';
-      const extraModels = new Set(user.extraModels || []);
-      extrasSection.append(extrasTitle, modelPermissionSelector(extraModels, (modelId, enabled) => { if (enabled) extraModels.add(modelId); else extraModels.delete(modelId); }, `${user.username} 的额外模型`));
-      access.append(groupLabel, extrasSection);
+      extrasSection.append(extrasTitle, modelPermissionSelector(extraModels, (modelId, enabled) => {
+        if (enabled) extraModels.add(modelId); else extraModels.delete(modelId);
+        updateDefaultModelOptions();
+      }, `${user.username} 的额外模型`));
+      updateDefaultModelOptions();
+      access.append(groupLabel, defaultModelLabel, extrasSection);
       const saveAccess = document.createElement('button');
       saveAccess.type = 'button';
       saveAccess.className = 'save-user-access';
@@ -6956,7 +6996,7 @@ function renderAdminUsers() {
       saveAccess.addEventListener('click', async () => {
         saveAccess.disabled = true;
         try {
-          await jsonRequest(`/api/admin/users/${user.uid}/model-access`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ modelGroupId: groupSelect.value || null, extraModels: [...extraModels] }) });
+          await jsonRequest(`/api/admin/users/${user.uid}/model-access`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ modelGroupId: groupSelect.value || null, extraModels: [...extraModels], defaultModel: defaultModelSelect.value || null }) });
           await loadAdminUsers();
           setDialogStatus(elements.accountStatus, `${user.username} 的模型权限已保存`, 'success');
         } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); saveAccess.disabled = false; }
@@ -7432,7 +7472,7 @@ async function initialize() {
   try {
     const session = await jsonRequest('/api/session');
     if (!session.authenticated) { location.replace('/'); return; }
-    state.user = session.username; state.userUid = session.uid; state.userRole = session.role || 'user'; state.credits = session.credits; state.csrf = session.csrfToken; state.enableWorkspaces = Boolean(session.enableWorkspaces); startSessionRevocationListener(); state.translationHistory = loadTranslationHistory(); state.translationModelId = loadTranslationModel(); state.lastSelectedModels = loadLastSelectedModels(); updateAccountUi();
+    state.user = session.username; state.userUid = session.uid; state.userRole = session.role || 'user'; state.credits = session.credits; state.csrf = session.csrfToken; state.sessionDefaultModel = typeof session.defaultModel === 'string' ? session.defaultModel : null; state.enableWorkspaces = Boolean(session.enableWorkspaces); startSessionRevocationListener(); state.translationHistory = loadTranslationHistory(); state.translationModelId = loadTranslationModel(); state.lastSelectedModels = loadLastSelectedModels(); updateAccountUi();
     let modelsPayload;
     if (state.userRole === 'guest') {
       const guestConfig = loadGuestLocalConfig();
