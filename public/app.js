@@ -4659,7 +4659,7 @@ async function executeTavilySearch({ query, count = 5 }) {
   const brave = list.find((item) => item.id === 'brave-search');
   const apiKey = (tavily?.apiKey || (brave?.apiKey?.startsWith('tvly-') ? brave.apiKey : '')).trim();
   if (!apiKey) {
-    return '错误：用户尚未配置 Tavily Search API 密钥，请在工具设置中配置后重试。';
+    return '错误：用户尚未配置 Tavily Search API 密钥，请在工具设置中配置有效密钥后重试。';
   }
   const cleanQuery = String(query || '').trim();
   if (!cleanQuery) return '搜索关键词为空。';
@@ -4681,32 +4681,37 @@ async function executeTavilySearch({ query, count = 5 }) {
         body: {
           api_key: apiKey,
           query: cleanQuery,
+          search_depth: 'basic',
           max_results: safeCount,
         },
       }),
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      return `Tavily 搜索请求失败 (HTTP ${response.status}): ${err.error || '网络错误'}`;
+      return `代理服务请求失败 (HTTP ${response.status}): ${err.error || '网络错误'}`;
     }
     const wrapped = await response.json();
     let data;
     try {
       data = typeof wrapped.data === 'string' ? JSON.parse(wrapped.data) : wrapped.data;
     } catch {
-      return 'Tavily 搜索返回了无法解析的响应格式。';
+      data = wrapped.data;
     }
-    if (data?.detail?.error) {
-      return `Tavily 认证失败: ${data.detail.error}`;
+    if (wrapped.status !== 200 || !wrapped.ok) {
+      const errorMsg = data?.detail?.error || data?.message || data?.error || (typeof data === 'string' ? data : `HTTP ${wrapped.status}`);
+      if (wrapped.status === 401 || String(errorMsg).includes('Unauthorized') || String(errorMsg).includes('invalid API key')) {
+        return `Tavily API 认证失败 (HTTP 401): 提供的 API Key 无效或未授权，请前往 Tavily 控制台 (https://app.tavily.com) 检查密钥是否有效，并在左侧栏「扩展与技能」中重新填入保存。`;
+      }
+      return `Tavily 搜索请求失败 (HTTP ${wrapped.status}): ${errorMsg}`;
     }
     const results = data?.results;
     if (!Array.isArray(results) || results.length === 0) {
       return `未检索到关于 "${cleanQuery}" 的网页结果。`;
     }
     const formatted = results.map((item, idx) => (
-      `[${idx + 1}] ${item.title || '无标题'}\n网址: ${item.url}\n摘要: ${item.content || ''}`
+      `[${idx + 1}] ${item.title || '无标题'}\n网址: ${item.url}\n摘要: ${item.content || item.description || ''}`
     )).join('\n\n');
-    return `针对 "${cleanQuery}" 的实时搜索结果：\n\n${formatted}`;
+    return `针对 "${cleanQuery}" 的 Tavily 实时搜索结果：\n\n${formatted}`;
   } catch (error) {
     return `Tavily 搜索过程出错: ${error.message}`;
   }
@@ -4745,14 +4750,21 @@ async function executeBraveSearch({ query, count = 5 }) {
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      return `Brave 搜索请求失败 (HTTP ${response.status}): ${err.error || '网络错误'}`;
+      return `代理服务请求失败 (HTTP ${response.status}): ${err.error || '网络错误'}`;
     }
     const wrapped = await response.json();
     let data;
     try {
       data = typeof wrapped.data === 'string' ? JSON.parse(wrapped.data) : wrapped.data;
     } catch {
-      return 'Brave 搜索返回了无法解析的响应格式。';
+      data = wrapped.data;
+    }
+    if (wrapped.status !== 200 || !wrapped.ok) {
+      const errorMsg = data?.error?.detail || data?.message || data?.error || (typeof data === 'string' ? data : `HTTP ${wrapped.status}`);
+      if (wrapped.status === 401 || wrapped.status === 422 || String(errorMsg).includes('TOKEN_INVALID')) {
+        return `Brave API 认证失败 (HTTP ${wrapped.status}): API Key 无效，请核对您的 Brave Search 密钥。`;
+      }
+      return `Brave 搜索请求失败 (HTTP ${wrapped.status}): ${errorMsg}`;
     }
     const webResults = data?.web?.results;
     if (!Array.isArray(webResults) || webResults.length === 0) {
@@ -4805,7 +4817,7 @@ async function executeClientToolCall(call) {
   if (name === 'tavily_web_search') {
     return executeTavilySearch(args);
   }
-  if (name === 'brave_web_search') {
+  if (name === 'brave_web_search' || name === 'web_search' || name === 'internet_search') {
     const list = loadToolsConfig();
     const tavily = list.find((item) => item.id === 'tavily-search');
     const brave = list.find((item) => item.id === 'brave-search');
