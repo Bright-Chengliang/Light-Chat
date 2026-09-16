@@ -3293,13 +3293,13 @@ function favoriteModelAvailable(item, models = state.models) {
 }
 
 function preferredModel(mode) {
+  if (mode === 'chat' && state.sessionDefaultModel && state.models.some((m) => m.id === state.sessionDefaultModel && modelSupportsMode(m, 'chat'))) {
+    return state.sessionDefaultModel;
+  }
   const favorite = state.preferences.favoriteGroups.flatMap((group) => group.items).find((item) => item.mode === mode && favoriteModelAvailable(item));
   if (favorite) return favorite.modelId || favorite.model;
   const candidates = state.models.filter((model) => model.modes.includes(mode));
   if (!candidates.length) return '';
-  if (mode === 'chat' && state.sessionDefaultModel && candidates.some((m) => m.id === state.sessionDefaultModel)) {
-    return state.sessionDefaultModel;
-  }
   if (mode === 'chat') return (candidates.find((m) => m.id === 'claude-haiku-4-5') || candidates.find((m) => /claude.*sonnet/i.test(m.id)) || candidates.find((m) => /gpt-5/i.test(m.id)) || candidates[0]).id;
   return (candidates.find((m) => m.id === 'gpt-image-2') || candidates[0]).id;
 }
@@ -7523,6 +7523,19 @@ async function initialize() {
     state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
     if (isLegacyAutomaticFavoriteGroups(state.preferences.favoriteGroups) && ['user', 'guest'].includes(state.userRole) && state.models.length <= 20) {
       state.preferences.favoriteGroups = automaticFavoriteGroupsForModels(state.models);
+    }
+    if (state.sessionDefaultModel && state.models.some((m) => m.id === state.sessionDefaultModel && modelSupportsMode(m, 'chat'))) {
+      const chatGroup = state.preferences.favoriteGroups.find((g) => g.items.some((it) => it.mode === 'chat'));
+      if (chatGroup) {
+        const existingIdx = chatGroup.items.findIndex((it) => (it.modelId || it.model) === state.sessionDefaultModel);
+        if (existingIdx > 0) {
+          const [item] = chatGroup.items.splice(existingIdx, 1);
+          chatGroup.items.unshift(item);
+        } else if (existingIdx === -1) {
+          chatGroup.items.unshift({ modelId: state.sessionDefaultModel, model: state.sessionDefaultModel, mode: 'chat', label: state.sessionDefaultModel });
+        }
+      }
+      state.preferences.selected = { modelId: state.sessionDefaultModel, mode: 'chat' };
     }
     state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models);
     initializeTranslationModel();
