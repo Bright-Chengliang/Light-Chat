@@ -914,25 +914,25 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
   .login-submit { height: 52px; border-radius: 13px; }
   .main-panel { grid-template-rows: 54px minmax(0, 1fr) auto; }
   .translator-workspace { padding: 8px; gap: 8px; }.translator-toolbar { gap: 6px; padding: 6px; flex-wrap: wrap; }.translator-language { min-width: 0; flex: 1 1 120px; }.translator-submit { padding-inline: 10px; }.translator-toolbar-spacer { display: none; }.translator-current-model { max-width: calc(100% - 52px); margin-left: auto; }.translator-model-button { margin-left: 0; }.translator-panels { grid-template-columns: 1fr; grid-template-rows: minmax(180px, 1fr) minmax(180px, 1fr); gap: 8px; }.translator-history-panel { top: 60px; left: 8px; width: calc(100% - 16px); }
-  .conversation-header { padding: 0 12px; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; gap: 8px; height: 54px; }
-  .header-left { min-width: auto; gap: 0; display: flex; align-items: center; }
+  .conversation-header { position: relative; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; height: 54px; }
+  .header-left { min-width: auto; gap: 0; display: flex; align-items: center; position: relative; z-index: 6; }
   .conversation-heading { display: none !important; }
   .header-model-picker { display: none !important; }
   .header-left p { display: none; }
-  .header-role-picker { position: relative; min-width: 0; display: flex; justify-content: center; align-items: center; }
-  .current-role-card { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: auto; max-width: min(72vw, 300px); height: 35px; padding: 0 13px; color: var(--text); background: rgba(255,255,255,.72); border: 1px solid rgba(220,217,209,.75); border-radius: 999px; box-shadow: 0 2px 10px rgba(43,41,36,.03); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); text-align: center; cursor: pointer; transition: all 140ms ease; }
+  .header-role-picker { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; justify-content: center; align-items: center; max-width: calc(100% - 96px); z-index: 5; pointer-events: auto; }
+  .current-role-card { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: auto; max-width: 100%; height: 35px; padding: 0 13px; box-sizing: border-box; color: var(--text); background: rgba(255,255,255,.75); border: 1px solid rgba(220,217,209,.75); border-radius: 999px; box-shadow: 0 2px 10px rgba(43,41,36,.03); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); text-align: center; cursor: pointer; transition: all 140ms ease; }
   .current-role-card:hover, .current-role-card:focus-visible { background: #fff; border-color: rgba(166,75,55,.3); box-shadow: 0 3px 12px rgba(43,41,36,.06); }
   .current-role-card:active { transform: scale(.98); }
-  .current-role-card.active { background: rgba(255,255,255,.9); border-color: rgba(166,75,55,.28); box-shadow: 0 2px 10px rgba(166,75,55,.05); }
-  .current-role-card::before { content: "◎"; font-size: .74rem; color: var(--accent); line-height: 1; flex-shrink: 0; }
+  .current-role-card.active { background: rgba(255,255,255,.92); border-color: rgba(166,75,55,.28); box-shadow: 0 2px 10px rgba(166,75,55,.05); }
+  .current-role-card::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px rgba(166,75,55,.2); flex-shrink: 0; margin: 0; }
   .current-role-label { display: none !important; }
-  .current-role-card strong { min-width: 0; overflow: hidden; color: var(--text); font-size: .76rem; font-weight: 730; letter-spacing: .01em; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; }
+  .current-role-card strong { align-self: center !important; margin: 0 !important; padding: 0 !important; line-height: 1 !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 0; overflow: hidden; color: var(--text); font-size: .78rem; font-weight: 730; letter-spacing: .01em; text-overflow: ellipsis; white-space: nowrap; }
   .current-role-card.active strong { color: var(--text); }
   .current-role-card small { display: none !important; }
-  .current-role-card::after { content: ""; width: 5px; height: 5px; margin-left: 2px; margin-top: -2px; border-right: 1.5px solid var(--text-faint); border-bottom: 1.5px solid var(--text-faint); transform: rotate(45deg); flex-shrink: 0; transition: transform 140ms ease, border-color 140ms ease; }
+  .current-role-card::after { content: ""; width: 5px; height: 5px; margin: -2px 0 0 0; border-right: 1.5px solid var(--text-faint); border-bottom: 1.5px solid var(--text-faint); transform: rotate(45deg); flex-shrink: 0; transition: transform 140ms ease, border-color 140ms ease; }
   .current-role-card[aria-expanded="true"]::after { transform: rotate(225deg); margin-top: 2px; border-color: var(--accent); }
   .header-role-menu { position: fixed; top: 56px; bottom: auto; left: 50%; transform: translateX(-50%); width: min(340px, calc(100vw - 24px)); max-height: min(70dvh, 520px); z-index: 80; border-radius: 14px; box-shadow: 0 10px 32px rgba(43,41,36,.12); }
-  .header-actions { min-width: auto; gap: 0; display: flex; align-items: center; justify-content: flex-end; }
+  .header-actions { min-width: auto; gap: 0; display: flex; align-items: center; justify-content: flex-end; position: relative; z-index: 6; }
   .conversation-header .menu-button,
   .conversation-header #settingsButton { width: 38px; height: 38px; display: grid; place-items: center; color: var(--text-soft); background: transparent; border: 0; border-radius: 50%; transition: background 120ms ease, color 120ms ease; }
   .conversation-header .menu-button:active,
@@ -1008,8 +1008,8 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
   html { font-size: 17px; }
   .login-shell { padding: 12px; }
   .login-card { margin-top: max(14px, 2.5dvh); padding: 23px 19px; border-radius: 20px; }
-  .current-role-card { max-width: min(65vw, 240px); height: 33px; padding: 0 11px; }
-  .current-role-card strong { font-size: .72rem; }
+  .current-role-card { height: 34px; padding: 0 12px; gap: 6px; }
+  .current-role-card strong { font-size: .74rem; }
   .empty-state { padding: 0; }
   .empty-state h2 { font-size: clamp(1.62rem, 9.2vw, 1.94rem); }
   .composer-dock { padding-inline: 5px; }
