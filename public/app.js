@@ -1871,6 +1871,7 @@ function createContextMenuButton(label, menuId, openMenu) {
   const button = document.createElement('button'); button.type = 'button'; button.className = 'item-menu-button'; button.textContent = '⋯'; button.title = label; button.setAttribute('aria-label', label);
   bindContextMenuTrigger(button, menuId, openMenu);
   button.addEventListener('click', (event) => {
+    event.preventDefault();
     event.stopPropagation();
     if (activeContextMenu === document.getElementById(menuId) && contextMenuReturnFocus === button) { closeAllContextMenus({ restoreFocus: true }); return; }
     openMenu(Number.NaN, Number.NaN, button);
@@ -4125,7 +4126,12 @@ function createRoleConversationButton(roleId, label) {
 }
 
 function renderRoles() {
-  if ([elements.roleFolderContextMenu, elements.roleContextMenu].includes(activeContextMenu)) closeAllContextMenus();
+  if (activeContextMenu === elements.roleFolderContextMenu && !state.roleLibrary.folders.some((folder) => folder.id === state.contextRoleFolderId)) {
+    closeRoleFolderContextMenu();
+  }
+  if (activeContextMenu === elements.roleContextMenu && !findRoleById(state.contextRoleId)) {
+    closeRoleContextMenu();
+  }
   elements.sidebarRoles.replaceChildren();
   const currentRoleId = validRoleId(currentConversation()?.roleId);
   const conversationsByRole = new Map();
@@ -4357,6 +4363,42 @@ function smallAction(label, action, { disabled = false, danger = false } = {}) {
   const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.disabled = disabled; button.className = danger ? 'danger-action' : ''; button.addEventListener('click', action); return button;
 }
 
+async function compressImageToDataUrl(file, maxDimension = 1280, quality = 0.8) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const format = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          resolve(canvas.toDataURL(format, quality));
+        } else {
+          resolve(String(reader.result || ''));
+        }
+      };
+      img.onerror = () => resolve(String(reader.result || ''));
+      img.src = String(reader.result || '');
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+}
+
 function renderRoleAttachmentsEditor(role, container) {
   container.replaceChildren();
   if (!Array.isArray(role.attachments)) role.attachments = [];
@@ -4448,12 +4490,25 @@ function renderRoleAttachmentsEditor(role, container) {
         let extractedText = '';
 
         if (isImg) {
-          url = await new Promise((res, rej) => {
-            const reader = new FileReader();
-            reader.onload = () => res(String(reader.result || ''));
-            reader.onerror = rej;
-            reader.readAsDataURL(file);
-          });
+          if (state.userRole !== 'guest' && state.csrf) {
+            try {
+              const res = await fetch('/api/uploads', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': mime, 'X-CSRF-Token': state.csrf, 'X-File-Name': encodeURIComponent(file.name) },
+                body: file,
+              });
+              const payload = await res.json().catch(() => ({}));
+              if (res.ok && payload.attachment) {
+                url = payload.attachment.url || '';
+              }
+            } catch {
+              // fallback
+            }
+          }
+          if (!url) {
+            url = await compressImageToDataUrl(file);
+          }
         } else if (file.name.endsWith('.pdf') || mime === 'application/pdf') {
           if (state.userRole !== 'guest') {
             try {
