@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
 import { createChatApp } from './lib/app.mjs';
 
 const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -16,7 +17,9 @@ const ALLOWED_HOSTS = (process.env.CHAT_ALLOWED_HOSTS || '')
   .map((value) => value.trim())
   .filter(Boolean);
 const DATA_DIR = process.env.CHAT_DATA_DIR ? resolve(process.env.CHAT_DATA_DIR) : undefined;
-const ENABLE_WORKSPACES = process.env.CHAT_ENABLE_WORKSPACES === 'true' || process.env.CHAT_ENABLE_WORKSPACES === '1';
+const localWorkspacesFile = resolve(ROOT_DIR, '.local', 'enable-workspaces');
+const hasLocalWorkspaces = existsSync(localWorkspacesFile) && ['true', '1'].includes(readFileSync(localWorkspacesFile, 'utf8').trim().toLowerCase());
+const ENABLE_WORKSPACES = process.env.CHAT_ENABLE_WORKSPACES === 'true' || process.env.CHAT_ENABLE_WORKSPACES === '1' || hasLocalWorkspaces;
 
 for (const name of [
   'CHAT_UPSTREAM_API_KEY',
