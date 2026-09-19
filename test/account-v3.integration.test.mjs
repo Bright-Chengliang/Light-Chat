@@ -258,6 +258,57 @@ test('administrator conversation history merges device-local records on the serv
   }
 });
 
+test('administrator conversation deletion persists across devices and prevents deleted conversations from being resurrected', async () => {
+  const context = await fixture();
+  try {
+    const admin = await signIn(context);
+    const conv = (id, title) => ({
+      id, title, titleCustomized: true, createdAt: 1000, updatedAt: 1000, roleId: '', workflowId: '', folderId: '', copiedFromConversationId: '', favoriteOrder: null, lastRequest: null,
+      messages: [{ id: `${id}-msg`, role: 'user', content: title, reasoning: '', modelId: '', mode: 'chat', replyToId: '', attachments: [], images: [], usage: null, variants: [], variantIndex: 0, createdAt: 1000 }],
+    });
+
+    // 1. Device 1 creates conv-1 and conv-2 on server
+    const initRes = await api(context, admin, 'PUT', '/api/conversations', {
+      version: 1,
+      conversations: [conv('conv-1', '会话一'), conv('conv-2', '会话二')],
+    });
+    assert.equal(initRes.response.status, 200);
+    assert.equal(initRes.body.conversations.length, 2);
+
+    // 2. Device 2 signs in and deletes conv-1 via DELETE endpoint
+    const delRes = await api(context, admin, 'DELETE', '/api/conversations/conv-1');
+    assert.equal(delRes.response.status, 200);
+    assert.equal(delRes.body.conversations.length, 1);
+    assert.equal(delRes.body.conversations[0].id, 'conv-2');
+    assert.ok(delRes.body.deletedIds.includes('conv-1'));
+
+    // 3. Subsequent GET returns only conv-2
+    const getRes = await api(context, admin, 'GET', '/api/conversations');
+    assert.equal(getRes.response.status, 200);
+    assert.deepEqual(getRes.body.conversations.map((c) => c.id), ['conv-2']);
+    assert.ok(getRes.body.deletedIds.includes('conv-1'));
+
+    // 4. If an old client syncs with deletedIds or attempts to send deleted conv-1, it is not resurrected
+    const syncRes = await api(context, admin, 'PUT', '/api/conversations', {
+      version: 1,
+      conversations: [conv('conv-1', '会话一尝试复活'), conv('conv-2', '会话二更新')],
+      deletedIds: ['conv-1'],
+    });
+    assert.equal(syncRes.response.status, 200);
+    assert.deepEqual(syncRes.body.conversations.map((c) => c.id), ['conv-2']);
+
+    // 5. Clear all conversations via DELETE /api/conversations
+    const clearRes = await api(context, admin, 'DELETE', '/api/conversations');
+    assert.equal(clearRes.response.status, 200);
+    assert.equal(clearRes.body.conversations.length, 0);
+
+    const afterClearGet = await api(context, admin, 'GET', '/api/conversations');
+    assert.equal(afterClearGet.body.conversations.length, 0);
+  } finally {
+    await context.close();
+  }
+});
+
 test('administrator conversation history synchronizes favorite state, folders, and preferences across devices', async () => {
   const context = await fixture();
   try {

@@ -2,7 +2,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 const elements = {
-  appShell: $('.app-shell'), sidebar: $('#sidebar'), sidebarResizer: $('#sidebarResizer'), sidebarBackdrop: $('#sidebarBackdrop'), sidebarClose: $('#sidebarCloseButton'), menu: $('#menuButton'),
+  appShell: $('.app-shell'), sidebar: $('#sidebar'), sidebarResizer: $('#sidebarResizer'), sidebarBackdrop: $('#sidebarBackdrop'), sidebarClose: $('#sidebarCloseButton'), menu: $('#menuButton'), translatorMenuButton: $('#translatorMenuButton'),
   sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openFavoriteMediaDrawer: $('#openFavoriteMediaDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), openToolsDrawer: $('#openToolsDrawer'), toolsToggle: $('#toolsToggle'), addCustomToolButton: $('#addCustomToolButton'), toolsDrawerList: $('#toolsDrawerList'), openOpc: $('#openOpc'), openLearning: $('#openLearning'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
   recentFiles: $('#recentFilesList'), recentFilesToggle: $('#recentFilesToggle'), recentFilesPagination: $('#recentFilesPagination'), previousRecentFilesPage: $('#previousRecentFilesPage'), nextRecentFilesPage: $('#nextRecentFilesPage'), recentFilesPageStatus: $('#recentFilesPageStatus'), refreshRecentFiles: $('#refreshRecentFilesButton'), favoriteMedia: $('#favoriteMediaList'), favoriteMediaToggle: $('#favoriteMediaToggle'), favoriteMediaPagination: $('#favoriteMediaPagination'), previousFavoriteMediaPage: $('#previousFavoriteMediaPage'), nextFavoriteMediaPage: $('#nextFavoriteMediaPage'), favoriteMediaPageStatus: $('#favoriteMediaPageStatus'), refreshFavoriteMedia: $('#refreshFavoriteMediaButton'),
   newConversation: $('#newConversationButton'), currentModelNewConversation: $('#currentModelNewConversationButton'), addHistoryFolder: $('#addHistoryFolderButton'), addFavoriteConversationFolder: $('#addFavoriteConversationFolderButton'), clearHistory: $('#clearHistoryButton'), history: $('#historyList'), historyToggle: $('#historyToggle'), historySearch: $('#historySearchInput'), favoriteConversations: $('#favoriteConversations'), favoriteConversationsToggle: $('#favoriteConversationsToggle'),
@@ -60,6 +60,7 @@ const HISTORY_UNFILED_COLLAPSED_KEY = 'light-chat-history-unfiled-collapsed';
 const FAVORITE_UNFILED_COLLAPSED_KEY = 'light-chat-favorite-unfiled-collapsed';
 const HISTORY_COLLAPSED_KEY = 'light-chat-history-collapsed';
 const SIDEBAR_WIDTH_KEY = 'light-chat-sidebar-width';
+const SIDEBAR_COLLAPSED_KEY = 'light-chat-sidebar-collapsed';
 const SIDEBAR_ROLES_HEIGHT_KEY = 'light-chat-sidebar-roles-height';
 const LAST_MODELS_KEY_PREFIX = 'light-chat-last-models';
 const READING_MODE_KEY = 'light-chat-reading-mode';
@@ -102,9 +103,9 @@ const state = {
   selected: null, stream: storedStreamPreference !== 'false', conversations: [], currentId: '',
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
   historyFolders: [], openHistoryFolders: new Set(), historyUnfiledCollapsed: false, favoriteUnfiledCollapsed: false, historySearch: '',
-  contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextRecentFileId: '', contextAssistantMessageId: '', renamingConversationId: '',
+  contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextRecentFileId: '', contextAssistantMessageId: '', renamingConversationId: '', deletedConversationIds: new Set(),
   pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingConversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', pendingRoleTransfer: null, pendingConversationFolderMove: null,
-  followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], appView: 'chat', translationHistory: [], translationModelId: '', modelDialogTarget: 'chat', translationOutput: '', recentFiles: [], recentFilesLoading: false, recentFilesPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, favoriteMedia: [], favoriteMediaLoading: false, favoriteMediaPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, workflows: [], workflowRunning: false, selectedWorkflow: null,
+  followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], sidebarCollapsed: (() => { try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'; } catch { return false; } })(), appView: 'chat', translationHistory: [], translationModelId: '', modelDialogTarget: 'chat', translationOutput: '', recentFiles: [], recentFilesLoading: false, recentFilesPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, favoriteMedia: [], favoriteMediaLoading: false, favoriteMediaPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, workflows: [], workflowRunning: false, selectedWorkflow: null,
 };
 let globalFileDragDepth = 0;
 let editingAttachmentDropHandler = null;
@@ -156,9 +157,12 @@ function randomId() {
 
 function conversationStorageLimit() { return state.userRole === 'admin' ? MAX_ADMIN_CONVERSATIONS : MAX_LOCAL_CONVERSATIONS; }
 
-function mergeConversations(localConversations, serverConversations) {
-  const merged = new Map((Array.isArray(serverConversations) ? serverConversations : []).map((conversation) => [conversation.id, conversation]));
-  for (const conversation of localConversations) {
+function mergeConversations(localConversations, serverConversations, deletedIds = state?.deletedConversationIds) {
+  const deletedSet = deletedIds instanceof Set ? deletedIds : new Set(deletedIds || []);
+  const filteredServer = (Array.isArray(serverConversations) ? serverConversations : []).filter((c) => !deletedSet.has(c.id));
+  const filteredLocal = (Array.isArray(localConversations) ? localConversations : []).filter((c) => !deletedSet.has(c.id));
+  const merged = new Map(filteredServer.map((conversation) => [conversation.id, conversation]));
+  for (const conversation of filteredLocal) {
     const existing = merged.get(conversation.id);
     if (!existing || conversation.updatedAt >= existing.updatedAt) merged.set(conversation.id, conversation);
   }
@@ -185,11 +189,15 @@ function scheduleAdministratorConversationSync() {
     const revision = ++adminConversationRevision;
     const snapshot = structuredClone(state.conversations);
     const foldersSnapshot = structuredClone(state.historyFolders);
+    const deletedSnapshot = [...state.deletedConversationIds];
     adminConversationSyncQueue = adminConversationSyncQueue.then(async () => {
       const payload = await jsonRequest('/api/conversations', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, folders: foldersSnapshot, conversations: snapshot }),
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, folders: foldersSnapshot, conversations: snapshot, deletedIds: deletedSnapshot }),
       });
       if (!Array.isArray(payload.conversations) || revision !== adminConversationRevision) return;
+      if (Array.isArray(payload.deletedIds)) {
+        for (const id of payload.deletedIds) state.deletedConversationIds.add(id);
+      }
       state.conversations = mergeConversations(state.conversations, payload.conversations);
       if (Array.isArray(payload.folders)) {
         state.historyFolders = mergeFolderLists(state.historyFolders, payload.folders);
@@ -209,6 +217,9 @@ async function loadPersistedConversations() {
   try {
     const payload = await jsonRequest('/api/conversations');
     if (!Array.isArray(payload.conversations)) throw new Error('服务器返回的管理员会话记录无效');
+    if (Array.isArray(payload.deletedIds)) {
+      for (const id of payload.deletedIds) state.deletedConversationIds.add(id);
+    }
     const merged = mergeConversations([], payload.conversations);
     state.conversations = merged;
     clearAdministratorBrowserConversationData();
@@ -2247,9 +2258,13 @@ function deleteHistoryConversation(conversationId) {
   const conversation = state.conversations.find((item) => item.id === conversationId); if (!conversation) return;
   if (isConversationBusy(conversationId)) { setStatus('正在响应的对话暂时不能删除', 'error'); closeHistoryContextMenu({ restoreFocus: true }); return; }
   closeHistoryContextMenu({ restoreFocus: true });
-  if (!confirm(`删除对话“${conversation.title}”（共 ${conversation.messages.length} 条消息）？\n\n此操作无法撤销，仅影响当前浏览器。`)) return;
+  if (!confirm(`删除对话“${conversation.title}”（共 ${conversation.messages.length} 条消息）？\n\n此操作无法撤销。`)) return;
   conversationDrafts.delete(conversationId);
+  state.deletedConversationIds.add(conversationId);
   state.conversations = state.conversations.filter((item) => item.id !== conversationId);
+  if (state.userRole === 'admin') {
+    jsonRequest(`/api/conversations/${encodeURIComponent(conversationId)}`, { method: 'DELETE' }).catch(() => {});
+  }
   if (!state.conversations.length) { state.currentId = ''; createConversation(); return; }
   if (state.currentId === conversationId) {
     state.currentId = state.conversations[0].id;
@@ -2258,7 +2273,19 @@ function deleteHistoryConversation(conversationId) {
   saveConversations(); renderConversation(); restoreContextMenuFocus(elements.historyToggle);
 }
 
-function appendInlineMarkdown(parent, text) {
+const SAFE_RICH_BLOCK_TAGS = new Set(['details', 'summary', 'p', 'div', 'section', 'article', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'blockquote', 'pre', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'hr']);
+const SAFE_RICH_INLINE_TAGS = new Set(['strong', 'b', 'em', 'i', 'u', 's', 'del', 'mark', 'code', 'kbd', 'sup', 'sub', 'span', 'a', 'br']);
+const DROP_RICH_TAGS = new Set(['script', 'style', 'iframe', 'object', 'embed', 'template', 'svg', 'math', 'form', 'input', 'button', 'textarea', 'select', 'option', 'img', 'video', 'audio', 'canvas']);
+
+function safeRichHref(value) {
+  if (typeof value !== 'string' || value.length > 2000) return '';
+  try {
+    const url = new URL(value, location.origin);
+    return ['http:', 'https:', 'mailto:'].includes(url.protocol) ? url.href : '';
+  } catch { return ''; }
+}
+
+function appendMarkdownInlineTokens(parent, text) {
   const pattern = /(\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`|\[[^\]\n]+\]\((?:https?:\/\/|mailto:)[^\s)]+\)|\*[^*\n]+\*)/g;
   let offset = 0;
   for (const match of text.matchAll(pattern)) {
@@ -2277,6 +2304,47 @@ function appendInlineMarkdown(parent, text) {
     offset = match.index + token.length;
   }
   if (offset < text.length) parent.append(document.createTextNode(text.slice(offset)));
+}
+
+function appendSafeInlineNode(parent, node) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    appendMarkdownInlineTokens(parent, node.nodeValue || '');
+    return;
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return;
+  const tag = node.tagName.toLowerCase();
+  if (DROP_RICH_TAGS.has(tag)) return;
+  if (tag === 'br') {
+    parent.append(document.createElement('br'));
+    return;
+  }
+  if (tag === 'hr') {
+    parent.append(document.createElement('hr'));
+    return;
+  }
+  if (!SAFE_RICH_INLINE_TAGS.has(tag)) {
+    for (const child of node.childNodes) appendSafeInlineNode(parent, child);
+    return;
+  }
+  let elementTag = tag;
+  if (tag === 'a' && !safeRichHref(node.getAttribute('href'))) elementTag = 'span';
+  const element = document.createElement(elementTag);
+  if (tag === 'a' && elementTag === 'a') {
+    element.href = safeRichHref(node.getAttribute('href'));
+    element.target = '_blank'; element.rel = 'noopener noreferrer';
+  }
+  for (const child of node.childNodes) appendSafeInlineNode(element, child);
+  parent.append(element);
+}
+
+function appendInlineMarkdown(parent, text) {
+  if (!text) return;
+  if (/<\/?(?:[a-z][a-z0-9]*)\b[^>]*>/i.test(text)) {
+    const parsed = new DOMParser().parseFromString(text, 'text/html');
+    for (const child of parsed.body.childNodes) appendSafeInlineNode(parent, child);
+    return;
+  }
+  appendMarkdownInlineTokens(parent, text);
 }
 
 async function copyText(value, button) {
@@ -2334,7 +2402,7 @@ function markdownTableDefinition(lines, index) {
   if (index + 1 >= lines.length || !lines[index].includes('|')) return null;
   const headers = splitMarkdownTableRow(lines[index]);
   const separators = splitMarkdownTableRow(lines[index + 1]);
-  if (headers.length < 2 || separators.length !== headers.length || separators.some((cell) => !/^:?-{3,}:?$/.test(cell))) return null;
+  if (headers.length < 2 || separators.length !== headers.length || separators.some((cell) => !/^:?-+:?$/.test(cell))) return null;
   const alignments = separators.map((cell) => cell.startsWith(':') && cell.endsWith(':') ? 'center' : cell.endsWith(':') ? 'right' : cell.startsWith(':') ? 'left' : '');
   const rows = []; let cursor = index + 2; let lastConsumed = index + 1;
   while (cursor < lines.length) {
@@ -2378,6 +2446,28 @@ function standaloneDisplayMath(lines, startIndex) {
   return null;
 }
 
+function standaloneHtmlBlock(lines, startIndex) {
+  const line = lines[startIndex].trim();
+  const match = /^<(details|div|section|article|pre|blockquote|table)\b([^>]*)>/i.exec(line);
+  if (!match) return null;
+  const tag = match[1].toLowerCase();
+  let depth = 0;
+  let endIndex = startIndex;
+  for (let i = startIndex; i < lines.length; i += 1) {
+    const current = lines[i];
+    const openMatches = (current.match(new RegExp(`<${tag}\\b[^>]*>`, 'gi')) || []).length;
+    const closeMatches = (current.match(new RegExp(`</${tag}>`, 'gi')) || []).length;
+    depth += openMatches - closeMatches;
+    if (depth <= 0) {
+      endIndex = i;
+      break;
+    }
+  }
+  if (depth > 0) endIndex = lines.length - 1;
+  const source = lines.slice(startIndex, endIndex + 1).join('\n');
+  return { source, endIndex };
+}
+
 function renderMarkdownOnly(container, source) {
   const lines = source.split(/\n/);
   let list = null;
@@ -2397,6 +2487,13 @@ function renderMarkdownOnly(container, source) {
     }
     const table = markdownTableDefinition(lines, lineIndex);
     if (table) { flush(); renderMarkdownTable(container, table); lineIndex = table.endIndex; continue; }
+    const htmlBlock = standaloneHtmlBlock(lines, lineIndex);
+    if (htmlBlock) {
+      flush();
+      const parsed = new DOMParser().parseFromString(htmlBlock.source, 'text/html');
+      for (const node of parsed.body.childNodes) appendSafeRichNode(container, node, 'block');
+      lineIndex = htmlBlock.endIndex; continue;
+    }
     const heading = /^(#{1,4})\s+(.+)$/.exec(line);
     const unordered = /^\s*[-*+]\s+(.+)$/.exec(line);
     const ordered = /^\s*\d+[.)]\s+(.+)$/.exec(line);
@@ -2404,7 +2501,8 @@ function renderMarkdownOnly(container, source) {
     if (heading) {
       flush(); const element = document.createElement(`h${heading[1].length}`); appendInlineMarkdown(element, heading[2]); container.append(element); continue;
     }
-    if (/^\s*(?:---+|___+|\*\*\*+)\s*$/.test(line)) { flush(); container.append(document.createElement('hr')); continue; }
+    if (/^\s*(?:---+|___+|\*\*\*+|<hr\s*\/?>)\s*$/i.test(line)) { flush(); container.append(document.createElement('hr')); continue; }
+    if (/^\s*<br\s*\/?>\s*$/i.test(line)) { flush(); container.append(document.createElement('br')); continue; }
     if (unordered || ordered) {
       if (paragraph) { container.append(paragraph); paragraph = null; }
       const type = unordered ? 'ul' : 'ol';
@@ -2421,18 +2519,6 @@ function renderMarkdownOnly(container, source) {
     appendInlineMarkdown(paragraph, line);
   }
   flush();
-}
-
-const SAFE_RICH_BLOCK_TAGS = new Set(['details', 'summary', 'p', 'div', 'section', 'article', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'blockquote', 'pre', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'hr']);
-const SAFE_RICH_INLINE_TAGS = new Set(['strong', 'b', 'em', 'i', 'u', 's', 'del', 'mark', 'code', 'kbd', 'sup', 'sub', 'span', 'a', 'br']);
-const DROP_RICH_TAGS = new Set(['script', 'style', 'iframe', 'object', 'embed', 'template', 'svg', 'math', 'form', 'input', 'button', 'textarea', 'select', 'option', 'img', 'video', 'audio', 'canvas']);
-
-function safeRichHref(value) {
-  if (typeof value !== 'string' || value.length > 2000) return '';
-  try {
-    const url = new URL(value, location.origin);
-    return ['http:', 'https:', 'mailto:'].includes(url.protocol) ? url.href : '';
-  } catch { return ''; }
 }
 
 function appendSafeRichNode(parent, node, mode = 'block') {
@@ -2466,12 +2552,7 @@ function appendSafeRichNode(parent, node, mode = 'block') {
 }
 
 function renderMarkdownSection(container, source) {
-  if (!/<\/?(?:details|summary|p|div|section|article|h[1-4]|ul|ol|li|blockquote|pre|table|thead|tbody|tfoot|tr|th|td|hr|strong|b|em|i|u|s|del|mark|code|kbd|sup|sub|span|a|br)\b/i.test(source)) {
-    renderMarkdownOnly(container, source);
-    return;
-  }
-  const parsed = new DOMParser().parseFromString(source, 'text/html');
-  for (const node of parsed.body.childNodes) appendSafeRichNode(container, node, 'block');
+  renderMarkdownOnly(container, source);
 }
 
 function decorateCopyableMath(container) {
@@ -6490,8 +6571,70 @@ async function sendMessage(queuedDraft = null) {
   return true;
 }
 
-function openSidebar() { elements.sidebar.classList.add('open'); elements.sidebarBackdrop.hidden = false; renderSidebarDrawerState(); }
-function closeSidebar() { elements.sidebar.classList.remove('open'); elements.sidebarBackdrop.hidden = true; state.sidebarDrawerStack = ['root']; renderSidebarDrawerState(); }
+function isDesktopViewport() {
+  return window.innerWidth > 860;
+}
+
+function applySidebarState() {
+  const isDesktop = isDesktopViewport();
+  if (isDesktop) {
+    elements.sidebar.classList.remove('open');
+    elements.sidebarBackdrop.hidden = true;
+    elements.appShell.classList.toggle('sidebar-collapsed', Boolean(state.sidebarCollapsed));
+    elements.sidebarClose.setAttribute('aria-label', '收起侧栏');
+    elements.sidebarClose.title = '收起侧栏';
+    elements.menu.setAttribute('aria-label', '展开侧栏');
+    elements.menu.title = '展开侧栏';
+    if (elements.translatorMenuButton) {
+      elements.translatorMenuButton.setAttribute('aria-label', '展开侧栏');
+      elements.translatorMenuButton.title = '展开侧栏';
+    }
+  } else {
+    elements.appShell.classList.remove('sidebar-collapsed');
+    elements.sidebarClose.setAttribute('aria-label', '关闭侧栏');
+    elements.sidebarClose.title = '关闭侧栏';
+    elements.menu.setAttribute('aria-label', '打开侧栏');
+    elements.menu.title = '打开侧栏';
+    if (elements.translatorMenuButton) {
+      elements.translatorMenuButton.setAttribute('aria-label', '打开侧栏');
+      elements.translatorMenuButton.title = '打开侧栏';
+    }
+  }
+}
+
+function setDesktopSidebarCollapsed(collapsed) {
+  state.sidebarCollapsed = Boolean(collapsed);
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, state.sidebarCollapsed ? 'true' : 'false');
+  } catch {}
+  applySidebarState();
+}
+
+function toggleSidebar() {
+  if (isDesktopViewport()) {
+    setDesktopSidebarCollapsed(!state.sidebarCollapsed);
+  } else if (elements.sidebar.classList.contains('open')) {
+    closeSidebar();
+  } else {
+    openSidebar();
+  }
+}
+
+function openSidebar() {
+  if (isDesktopViewport()) {
+    setDesktopSidebarCollapsed(false);
+  }
+  elements.sidebar.classList.add('open');
+  elements.sidebarBackdrop.hidden = false;
+  renderSidebarDrawerState();
+}
+
+function closeSidebar() {
+  elements.sidebar.classList.remove('open');
+  elements.sidebarBackdrop.hidden = true;
+  state.sidebarDrawerStack = ['root'];
+  renderSidebarDrawerState();
+}
 
 function createConversationWithCurrentModel() {
   if (!state.selected) { setStatus('当前没有可用模型', 'error'); return; }
@@ -7277,7 +7420,19 @@ function bindEvents() {
   }, { passive: true });
   elements.scroll.addEventListener('touchend', () => { conversationTouchY = null; }, { passive: true });
   elements.scroll.addEventListener('touchcancel', () => { conversationTouchY = null; }, { passive: true });
-  elements.menu.addEventListener('click', openSidebar); elements.sidebarClose.addEventListener('click', closeSidebar); elements.sidebarBackdrop.addEventListener('click', closeSidebar);
+  elements.menu.addEventListener('click', () => {
+    if (isDesktopViewport()) setDesktopSidebarCollapsed(false);
+    else openSidebar();
+  });
+  elements.translatorMenuButton?.addEventListener('click', () => {
+    if (isDesktopViewport()) setDesktopSidebarCollapsed(false);
+    else openSidebar();
+  });
+  elements.sidebarClose.addEventListener('click', () => {
+    if (isDesktopViewport()) setDesktopSidebarCollapsed(true);
+    else closeSidebar();
+  });
+  elements.sidebarBackdrop.addEventListener('click', closeSidebar);
   elements.newConversation.addEventListener('click', () => {
     const leftWorkflow = exitWorkflow({ force: true, announce: false });
     setAppView('chat'); createGlobalConversation();
@@ -7339,7 +7494,18 @@ function bindEvents() {
   elements.translateModelButton.addEventListener('click', openTranslatorModelDialog);
   elements.addHistoryFolder.addEventListener('click', (event) => { event.stopPropagation(); createHistoryFolder(); });
   elements.addFavoriteConversationFolder.addEventListener('click', (event) => { event.stopPropagation(); createHistoryFolder(); });
-  elements.clearHistory.addEventListener('click', (event) => { event.stopPropagation(); if (state.busyConversationIds.size) { setStatus('有会话正在响应，完成后再清空历史', 'error'); return; } if (confirm('清空当前浏览器中的全部对话历史？')) { state.conversations = []; createGlobalConversation(); } });
+  elements.clearHistory.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (state.busyConversationIds.size) { setStatus('有会话正在响应，完成后再清空历史', 'error'); return; }
+    if (confirm('清空全部对话历史？\n\n此操作无法撤销。')) {
+      for (const c of state.conversations) state.deletedConversationIds.add(c.id);
+      state.conversations = [];
+      if (state.userRole === 'admin') {
+        jsonRequest('/api/conversations', { method: 'DELETE' }).catch(() => {});
+      }
+      createGlobalConversation();
+    }
+  });
   elements.historyToggle.addEventListener('click', (event) => { event.stopPropagation(); handleSidebarDrawerHeader('history'); });
   elements.favoriteConversationsToggle.addEventListener('click', (event) => { event.stopPropagation(); handleSidebarDrawerHeader('favorite-conversations'); });
   elements.sidebarRolesToggle.addEventListener('click', (event) => { event.stopPropagation(); handleSidebarDrawerHeader('roles'); });
@@ -7542,9 +7708,20 @@ function bindEvents() {
     if (performance.now() - lastContextMenuOpenTimestamp < 60) return;
     closeAllContextMenus();
   }, true);
-  window.addEventListener('resize', () => { closeHeaderModelMenu(); closeHeaderRoleMenu(); closeAllContextMenus(); });
+  window.addEventListener('resize', () => { closeHeaderModelMenu(); closeHeaderRoleMenu(); closeAllContextMenus(); applySidebarState(); });
   for (const button of $$('[data-close-dialog]')) button.addEventListener('click', () => document.getElementById(button.dataset.closeDialog)?.close());
-  window.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closeHeaderModelMenu({ restoreFocus: true }); closeHeaderRoleMenu({ restoreFocus: true }); closeAllContextMenus({ restoreFocus: true }); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); createConversation(); } });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { closeHeaderModelMenu({ restoreFocus: true }); closeHeaderRoleMenu({ restoreFocus: true }); closeAllContextMenus({ restoreFocus: true }); }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); createConversation(); }
+    if ((event.ctrlKey || event.metaKey) && (event.key.toLowerCase() === 'b' || event.key === '[')) {
+      const target = event.target;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      if (!isInput) {
+        event.preventDefault();
+        toggleSidebar();
+      }
+    }
+  });
 }
 
 function updateAccountUi() {
@@ -7566,6 +7743,7 @@ function updateAccountUi() {
 
 async function initialize() {
   renderSidebarWidth();
+  applySidebarState();
   bindEvents();
   renderSidebarDrawerState();
   updateWebSearchToggleState();

@@ -24,7 +24,16 @@
           <span class="brand-name">Light-Chat</span>
           <span class="brand-badge">LOCAL</span>
         </a>
-        <button class="icon-button sidebar-close" id="sidebarCloseButton" type="button" aria-label="关闭侧栏">×</button>
+        <button class="icon-button sidebar-close" id="sidebarCloseButton" type="button" aria-label="收起侧栏" title="收起侧栏">
+          <span class="sidebar-close-desktop" aria-hidden="true">
+            <svg class="sidebar-toggle-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+              <path d="M9 3v18"></path>
+              <path d="m15 15-3-3 3-3"></path>
+            </svg>
+          </span>
+          <span class="sidebar-close-mobile" aria-hidden="true">×</span>
+        </button>
       </div>
       <button class="new-chat-button" id="newConversationButton" type="button" title="使用收藏中的首个模型和默认助手新建全局会话">
         <span aria-hidden="true">＋</span><strong>新对话</strong><kbd>Ctrl K</kbd>
@@ -93,7 +102,7 @@
     <main class="main-panel">
       <header class="conversation-header">
         <div class="header-left">
-          <button class="icon-button menu-button" id="menuButton" type="button" aria-label="打开侧栏"><span></span><span></span><span></span></button>
+          <button class="icon-button menu-button" id="menuButton" type="button" aria-label="打开侧栏" title="展开侧栏"><span></span><span></span><span></span></button>
           <div class="conversation-heading"><div class="conversation-title-row"><h1 id="conversationTitle">新对话</h1><button class="conversation-title-edit" id="editConversationTitleButton" type="button" aria-label="修改当前对话标题" title="修改当前对话标题">✏️</button></div><p id="connectionStatus">正在连接本机模型服务…</p></div>
         </div>
         <div class="header-role-picker" id="headerRolePicker">
@@ -115,6 +124,7 @@
 
       <section class="translator-workspace" id="translatorWorkspace" hidden aria-label="快速翻译">
         <div class="translator-toolbar">
+          <button class="icon-button translator-menu-button" id="translatorMenuButton" type="button" aria-label="打开侧栏" title="展开侧栏"><span></span><span></span><span></span></button>
           <button class="translator-history-button" id="translateHistoryButton" type="button" aria-expanded="false" aria-controls="translateHistoryPanel" title="翻译历史" aria-label="翻译历史">◷</button>
           <label class="translator-language"><span class="sr-only">源语言</span><select id="translateSourceLanguage" aria-label="源语言"><option value="auto">自动检测</option><option value="zh-CN">简体中文</option><option value="en">英语</option><option value="ja">日语</option><option value="ko">韩语</option><option value="fr">法语</option><option value="de">德语</option><option value="es">西班牙语</option></select></label>
           <button class="translator-swap" id="translateSwapButton" type="button" title="交换语言" aria-label="交换源语言和目标语言">⇄</button>

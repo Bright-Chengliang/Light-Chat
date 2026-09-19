@@ -579,3 +579,18 @@ test('internal workspace features are hidden by default unless explicitly enable
   assert.match(publicSource, /elements\.openOpc\.hidden\s*=\s*!showWorkspaces/);
   assert.match(publicSource, /elements\.openLearning\.hidden\s*=\s*!isAdmin\s*\|\|\s*!state\.enableWorkspaces/);
 });
+
+test('desktop sidebar supports collapsible toggle with persistent state and toggle buttons', () => {
+  assert.match(publicSource, /light-chat-sidebar-collapsed/);
+  assert.match(publicSource, /function setDesktopSidebarCollapsed\(/);
+  assert.match(publicSource, /function toggleSidebar\(/);
+  assert.match(publicSource, /function applySidebarState\(/);
+  assert.match(publicSource, /\.app-shell\.sidebar-collapsed \{[\s\S]*grid-template-columns: minmax\(0, 1fr\);/);
+  assert.match(publicSource, /\.app-shell\.sidebar-collapsed \.sidebar \{[\s\S]*display: none/);
+  assert.match(publicSource, /\.app-shell\.sidebar-collapsed \.main-panel \{[\s\S]*grid-column: 1;/);
+  assert.match(publicSource, /\.app-shell\.sidebar-collapsed \.menu-button \{[\s\S]*display: grid;/);
+  assert.match(publicSource, /id="sidebarCloseButton"/);
+  assert.match(publicSource, /id="menuButton"/);
+  assert.match(publicSource, /sidebar-close-desktop/);
+  assert.match(publicSource, /sidebar-close-mobile/);
+});
