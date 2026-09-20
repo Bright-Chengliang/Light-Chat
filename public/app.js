@@ -77,7 +77,7 @@ const MAX_SIDEBAR_ROLES_HEIGHT = 520;
 const MIN_HISTORY_LIST_HEIGHT = 88;
 const MAX_PARALLEL_REQUESTS = 4;
 const MAX_QUEUED_MESSAGES = 10;
-const MAX_MESSAGE_MEDIA_ITEMS = 8;
+const MAX_MESSAGE_MEDIA_ITEMS = 1000;
 const MAX_UPLOAD_FILE_BYTES = 20 * 1024 * 1024;
 const DEFAULT_CONTEXT_TOKENS = 256 * 1024;
 const MAX_CONTEXT_TOKENS = 16 * 1024 * 1024;
@@ -589,8 +589,8 @@ function sanitizeAssistantVariant(value, continuationDepth = 0) {
     mode: ['chat', 'image'].includes(value.mode) ? value.mode : 'chat',
     content: typeof value.content === 'string' ? value.content.slice(0, MAX_STORED_MESSAGE_CHARS) : '',
     reasoning: typeof value.reasoning === 'string' ? value.reasoning.slice(0, MAX_STORED_MESSAGE_CHARS) : '',
-    attachments: Array.isArray(value.attachments) ? value.attachments.map(sanitizeAttachment).filter(Boolean).slice(0, 8) : [],
-    images: Array.isArray(value.images) ? value.images.map(sanitizeAttachment).filter(Boolean).slice(0, 8) : [],
+    attachments: Array.isArray(value.attachments) ? value.attachments.map(sanitizeAttachment).filter(Boolean).slice(0, MAX_MESSAGE_MEDIA_ITEMS) : [],
+    images: Array.isArray(value.images) ? value.images.map(sanitizeAttachment).filter(Boolean).slice(0, MAX_MESSAGE_MEDIA_ITEMS) : [],
     usage: sanitizeUsage(value.usage),
     createdAt: Number.isFinite(value.createdAt) ? value.createdAt : Date.now(),
     continuation: continuationDepth < MAX_CONTINUATION_DEPTH && Array.isArray(value.continuation)
@@ -623,8 +623,8 @@ function sanitizeMessage(value, continuationDepth = 0) {
     modelId: typeof value.modelId === 'string' ? value.modelId.slice(0, 200) : '',
     mode: ['chat', 'image'].includes(value.mode) ? value.mode : '',
     replyToId: value.role === 'assistant' && typeof value.replyToId === 'string' ? value.replyToId.slice(0, 80) : '',
-    attachments: Array.isArray(value.attachments) ? value.attachments.map(sanitizeAttachment).filter(Boolean).slice(0, 8) : [],
-    images: Array.isArray(value.images) ? value.images.map(sanitizeAttachment).filter(Boolean).slice(0, 8) : [],
+    attachments: Array.isArray(value.attachments) ? value.attachments.map(sanitizeAttachment).filter(Boolean).slice(0, MAX_MESSAGE_MEDIA_ITEMS) : [],
+    images: Array.isArray(value.images) ? value.images.map(sanitizeAttachment).filter(Boolean).slice(0, MAX_MESSAGE_MEDIA_ITEMS) : [],
     toolCalls: Array.isArray(value.toolCalls) ? value.toolCalls : [],
     usage: sanitizeUsage(value.usage),
     variants,
@@ -2926,7 +2926,9 @@ function createMessageActions(message) {
     const canRegenerate = hasMatchingUser && !isConversationBusy() && Boolean(state.selected && selectedModel?.modes.includes(state.selected.mode));
     const regenerate = document.createElement('button'); regenerate.type = 'button'; regenerate.textContent = '🔄'; regenerate.title = canRegenerate ? '使用当前激活模型重新生成，并保留原回答版本与后续消息' : '请先选择可用模型'; regenerate.setAttribute('aria-label', '使用当前激活模型重新生成回答'); regenerate.disabled = !canRegenerate; regenerate.addEventListener('click', () => regenerateAssistantWithCurrentModel(message.id));
     const switchModel = document.createElement('button'); switchModel.type = 'button'; switchModel.textContent = '@'; switchModel.title = '使用收藏模型在此节点生成新回答或图片'; switchModel.setAttribute('aria-label', '切换收藏模型生成新回答或图片'); switchModel.disabled = !hasMatchingUser || !favoriteModels().length || isConversationBusy(); switchModel.addEventListener('click', (event) => { event.stopPropagation(); openVariantModelMenu(message.id, switchModel); });
-    actions.append(regenerate, switchModel);
+    const canContinue = !isConversationBusy() && Boolean(message.content) && Boolean(state.selected && selectedModel?.modes.includes('chat'));
+    const continueBtn = document.createElement('button'); continueBtn.type = 'button'; continueBtn.className = 'message-continue-action'; continueBtn.textContent = '▶️'; continueBtn.title = canContinue ? '在当前回答未输出完的内容基础上，继续补全后续内容' : '继续输出后续内容'; continueBtn.setAttribute('aria-label', '继续输出后续内容'); continueBtn.disabled = !canContinue; continueBtn.addEventListener('click', () => continueAssistantMessage(message.id));
+    actions.append(regenerate, switchModel, continueBtn);
   }
   actions.append(edit, branch, remove);
   return actions;
@@ -3374,6 +3376,9 @@ function renderConversation() {
   editingAttachmentDropHandler = null;
   let conversation = currentConversation();
   if (!conversation) conversation = createConversation({ activate: true });
+  if (!isConversationBusy(conversation.id) && Array.isArray(conversation.messages)) {
+    conversation.messages.forEach((m) => { if (m.streaming) m.streaming = false; });
+  }
   messageActionsObserver.disconnect();
   const previousScrollTop = elements.scroll.scrollTop;
   const editingMessageId = state.editingMessageId;
@@ -3447,11 +3452,14 @@ function updateStreamingMessage(message, conversationId = state.currentId) {
   const existing = $$('[data-message-id]', elements.messageList).find((node) => node.dataset.messageId === message.id);
   const text = existing ? $('.message-text', existing) : null;
   if (!existing || !text) { updateMessage(message, conversationId); return; }
+  const isStreaming = Boolean(message.streaming && isConversationBusy(conversationId));
   const renderedContent = streamingMarkdownSource(message.content);
   const previous = streamingRenderSnapshots.get(existing);
   if (previous?.content !== renderedContent) {
-    text.classList.add('streaming');
-    renderRichText(text, renderedContent, { streaming: true, sourceValue: message.content });
+    if (isStreaming) text.classList.add('streaming'); else text.classList.remove('streaming');
+    renderRichText(text, renderedContent, { streaming: isStreaming, sourceValue: message.content });
+  } else if (!isStreaming && text.classList.contains('streaming')) {
+    text.classList.remove('streaming');
   }
   let reasoning = $('.reasoning-block', existing);
   const renderedReasoning = streamingMarkdownSource(message.reasoning);
@@ -3463,7 +3471,7 @@ function updateStreamingMessage(message, conversationId = state.currentId) {
       text.before(reasoning);
     }
     const content = $('.reasoning-content', reasoning);
-    if (content && previous?.reasoning !== renderedReasoning) renderRichText(content, renderedReasoning, { streaming: true, sourceValue: message.reasoning });
+    if (content && previous?.reasoning !== renderedReasoning) renderRichText(content, renderedReasoning, { streaming: isStreaming, sourceValue: message.reasoning });
   }
   streamingRenderSnapshots.set(existing, { content: renderedContent, reasoning: renderedReasoning });
   if (state.followOutput) setConversationScrollTop(elements.scroll.scrollHeight);
@@ -6214,6 +6222,8 @@ function syncRegenerationDraft(draft, conversationId = state.currentId) {
 }
 
 function finishRegenerationVariant(conversation, message, draft, { cancelled = false } = {}) {
+  draft.streaming = false;
+  message.streaming = false;
   const target = draft.regeneration;
   const variants = message.variants || [];
   const pendingVariant = target ? variants[target.pendingIndex] : null;
@@ -6290,6 +6300,11 @@ async function regenerateImageAssistant(messageId, modelId, { allowHistorical = 
     if (cancelled) setStatus('响应已中断，本次调用按正常模型费用扣除', 'success');
     else { setStatus(error.message, 'error'); saveConversations(); }
   } finally {
+    if (conversation && Array.isArray(conversation.messages)) {
+      conversation.messages.forEach((item) => {
+        if (item.streaming) item.streaming = false;
+      });
+    }
     if (activeRequestControllers.get(conversation.id) === requestController) activeRequestControllers.delete(conversation.id);
     setConversationBusy(conversation.id, false); renderConversation(); updateSendState(); elements.input.focus(); refreshQuotaSummary().catch(() => {});
   }
@@ -6403,6 +6418,87 @@ async function regenerateAssistant(messageId, modelId, { allowHistorical = false
     if (cancelled) setStatus('响应已中断，本次调用按正常模型费用扣除', 'success');
     else { setStatus(error.message, 'error'); saveConversations(); }
   } finally {
+    if (conversation && Array.isArray(conversation.messages)) {
+      conversation.messages.forEach((item) => {
+        if (item.streaming) item.streaming = false;
+      });
+    }
+    if (activeRequestControllers.get(conversation.id) === requestController) activeRequestControllers.delete(conversation.id);
+    setConversationBusy(conversation.id, false); renderConversation(); updateSendState(); elements.input.focus(); refreshQuotaSummary().catch(() => {});
+  }
+}
+
+async function continueAssistantMessage(messageId) {
+  const conversation = currentConversation();
+  const index = conversation?.messages.findIndex((message) => message.id === messageId && message.role === 'assistant') ?? -1;
+  if (!conversation || index < 0) return;
+  if (isConversationBusy(conversation.id) || state.busyConversationIds.size >= MAX_PARALLEL_REQUESTS) { setStatus('当前会话正在响应或已达到 4 个并行请求', 'error'); return; }
+  const message = conversation.messages[index];
+  const modelId = state.selected?.modelId || message.modelId;
+  const requestModel = state.models.find((model) => model.id === modelId && model.modes.includes('chat'));
+  if (!requestModel) { setStatus('所选模型当前不可用或不支持对话', 'error'); return; }
+  const submitted = conversation.messages.slice(0, index + 1);
+  const promptUser = {
+    role: 'user',
+    content: '请紧接着你上一条回答中没有输出完的内容末尾继续输出，不要重复前面已经写出的任何内容，直接衔接续写后面的内容直至完整结束。',
+    attachmentIds: [],
+    imageIds: [],
+  };
+  const baseMessages = chatSubmissionMessages(submitted);
+  const messages = [...baseMessages, promptUser];
+  message.streaming = state.stream;
+  const requestController = new AbortController();
+  activeRequestControllers.set(conversation.id, requestController);
+  resumeOutputFollow(); setConversationBusy(conversation.id, true); renderConversation(); updateSendState(); setStatus(`正在使用 ${modelId} 继续输出…`, 'pending');
+  try {
+    const stream = state.stream;
+    const response = await chatRequest({
+      model: modelId,
+      roleId: validRoleId(conversation.roleId) || undefined,
+      messages,
+      stream,
+    }, requestController.signal);
+    if (response.status === 401) { location.replace('/'); throw new Error('登录已失效'); }
+    if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error || '模型请求失败'); }
+    if ((response.headers.get('content-type') || '').includes('text/event-stream')) {
+      await (state.userRole === 'guest' ? consumeGuestSse : consumeSse)(response, message, conversation.id);
+      message.streaming = false;
+      updateMessage(message, conversation.id);
+    } else {
+      const payload = await response.json();
+      const direct = state.userRole === 'guest' ? guestChatResult(payload) : payload;
+      if (direct.text) {
+        message.content += (message.content ? '\n\n' : '') + direct.text;
+      }
+      if (direct.reasoning) {
+        message.reasoning = (message.reasoning ? message.reasoning + '\n\n' : '') + direct.reasoning;
+      }
+      if (Array.isArray(direct.images) && direct.images.length) {
+        message.images = [...(message.images || []), ...direct.images.map(sanitizeAttachment).filter(Boolean)];
+      }
+      if (direct.usage) message.usage = sanitizeUsage(direct.usage);
+      updateMessage(message, conversation.id);
+    }
+    if (Array.isArray(message.variants) && message.variants[message.variantIndex]) {
+      Object.assign(message.variants[message.variantIndex], assistantVariantFromMessage(message, message.variants[message.variantIndex].continuation || []));
+    }
+    conversation.updatedAt = Date.now();
+    saveConversations();
+    setStatus('已完成续写补全', 'success');
+  } catch (error) {
+    const cancelled = requestController.signal.aborted;
+    message.streaming = false;
+    if (Array.isArray(message.variants) && message.variants[message.variantIndex]) {
+      Object.assign(message.variants[message.variantIndex], assistantVariantFromMessage(message, message.variants[message.variantIndex].continuation || []));
+    }
+    if (cancelled) setStatus('响应已中断，本次调用按正常模型费用扣除', 'success');
+    else { setStatus(error.message, 'error'); saveConversations(); }
+  } finally {
+    if (conversation && Array.isArray(conversation.messages)) {
+      conversation.messages.forEach((item) => {
+        if (item.streaming) item.streaming = false;
+      });
+    }
     if (activeRequestControllers.get(conversation.id) === requestController) activeRequestControllers.delete(conversation.id);
     setConversationBusy(conversation.id, false); renderConversation(); updateSendState(); elements.input.focus(); refreshQuotaSummary().catch(() => {});
   }
@@ -6448,6 +6544,7 @@ async function sendMessage(queuedDraft = null) {
   const requestController = new AbortController();
   activeRequestControllers.set(conversationId, requestController);
   updateSendState(); renderConversation(); setStatus('正在请求模型…', 'pending');
+  let currentAssistant = assistant;
   try {
     if (useImageEdit) {
       await requestGeneratedImages('/api/images/edits', { model: requestSelection.modelId, prompt: prospectiveImagePrompt, imageIds: editImageIds, size: messageDraft.imageSize || requestModel?.imageOptions?.defaultSize, quality: imageQualityForRequest(conversation, requestModel), count: 1 }, assistant, conversationId, requestController.signal);
@@ -6459,7 +6556,7 @@ async function sendMessage(queuedDraft = null) {
       updateMessage(assistant, conversationId);
     } else {
       const activeTools = requestSelection.mode === 'chat' ? getActiveTools() : [];
-      let currentAssistant = assistant;
+      currentAssistant = assistant;
       let loopCount = 0;
       const maxLoops = 5;
 
@@ -6550,6 +6647,11 @@ async function sendMessage(queuedDraft = null) {
   } catch (error) {
     const cancelled = requestController.signal.aborted;
     const targetAssistant = currentAssistant || assistant;
+    if (conversation && Array.isArray(conversation.messages)) {
+      conversation.messages.forEach((item) => {
+        if (item.streaming) item.streaming = false;
+      });
+    }
     targetAssistant.streaming = false;
     if (cancelled) {
       targetAssistant.content = targetAssistant.content || '已中断响应。';
@@ -6562,6 +6664,11 @@ async function sendMessage(queuedDraft = null) {
     }
     saveConversations();
   } finally {
+    if (conversation && Array.isArray(conversation.messages)) {
+      conversation.messages.forEach((item) => {
+        if (item.streaming) item.streaming = false;
+      });
+    }
     if (activeRequestControllers.get(conversationId) === requestController) activeRequestControllers.delete(conversationId);
     setConversationBusy(conversationId, false);
     if (state.currentId === conversationId) renderConversation();

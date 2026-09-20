@@ -870,7 +870,7 @@ test('media favorites do not impose a collection-size cap', async () => {
   }
 });
 
-test('only unsent uploads occupy the eight-file pending attachment allowance', async () => {
+test('only unsent uploads occupy the pending attachment allowance', async () => {
   const context = await fixture();
   try {
     const signedIn = await authenticated(context);
@@ -884,8 +884,6 @@ test('only unsent uploads occupy the eight-file pending attachment allowance', a
       assert.equal(upload.response.status, 201);
       uploads.push(upload.body.attachment);
     }
-    const blocked = await uploadFile(context, signedIn, { buffer: tinyPng(), mimeType: 'image/png', fileName: 'blocked.png' });
-    assert.equal(blocked.response.status, 413);
 
     const chat = await postJson(context, signedIn, '/api/chat', {
       model: 'gemini-test-image',
@@ -901,7 +899,7 @@ test('only unsent uploads occupy the eight-file pending attachment allowance', a
   }
 });
 
-test('conversation context keeps the newest images when historical uploads exceed the attachment limit', async () => {
+test('conversation context forwards historical uploads without being capped by former 8-attachment limit', async () => {
   const context = await fixture();
   try {
     const signedIn = await authenticated(context);
@@ -943,7 +941,7 @@ test('conversation context keeps the newest images when historical uploads excee
     const upstream = context.fake.requests.findLast((request) => request.url === '/v1/chat/completions');
     const messages = JSON.parse(upstream.bodyText).messages;
     const imageParts = messages.flatMap((message) => Array.isArray(message.content) ? message.content.filter((part) => part.type === 'image_url') : []);
-    assert.equal(imageParts.length, 8);
+    assert.equal(imageParts.length, 10);
     assert.equal(messages[0].content.some((part) => part.type === 'text' && part.text === '第一轮图片'), true);
     assert.equal(messages.at(-1).content.some((part) => part.type === 'text' && part.text === '保留最新图片'), true);
   } finally {

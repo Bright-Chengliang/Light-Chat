@@ -434,6 +434,7 @@ body.resizing-sidebar-roles, body.resizing-sidebar-roles * { cursor: row-resize 
 body.message-navigation-active .message-actions-floating:not(.navigation-pinned) { opacity: 0 !important; pointer-events: none !important; }
 .message-action-divider { width: 1px; height: 20px; margin: 0 3px; flex: 0 0 auto; background: color-mix(in srgb, var(--text-faint) 38%, transparent); border-radius: 1px; }
 .message-primary-actions { width: 231px; min-width: 231px; height: 36px; display: flex; align-items: center; justify-content: space-evenly; gap: 0; }
+.message-primary-actions:has(.message-continue-action) { width: 268px; min-width: 268px; }
 .message-actions button.message-jump-action { min-width: 31px; width: 31px; padding: 0; display: grid; place-items: center; color: var(--accent); }
 .message-jump-icon { width: 16px; height: 16px; display: block; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.55; stroke-linecap: round; stroke-linejoin: round; }
 .message-actions button { min-width: 36px; min-height: 36px; padding: 3px 6px; color: var(--text-faint); background: transparent; border-radius: 8px; font-size: .8rem; line-height: 1; }

@@ -48,3 +48,13 @@ test('response model image-size choices remain readable in the @ model menu', ()
   assert.match(styles, /\.variant-image-size-menu button \{[^}]*width: 100%/);
   assert.match(styles, /\.variant-image-size-menu button \{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis/);
 });
+
+test('assistant actions expose a continue button to seamlessly complete truncated output', () => {
+  assert.match(appSource, /const canContinue = !isConversationBusy\(\) && Boolean\(message\.content\) && Boolean\(state\.selected && selectedModel\?\.modes\.includes\('chat'\)\);/);
+  assert.match(appSource, /const continueBtn = document\.createElement\('button'\);/);
+  assert.match(appSource, /continueBtn\.className = 'message-continue-action';/);
+  assert.match(appSource, /continueBtn\.setAttribute\('aria-label', '继续输出后续内容'\);/);
+  assert.match(appSource, /continueBtn\.addEventListener\('click', \(\) => continueAssistantMessage\(message\.id\)\);/);
+  assert.match(appSource, /function continueAssistantMessage\(messageId\)/);
+  assert.match(styles, /\.message-primary-actions:has\(\.message-continue-action\) \{ width: 268px; min-width: 268px; \}/);
+});
