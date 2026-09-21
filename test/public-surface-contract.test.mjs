@@ -71,13 +71,14 @@ test('long messages use token-aware validation and a sticky duplicate action bar
   assert.match(publicSource, /createElementNS\('http:\/\/www\.w3\.org\/2000\/svg', 'svg'\)/);
   assert.match(publicSource, /place-items: center/);
   assert.match(publicSource, /scrollIntoView\(\{ behavior: 'instant', block \}\)/);
-  assert.match(publicSource, /回到该消息顶部/);
-  assert.match(publicSource, /跳到该消息底部/);
+  assert.match(publicSource, /跳转到上一条消息顶部/);
+  assert.match(publicSource, /跳转到下一条消息顶部/);
   assert.doesNotMatch(publicSource, /message-action-spacer/);
   assert.match(publicSource, /message-primary-actions/);
   assert.match(publicSource, /justify-content: space-evenly/);
   assert.match(publicSource, /document\.body\.append\(actions\)/);
   assert.match(publicSource, /function navigateMessageByEdge\(article, edge\)/);
+  assert.match(publicSource, /classList\.contains\('user'\) \|\| item\.classList\.contains\('assistant'\)/);
   assert.match(publicSource, /navigation-pinned/);
   assert.match(publicSource, /message-navigation-active/);
   assert.match(publicSource, /\.message-actions-floating:not\(\.navigation-pinned\)/);
@@ -526,8 +527,11 @@ test('lightbox navigates every image and upscale variant with keyboard and trans
   assert.match(publicSource, /\.image-lightbox-loading\[data-kind="complete"\]/);
 });
 
-test('image context menus copy authenticated image content to the clipboard', () => {
+test('image context menus copy authenticated image content to the clipboard and support fullscreen view', () => {
   assert.match(publicSource, /id="imageLightboxContextMenu"/);
+  assert.match(publicSource, /id="lightboxFullscreenMenuButton"/);
+  assert.match(publicSource, /id="imageLightboxFullscreenButton"/);
+  assert.match(publicSource, /function toggleLightboxFullscreen\(\)/);
   assert.match(publicSource, /id="jumpToLightboxFileMessage"/);
   assert.match(publicSource, /id="toggleLightboxFavoriteMediaButton"/);
   assert.match(publicSource, /id="copyLightboxImageButton"/);
@@ -594,3 +598,14 @@ test('desktop sidebar supports collapsible toggle with persistent state and togg
   assert.match(publicSource, /sidebar-close-desktop/);
   assert.match(publicSource, /sidebar-close-mobile/);
 });
+
+test('message up and down jumping targets top of previous and next message for user and assistant alike with boundary handling', () => {
+  const jumpSource = publicSource.match(/function navigateMessageByEdge\(article, edge\) \{[\s\S]*?\n\}/)?.[0] || '';
+  assert.ok(jumpSource, 'navigateMessageByEdge should exist');
+  assert.match(jumpSource, /classList\.contains\('user'\) \|\| item\.classList\.contains\('assistant'\)/);
+  assert.match(jumpSource, /target = edge === 'start'\s*\?\s*\(index > 0 \? messages\[index - 1\] : messages\[0\]\)\s*:\s*\(index < messages\.length - 1 \? messages\[index \+ 1\] : current\)/);
+  assert.match(jumpSource, /block = edge === 'end' && index >= messages\.length - 1 \? 'end' : 'start'/);
+  assert.match(jumpSource, /target\.scrollIntoView\(\{ behavior: 'instant', block \}\)/);
+  assert.match(publicSource, /button\.title = edge === 'start' \? '跳转到上一条消息顶部' : '跳转到下一条消息顶部'/);
+});
+

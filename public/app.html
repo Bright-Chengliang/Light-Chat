@@ -354,10 +354,11 @@
 
   <dialog class="image-lightbox" id="imageLightbox" aria-label="图片放大预览">
     <div class="image-lightbox-shell">
-      <header><span id="imageLightboxCaption">图片预览</span><span class="image-lightbox-position" id="imageLightboxPosition" aria-live="polite"></span><span><a id="imageLightboxDownload" href="#" download title="下载图片" aria-label="下载图片">⬇️</a><button class="icon-button" data-close-dialog="imageLightbox" type="button" aria-label="关闭图片预览">×</button></span></header>
+      <header><span id="imageLightboxCaption">图片预览</span><span class="image-lightbox-position" id="imageLightboxPosition" aria-live="polite"></span><span><button class="icon-button" id="imageLightboxFullscreenButton" type="button" title="全屏显示图片" aria-label="全屏显示图片">⛶</button><a id="imageLightboxDownload" href="#" download title="下载图片" aria-label="下载图片">⬇️</a><button class="icon-button" data-close-dialog="imageLightbox" type="button" aria-label="关闭图片预览">×</button></span></header>
       <div class="image-lightbox-stage" id="imageLightboxStage"><button class="image-lightbox-nav previous" id="imageLightboxPrevious" type="button" aria-label="上一张图片" title="上一张图片">‹</button><img id="imageLightboxImage" alt=""><div class="image-lightbox-loading" id="imageLightboxLoading" role="status" aria-live="polite" hidden><span class="image-lightbox-spinner" aria-hidden="true"></span><strong id="imageLightboxLoadStatus">正在加载图片…</strong></div><button class="image-lightbox-nav next" id="imageLightboxNext" type="button" aria-label="下一张图片" title="下一张图片">›</button></div>
     </div>
     <div class="context-menu" id="imageLightboxContextMenu" hidden role="menu" aria-label="图片操作" aria-orientation="vertical">
+      <button id="lightboxFullscreenMenuButton" type="button" role="menuitem" tabindex="-1">⛶ 全屏显示图片</button>
       <button id="jumpToLightboxFileMessage" type="button" role="menuitem" tabindex="-1">↗ 跳转到所在对话</button>
       <button id="toggleLightboxFavoriteMediaButton" type="button" role="menuitem" tabindex="-1">♥ 收藏到图片</button>
       <button id="copyLightboxImageButton" type="button" role="menuitem" tabindex="-1">⧉ 复制图片</button>

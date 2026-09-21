@@ -33,7 +33,7 @@ const elements = {
   rolesDialog: $('#rolesDialog'), rolesEditor: $('#rolesEditor'), addRoleFolder: $('#addRoleFolderButton'), saveRoles: $('#saveRolesButton'), rolesStatus: $('#rolesStatus'),
   roleTransferDialog: $('#roleTransferDialog'), roleTransferTitle: $('#roleTransferDialogTitle'), roleTransferDescription: $('#roleTransferDescription'), roleTransferFolder: $('#roleTransferFolderSelect'), roleTransferStatus: $('#roleTransferStatus'), confirmRoleTransfer: $('#confirmRoleTransferButton'),
   conversationFolderDialog: $('#conversationFolderDialog'), conversationFolderTitle: $('#conversationFolderDialogTitle'), conversationFolderDescription: $('#conversationFolderDescription'), conversationFolderSelect: $('#conversationFolderSelect'), conversationFolderStatus: $('#conversationFolderStatus'), confirmConversationFolder: $('#confirmConversationFolderButton'),
-  imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxPosition: $('#imageLightboxPosition'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'), imageLightboxContextMenu: $('#imageLightboxContextMenu'), jumpToLightboxFileMessage: $('#jumpToLightboxFileMessage'), toggleLightboxFavoriteMediaButton: $('#toggleLightboxFavoriteMediaButton'), copyLightboxImageButton: $('#copyLightboxImageButton'), downloadLightboxFileButton: $('#downloadLightboxFileButton'),
+  imageLightbox: $('#imageLightbox'), imageLightboxStage: $('#imageLightboxStage'), imageLightboxImage: $('#imageLightboxImage'), imageLightboxLoading: $('#imageLightboxLoading'), imageLightboxLoadStatus: $('#imageLightboxLoadStatus'), imageLightboxCaption: $('#imageLightboxCaption'), imageLightboxPosition: $('#imageLightboxPosition'), imageLightboxFullscreenButton: $('#imageLightboxFullscreenButton'), imageLightboxDownload: $('#imageLightboxDownload'), imageLightboxPrevious: $('#imageLightboxPrevious'), imageLightboxNext: $('#imageLightboxNext'), imageLightboxContextMenu: $('#imageLightboxContextMenu'), lightboxFullscreenMenuButton: $('#lightboxFullscreenMenuButton'), jumpToLightboxFileMessage: $('#jumpToLightboxFileMessage'), toggleLightboxFavoriteMediaButton: $('#toggleLightboxFavoriteMediaButton'), copyLightboxImageButton: $('#copyLightboxImageButton'), downloadLightboxFileButton: $('#downloadLightboxFileButton'),
   upscaleDialog: $('#upscaleDialog'), upscaleMode: $('#upscaleMode'), upscaleWidth: $('#upscaleWidth'), upscaleHeight: $('#upscaleHeight'), upscaleStatus: $('#upscaleStatus'), startUpscaleButton: $('#startUpscaleButton'),
   customToolDialog: $('#customToolDialog'), customToolForm: $('#customToolForm'), customToolName: $('#customToolName'), customToolType: $('#customToolType'), customToolUrl: $('#customToolUrl'), customToolAuth: $('#customToolAuth'), customToolDescription: $('#customToolDescription'), customToolStatus: $('#customToolStatus'), saveCustomToolButton: $('#saveCustomToolButton'),
   historyContextMenu: $('#historyContextMenu'), renameConversation: $('#renameConversation'), regenerateConversationTitle: $('#regenerateConversationTitle'), toggleFavoriteConversation: $('#toggleFavoriteConversation'), moveConversationToFolder: $('#moveConversationToFolder'), jumpToRoleFromConversation: $('#jumpToRoleFromConversation'), jumpToSourceConversation: $('#jumpToSourceConversation'), exportTxt: $('#exportConversationTxt'), exportMarkdownText: $('#exportConversationMarkdownText'), exportMarkdown: $('#exportConversationMarkdown'), deleteConversation: $('#deleteConversation'),
@@ -2840,6 +2840,15 @@ function openImageLightbox(items, selectedItem) {
   revealImageLightboxControls();
 }
 
+function toggleLightboxFullscreen() {
+  if (document.fullscreenElement) {
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  } else {
+    const target = elements.imageLightboxStage || elements.imageLightbox;
+    if (target?.requestFullscreen) target.requestFullscreen().catch(() => {});
+  }
+}
+
 function assistantVariantFromMessage(message, continuation = []) {
   return sanitizeAssistantVariant({ ...message, continuation });
 }
@@ -2937,7 +2946,7 @@ function createMessageActions(message) {
 function createMessageJumpButton(article, edge) {
   const button = document.createElement('button');
   button.type = 'button'; button.className = `message-jump-action message-jump-${edge}`;
-  button.title = edge === 'start' ? '回到该消息顶部' : '跳到该消息底部';
+  button.title = edge === 'start' ? '跳转到上一条消息顶部' : '跳转到下一条消息顶部';
   button.setAttribute('aria-label', button.title);
   const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   icon.classList.add('message-jump-icon'); icon.setAttribute('viewBox', '0 0 16 16'); icon.setAttribute('aria-hidden', 'true');
@@ -3003,13 +3012,13 @@ function pinMessageNavigation(article) {
 }
 
 function navigateMessageByEdge(article, edge) {
-  const messages = $$('article.message', elements.messageList);
-  const index = messages.indexOf(article); if (index < 0) return;
-  const scrollRect = elements.scroll.getBoundingClientRect(); const articleRect = article.getBoundingClientRect();
-  const atStart = Math.abs(articleRect.top - scrollRect.top) <= 3; const atEnd = Math.abs(articleRect.bottom - scrollRect.bottom) <= 3;
-  let target = article; let block = edge === 'start' ? 'start' : 'end';
-  if (edge === 'start' && atStart && index > 0) { target = messages[index - 1]; block = 'end'; }
-  if (edge === 'end' && atEnd && index < messages.length - 1) { target = messages[index + 1]; block = 'start'; }
+  const messages = $$('article.message', elements.messageList).filter((item) => item.classList.contains('user') || item.classList.contains('assistant'));
+  const current = (pinnedMessageNavigation?.article && messages.includes(pinnedMessageNavigation.article)) ? pinnedMessageNavigation.article : article;
+  const index = messages.indexOf(current); if (index < 0) return;
+  const target = edge === 'start'
+    ? (index > 0 ? messages[index - 1] : messages[0])
+    : (index < messages.length - 1 ? messages[index + 1] : current);
+  const block = edge === 'end' && index >= messages.length - 1 ? 'end' : 'start';
   pinMessageNavigation(target);
   target.scrollIntoView({ behavior: 'instant', block });
   requestAnimationFrame(() => alignFloatingMessageActions($('.message-actions-floating', target)));
@@ -3450,7 +3459,7 @@ function updateStreamingMessage(message, conversationId = state.currentId) {
   if (syncRegenerationDraft(message, conversationId)) return;
   if (conversationId !== state.currentId) return;
   const existing = $$('[data-message-id]', elements.messageList).find((node) => node.dataset.messageId === message.id);
-  const text = existing ? $('.message-text', existing) : null;
+  const text = existing ? $('.message-body > .message-text:not(.reasoning-content)', existing) || $('.message-text:not(.reasoning-content)', existing) : null;
   if (!existing || !text) { updateMessage(message, conversationId); return; }
   const isStreaming = Boolean(message.streaming && isConversationBusy(conversationId));
   const renderedContent = streamingMarkdownSource(message.content);
@@ -7790,6 +7799,8 @@ function bindEvents() {
   elements.deleteFavorite.addEventListener('click', deleteFavoriteFromContext);
   elements.jumpToRecentFileMessage.addEventListener('click', jumpToRecentFileMessage);
   elements.jumpToLightboxFileMessage.addEventListener('click', jumpToRecentFileMessage);
+  elements.lightboxFullscreenMenuButton.addEventListener('click', () => { closeAllContextMenus({ restoreFocus: true }); toggleLightboxFullscreen(); });
+  elements.imageLightboxFullscreenButton.addEventListener('click', toggleLightboxFullscreen);
   for (const button of [elements.toggleFavoriteMediaButton, elements.toggleLightboxFavoriteMediaButton]) button.addEventListener('click', () => { const id = state.contextRecentFileId; closeAllContextMenus({ restoreFocus: true }); if (id) void toggleFavoriteMedia(id); });
   for (const button of [elements.copyRecentFileImageButton, elements.copyLightboxImageButton]) button.addEventListener('click', () => { void copyRecentImageFromContext(); });
   elements.downloadRecentFileButton.addEventListener('click', downloadRecentFileFromContext);
