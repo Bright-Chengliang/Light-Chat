@@ -84,7 +84,7 @@
 - Framework/styling system: Node.js ESM 原生 HTTP/SSE + 原生 HTML/CSS/DOM；零运行时前端依赖。
 - Design-token constraints: 复用上述暖色体系，不引入第二套主题层。
 - Performance constraints: 首屏无外部资源；模型列表服务端缓存；最多 4 请求并行；流式 DOM 每动画帧最多更新一次；附件上传/响应有数量与体积限制；文档不在本地解析或转换；并发请求先预留普通用户积分，避免并发超额消费。
-- Account/data constraints: v3 账户文件必须包含唯一管理员 UID `00000`；普通用户使用顺序七位 UID；游客使用固定 `guest` UID 与独立设置文件，零积分且无系统模型权限；单用户模型权限为单组与额外授权的并集；管理员模型权限不受组限制。v1/v2 账户在启动时原子迁移到 v3，旧偏好、角色和恢复媒体归管理员，普通用户使用独立 UID 文件与媒体所有权。
+- Account/data constraints: v3 账户文件必须包含唯一管理员 UID `00000`；普通用户使用顺序七位 UID；游客使用固定 `guest` UID 与独立设置文件，零积分且无系统模型权限；单用户模型权限为单组与额外授权的并集；管理员模型权限不受组限制。v1/v2 账户在启动时原子迁移到 v3，旧偏好、角色和恢复媒体归管理员，普通用户使用独立 UID 文件与媒体所有权。代码更新与功能升级必须与用户个性化数据（收藏文件、收藏模型、会话历史、归档与自定义角色）严格解耦，永远不得以任何形式破坏或覆盖已有用户数据，数据变更仅允许由用户显式主动触发。
 - Admin security constraints: 管理路由必须同时通过有效会话、管理员角色、同源和 CSRF 校验；管理员写操作串行化、账户文件原子替换、关键动作写入不含秘密值的 JSONL 审计记录；禁用或删除用户时撤销其全部会话。
 - Compatibility constraints: Node.js >=22；现代 Chromium/Firefox/Safari；服务仅监听 `127.0.0.1:3020`。
 - Test/screenshot expectations: Node 单元/集成测试；Playwright CLI 验证登录、模型选择、设置、响应式和视觉截图；静态扫描确保 `public/` 无密钥。

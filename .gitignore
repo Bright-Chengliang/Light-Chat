@@ -26,3 +26,22 @@ android/.idea/
 android/local.properties
 android/**/build/
 android/*.iml
+
+# AOCI agent host integration (machine-bound; do not commit)
+opencode.json
+opencode.json.backup.*
+AGENTS.md
+CLAUDE.md
+MEMORY.md
+*.memory
+*.memory.*
+.aoci/
+aoci.txt
+aoci.code.txt
+aoci.meta.txt
+aoci.*.txt
+.opencode/
+.claude/
+.agents/
+.cursor/
+.windsurf/
