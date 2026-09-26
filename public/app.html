@@ -42,15 +42,16 @@
         <nav class="sidebar-drawer-panel sidebar-drawer-root" id="sidebarDrawerRoot" aria-label="侧栏栏目">
           <button class="sidebar-drawer-entry" id="openFavoritesDrawer" type="button" data-sidebar-drawer="favorites"><span class="drawer-entry-icon" aria-hidden="true">☆</span><span><strong>收藏模型</strong><small>常用对话与生图模型</small></span><b aria-hidden="true">›</b></button>
           <button class="sidebar-drawer-entry" id="openFavoriteConversationsDrawer" type="button" data-sidebar-drawer="favorite-conversations"><span class="drawer-entry-icon" aria-hidden="true">✦</span><span><strong>收藏对话</strong><small>最近收藏与互动优先</small></span><b aria-hidden="true">›</b></button>
-          <button class="sidebar-drawer-entry" id="openTranslator" type="button"><span class="drawer-entry-icon" aria-hidden="true">文</span><span><strong>快速翻译</strong><small>双栏文本翻译工作台</small></span><b aria-hidden="true">›</b></button>
-          <button class="sidebar-drawer-entry" id="openRolesDrawer" type="button" data-sidebar-drawer="roles"><span class="drawer-entry-icon" aria-hidden="true">◎</span><span><strong>自定义角色</strong><small>专家提示词与角色对话</small></span><b aria-hidden="true">›</b></button>
-          <button class="sidebar-drawer-entry" id="openRecentFilesDrawer" type="button" data-sidebar-drawer="recent-files"><span class="drawer-entry-icon" aria-hidden="true">▧</span><span><strong>最近文件</strong><small>快速浏览上传与生成文件</small></span><b aria-hidden="true">›</b></button>
-          <button class="sidebar-drawer-entry" id="openFavoriteMediaDrawer" type="button" data-sidebar-drawer="favorite-media"><span class="drawer-entry-icon" aria-hidden="true">♥</span><span><strong>收藏图片</strong><small>快速浏览收藏的文件与图片</small></span><b aria-hidden="true">›</b></button>
-          <button class="sidebar-drawer-entry" id="openWorkflowsDrawer" type="button" data-sidebar-drawer="workflows"><span class="drawer-entry-icon" aria-hidden="true">⛓</span><span><strong>打包工作流</strong><small>一键运行固定创作流程</small></span><b aria-hidden="true">›</b></button>
-          <button class="sidebar-drawer-entry" id="openToolsDrawer" type="button" data-sidebar-drawer="tools"><span class="drawer-entry-icon" aria-hidden="true">🧩</span><span><strong>扩展与技能 (MCP)</strong><small>Brave 联网搜索与扩展工具</small></span><b aria-hidden="true">›</b></button>
-          <a class="sidebar-drawer-entry" id="openOpc" href="/opc/" target="_blank" rel="noopener" hidden><span class="drawer-entry-icon" aria-hidden="true">◉</span><span><strong>OPC</strong><small>打开受保护的 OpenOPC 工作台</small></span><b aria-hidden="true">↗</b></a>
-          <a class="sidebar-drawer-entry" id="openLearning" href="/learning/" hidden><span class="drawer-entry-icon" aria-hidden="true">◈</span><span><strong>学习</strong><small>打开受保护的学习工作台</small></span><b aria-hidden="true">›</b></a>
+          <button class="sidebar-drawer-entry" id="openFavoriteMediaDrawer" type="button" data-sidebar-drawer="favorite-media"><span class="drawer-entry-icon" aria-hidden="true">♥</span><span><strong>收藏文件</strong><small>快速浏览收藏的文件与图片</small></span><b aria-hidden="true">›</b></button>
           <button class="sidebar-drawer-entry" id="openHistoryDrawer" type="button" data-sidebar-drawer="history"><span class="drawer-entry-icon" aria-hidden="true">◷</span><span><strong>最近对话</strong><small>浏览、整理和恢复历史记录</small></span><b aria-hidden="true">›</b></button>
+          <button class="sidebar-drawer-entry" id="openRecentFilesDrawer" type="button" data-sidebar-drawer="recent-files"><span class="drawer-entry-icon" aria-hidden="true">▧</span><span><strong>最近文件</strong><small>快速浏览上传与生成文件</small></span><b aria-hidden="true">›</b></button>
+          <button class="sidebar-drawer-entry" id="openRolesDrawer" type="button" data-sidebar-drawer="roles"><span class="drawer-entry-icon" aria-hidden="true">◎</span><span><strong>自定义角色</strong><small>专家提示词与角色对话</small></span><b aria-hidden="true">›</b></button>
+          <button class="sidebar-drawer-entry" id="openTranslator" type="button"><span class="drawer-entry-icon" aria-hidden="true">文</span><span><strong>快速翻译</strong><small>双栏文本翻译工作台</small></span><b aria-hidden="true">›</b></button>
+          <button class="sidebar-drawer-entry" id="openToolsDrawer" type="button" data-sidebar-drawer="tools"><span class="drawer-entry-icon" aria-hidden="true">🧩</span><span><strong>扩展与技能 (MCP)</strong><small>Brave 联网搜索与扩展工具</small></span><b aria-hidden="true">›</b></button>
+          <a class="sidebar-drawer-entry" id="openOpc" href="/opc/" hidden><span class="drawer-entry-icon" aria-hidden="true">◉</span><span><strong>OPC</strong><small>打开受保护的 OpenOPC 工作台</small></span><b aria-hidden="true">›</b></a>
+          <a class="sidebar-drawer-entry" id="openLearning" href="/learning/" hidden><span class="drawer-entry-icon" aria-hidden="true">◈</span><span><strong>学习</strong><small>打开受保护的学习工作台</small></span><b aria-hidden="true">›</b></a>
+          <a class="sidebar-drawer-entry" id="openGame" href="/game/" hidden><span class="drawer-entry-icon" aria-hidden="true">🎮</span><span><strong>游戏</strong><small>打开受保护的游戏中心</small></span><b aria-hidden="true">›</b></a>
+          <button class="sidebar-drawer-entry" id="openWorkflowsDrawer" type="button" data-sidebar-drawer="workflows"><span class="drawer-entry-icon" aria-hidden="true">⛓</span><span><strong>打包工作流</strong><small>一键运行固定创作流程</small></span><b aria-hidden="true">›</b></button>
         </nav>
         <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="favorites" hidden>
           <div class="sidebar-section-heading"><button class="section-toggle" id="sidebarFavoritesToggle" type="button" aria-expanded="true" aria-controls="sidebarFavorites"><span>收藏模型</span><span class="section-chevron" aria-hidden="true"></span></button><button id="manageFavoritesButton" type="button">管理</button></div>
@@ -75,7 +76,7 @@
           <nav class="recent-files-list" id="recentFilesList" aria-label="最近上传和生成的文件"></nav>
         </section>
         <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="favorite-media" hidden>
-          <div class="sidebar-section-heading"><button class="section-toggle" id="favoriteMediaToggle" type="button" aria-expanded="true" aria-controls="favoriteMediaList"><span>收藏图片</span><span class="section-chevron" aria-hidden="true"></span></button><span class="media-page-controls" id="favoriteMediaPagination"><button id="previousFavoriteMediaPage" type="button" aria-label="上一页收藏图片" title="上一页">‹</button><span id="favoriteMediaPageStatus" aria-live="polite"></span><button id="nextFavoriteMediaPage" type="button" aria-label="下一页收藏图片" title="下一页">›</button></span><button id="refreshFavoriteMediaButton" type="button">刷新</button></div>
+          <div class="sidebar-section-heading"><button class="section-toggle" id="favoriteMediaToggle" type="button" aria-expanded="true" aria-controls="favoriteMediaList"><span>收藏文件</span><span class="section-chevron" aria-hidden="true"></span></button><span class="media-page-controls" id="favoriteMediaPagination"><button id="previousFavoriteMediaPage" type="button" aria-label="上一页收藏文件" title="上一页">‹</button><span id="favoriteMediaPageStatus" aria-live="polite"></span><button id="nextFavoriteMediaPage" type="button" aria-label="下一页收藏文件" title="下一页">›</button></span><button id="refreshFavoriteMediaButton" type="button">刷新</button></div>
           <nav class="favorite-media-list" id="favoriteMediaList" aria-label="收藏的文件和图片"></nav>
         </section>
         <section class="sidebar-drawer-panel" data-sidebar-drawer-panel="workflows" hidden>
@@ -92,8 +93,13 @@
       </div>
       <div class="sidebar-account">
         <small class="account-privacy">历史仅保存在本机 · 游客模型连接由当前浏览器直连 · <a href="https://github.com/Bright-Chengliang" target="_blank" rel="noopener">© 2026 @Bright-Chengliang</a></small>
-        <button id="accountButton" type="button"><span class="account-avatar" id="accountAvatar">A</span><span class="account-summary"><span class="account-name-row"><strong id="accountName">管理员</strong><em id="accountRoleBadge">管理员</em></span><span class="account-meta-row"><small id="accountUid">UID 00000</small><small class="account-credits" id="accountCredits">积分 ∞</small></span></span></button>
-        <button class="icon-button" id="logoutButton" type="button" aria-label="退出登录" title="退出登录">↪</button>
+        <div class="sidebar-account-row">
+          <button id="accountButton" type="button"><span class="account-avatar" id="accountAvatar">A</span><span class="account-summary"><span class="account-name-row"><strong id="accountName">管理员</strong><em id="accountRoleBadge">管理员</em></span><span class="account-meta-row"><small id="accountUid">UID 00000</small><small class="account-credits" id="accountCredits">积分 ∞</small></span></span></button>
+          <div class="sidebar-account-actions">
+            <button class="icon-button" id="nativeEndpointSidebarButton" type="button" aria-label="切换接入端点" title="切换接入端点" hidden><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg></button>
+            <button class="icon-button" id="logoutButton" type="button" aria-label="退出登录" title="退出登录"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></button>
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -223,6 +229,12 @@
           <span id="guestApiStatus" role="status"></span>
         </div>
         <label class="guest-models-field"><span>当前模型</span><select id="guestAvailableModels" aria-label="当前模型"></select></label>
+      </section>
+      <section class="native-app-endpoint-settings" id="nativeAppEndpointSettings" hidden aria-label="客户端接入端点">
+        <div class="guest-connection-heading"><strong>App 接入端点</strong><small id="nativeAppEndpointCurrentText">当前连接至：-</small></div>
+        <div class="native-app-endpoint-actions">
+          <button class="secondary-button" id="switchNativeAppEndpointButton" type="button">切换接入端点</button>
+        </div>
       </section>
       <fieldset class="reading-mode-settings">
         <legend>对话显示宽度</legend>
@@ -360,7 +372,7 @@
     <div class="context-menu" id="imageLightboxContextMenu" hidden role="menu" aria-label="图片操作" aria-orientation="vertical">
       <button id="lightboxFullscreenMenuButton" type="button" role="menuitem" tabindex="-1">⛶ 全屏显示图片</button>
       <button id="jumpToLightboxFileMessage" type="button" role="menuitem" tabindex="-1">↗ 跳转到所在对话</button>
-      <button id="toggleLightboxFavoriteMediaButton" type="button" role="menuitem" tabindex="-1">♥ 收藏到图片</button>
+      <button id="toggleLightboxFavoriteMediaButton" type="button" role="menuitem" tabindex="-1">♥ 收藏文件</button>
       <button id="copyLightboxImageButton" type="button" role="menuitem" tabindex="-1">⧉ 复制图片</button>
       <div class="context-menu-separator" role="separator"></div>
       <button id="downloadLightboxFileButton" type="button" role="menuitem" tabindex="-1">⬇ 下载图片</button>
@@ -434,7 +446,7 @@
   </div>
   <div class="context-menu" id="recentFileContextMenu" hidden role="menu" aria-label="最近文件操作" aria-orientation="vertical">
     <button id="jumpToRecentFileMessage" type="button" role="menuitem" tabindex="-1">↗ 跳转到所在对话</button>
-    <button id="toggleFavoriteMediaButton" type="button" role="menuitem" tabindex="-1">♥ 收藏到图片</button>
+    <button id="toggleFavoriteMediaButton" type="button" role="menuitem" tabindex="-1">♥ 收藏文件</button>
     <button id="copyRecentFileImageButton" type="button" role="menuitem" tabindex="-1">⧉ 复制图片</button>
     <div class="context-menu-separator" role="separator"></div>
     <button id="downloadRecentFileButton" type="button" role="menuitem" tabindex="-1">⬇ 下载文件</button>

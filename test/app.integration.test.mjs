@@ -19,7 +19,7 @@ const WORKFLOW_ROLES = {
   }],
 };
 
-async function fixture({ imageUpscaler = null, fakeOptions = {}, opcPort = undefined, learningPort = undefined, preferences = null } = {}) {
+async function fixture({ imageUpscaler = null, fakeOptions = {}, opcPort = undefined, learningPort = undefined, gamePort = undefined, enableWorkspaces = false, preferences = null } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'chat-app-'));
   await mkdir(join(root, 'public'), { recursive: true });
   await mkdir(join(root, '.data'), { recursive: true });
@@ -40,6 +40,8 @@ async function fixture({ imageUpscaler = null, fakeOptions = {}, opcPort = undef
     newApiBaseUrl: fake.baseUrl,
     ...(opcPort === undefined ? {} : { opcPort }),
     ...(learningPort === undefined ? {} : { learningPort }),
+    ...(gamePort === undefined ? {} : { gamePort }),
+    enableWorkspaces,
     pdfTextExtractor: { extract: async () => '[Page 1]\nLeft column first.\nRight column second.' },
     imageUpscaler,
   });
@@ -291,6 +293,34 @@ test('learning service is available only through an authenticated administrator 
   } finally {
     await context.close();
     await new Promise((resolve) => learningServer.close(resolve));
+  }
+});
+
+test('game service is available through authenticated administrator proxy session at /game/', async () => {
+  const gameServer = createServer((req, res) => {
+    if (req.url === '/' || req.url === '/game/' || req.url.startsWith('/?')) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!doctype html><html><body><h1>Game Hub 3010</h1></body></html>');
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  const gamePort = await new Promise((resolve) => {
+    gameServer.listen(0, '127.0.0.1', () => resolve(gameServer.address().port));
+  });
+  const context = await fixture({ enableWorkspaces: true, gamePort });
+  try {
+    const s = await session(context.baseUrl);
+    const signedIn = await login(context.baseUrl, s);
+
+    const response = await fetch(`${context.baseUrl}/game/`, { headers: { Cookie: signedIn.cookie } });
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /Game Hub 3010/);
+  } finally {
+    await context.close();
+    await new Promise((resolve) => gameServer.close(resolve));
   }
 });
 

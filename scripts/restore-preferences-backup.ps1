@@ -33,5 +33,5 @@ $current.favoriteMediaIds = $backupIds
 $json = $current | ConvertTo-Json -Depth 12
 [IO.File]::WriteAllText($PreferencesFile, $json + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
 
-Write-Host "已从备份恢复 $($backupIds.Count) 条收藏图片记录。"
+Write-Host "已从备份恢复 $($backupIds.Count) 条收藏文件记录。"
 Write-Host "恢复前文件已保存为：$PreferencesFile.pre-restore-$timestamp.json"

@@ -582,6 +582,8 @@ test('internal workspace features are hidden by default unless explicitly enable
   assert.match(backendSource, /enableWorkspaces:\s*Boolean\(enableWorkspaces\s*&&\s*sessionUser\?\.role\s*===\s*'admin'\)/);
   assert.match(publicSource, /elements\.openOpc\.hidden\s*=\s*!showWorkspaces/);
   assert.match(publicSource, /elements\.openLearning\.hidden\s*=\s*!isAdmin\s*\|\|\s*!state\.enableWorkspaces/);
+  assert.match(publicSource, /elements\.openGame\.hidden\s*=\s*!showWorkspaces/);
+  assert.match(publicSource, /id="openGame"[^>]*href="\/game\/"/);
 });
 
 test('desktop sidebar supports collapsible toggle with persistent state and toggle buttons', () => {

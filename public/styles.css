@@ -308,15 +308,20 @@ body.resizing-sidebar-roles, body.resizing-sidebar-roles * { cursor: row-resize 
 .workflow-card small { color: var(--text-faint); font-size: .57rem; line-height: 1.5; }
 .workflow-history-count { color: var(--accent); font-size: .53rem; font-weight: 760; letter-spacing: .03em; }
 .workflow-conversation-list { margin: 0 7px 3px 12px; }
-.sidebar-account { min-height: 66px; margin-top: auto; padding-top: 8px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-top: 1px solid var(--border); }
-.account-privacy { grid-column: 1 / -1; padding: 0 6px 6px; overflow: hidden; color: var(--text-faint); font-size: .51rem; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-account { min-height: 66px; margin-top: auto; padding: 8px 4px 6px; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border); }
+.account-privacy { padding: 0 6px 2px; overflow: hidden; color: var(--text-faint); font-size: .51rem; text-overflow: ellipsis; white-space: nowrap; }
 .account-privacy a { color: inherit; }
-.sidebar-account > #accountButton { min-width: 0; padding: 4px 6px; display: flex; align-items: center; gap: 9px; background: transparent; border-radius: 9px; text-align: left; }
-.sidebar-account > #accountButton:hover { background: rgba(255,255,255,.5); }
+.sidebar-account-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; }
+.sidebar-account-row > #accountButton { min-width: 0; flex: 1; padding: 4px 6px; display: flex; align-items: center; gap: 9px; background: transparent; border-radius: 9px; text-align: left; }
+.sidebar-account-row > #accountButton:hover { background: rgba(255,255,255,.5); }
 .account-avatar { width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 auto; color: #fff; background: var(--accent); border-radius: 9px; font-size: .7rem; font-weight: 800; }
 .sidebar-account #accountButton strong, .sidebar-account #accountButton small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-account #accountButton strong { min-width: 0; font-size: .67rem; }.sidebar-account #accountButton small { color: var(--text-faint); font-size: .52rem; }
 .account-summary { min-width: 0; flex: 1; display: grid; gap: 4px; }.account-name-row, .account-meta-row { min-width: 0; display: flex; align-items: center; gap: 7px; }.account-name-row strong { flex: 1; }.account-name-row em { flex: 0 0 auto; padding: 2px 5px; color: var(--accent); background: var(--accent-soft); border-radius: 5px; font-size: .47rem; font-style: normal; font-weight: 760; }.account-meta-row { justify-content: space-between; }.sidebar-account #accountButton .account-credits { color: var(--accent); font-weight: 760; }
+.sidebar-account-actions { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.sidebar-account-actions .icon-button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; color: var(--text-soft); background: transparent; border-radius: 8px; font-size: .95rem; }
+.sidebar-account-actions .icon-button:hover { color: var(--text); background: var(--surface-hover); }
+.sidebar-account-actions .icon-button:active { transform: scale(.95); }
 
 .main-panel { min-width: 0; min-height: 0; height: 100%; display: grid; grid-template-rows: 58px minmax(0, 1fr) auto; overflow: hidden; grid-column: 3; }
 .main-panel[data-view="translator"] { display: block; background: var(--page); }
@@ -1164,5 +1169,18 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 
 .message-text.streaming::after { content: "▋"; display: inline-block; margin-left: 3px; color: var(--accent); vertical-align: baseline; animation: cursor-blink .85s infinite; }
 @keyframes cursor-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* Native App Endpoint Configuration Controls */
+.native-app-endpoint-settings { display: grid; gap: 8px; padding: 12px 14px; background: rgba(166,75,55,.06); border: 1px solid rgba(166,75,55,.2); border-radius: 12px; margin-bottom: 12px; }
+.native-app-endpoint-settings .guest-connection-heading { display: flex; flex-direction: column; gap: 3px; }
+.native-app-endpoint-settings .guest-connection-heading strong { font-size: .72rem; color: var(--text); }
+.native-app-endpoint-settings .guest-connection-heading small { font-size: .56rem; color: var(--text-soft); word-break: break-all; }
+.native-app-endpoint-actions { display: flex; align-items: center; justify-content: flex-end; margin-top: 4px; }
+
+.native-app-endpoint-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 2px; padding: 8px 12px; background: rgba(0,0,0,.03); border: 1px dashed var(--border-strong); border-radius: 9px; font-size: .6rem; }
+.native-endpoint-label { color: var(--text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.native-endpoint-switch-button { flex: 0 0 auto; padding: 4px 8px; background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(166,75,55,.2); border-radius: 6px; font-size: .56rem; font-weight: 700; cursor: pointer; }
+.native-endpoint-switch-button:hover { background: rgba(166,75,55,.16); }
+
 
 

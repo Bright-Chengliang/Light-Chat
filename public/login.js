@@ -92,4 +92,47 @@ guestButton.addEventListener('click', async () => {
   }
 });
 
+function openNativeEndpointConfig() {
+  if (typeof window.LightChatApp?.openEndpointConfig === 'function') {
+    try {
+      window.LightChatApp.openEndpointConfig();
+      return;
+    } catch {}
+  }
+  try {
+    const res = window.prompt('lightchat:openEndpointConfig');
+    if (res === 'ok') return;
+  } catch {}
+  window.location.href = 'lightchat://switch-endpoint';
+}
+
+function checkNativeAppEndpoint() {
+  const isApp = Boolean(window.LightChatApp?.isNativeApp?.() || navigator.userAgent.includes('light-chat-android'));
+  const bar = document.querySelector('#nativeEndpointBar');
+  const label = document.querySelector('#nativeEndpointText');
+  const switchBtn = document.querySelector('#nativeEndpointSwitchBtn');
+  if (!bar) return;
+  if (!isApp) {
+    bar.hidden = true;
+    return;
+  }
+  const currentUrl = window.LightChatApp?.getCurrentServiceUrl?.() || location.origin;
+  if (label) label.textContent = `客户端端点：${currentUrl}`;
+  bar.hidden = false;
+  if (switchBtn && !switchBtn.dataset.bound) {
+    switchBtn.dataset.bound = 'true';
+    switchBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openNativeEndpointConfig();
+    });
+  }
+}
+
 bootstrap();
+checkNativeAppEndpoint();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', checkNativeAppEndpoint);
+}
+setTimeout(checkNativeAppEndpoint, 150);
+setTimeout(checkNativeAppEndpoint, 600);

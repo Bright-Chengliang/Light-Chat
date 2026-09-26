@@ -57,6 +57,10 @@
       <button class="guest-login-button" id="guestButton" type="button" disabled>
         <span>以游客身份进入</span><span aria-hidden="true">→</span>
       </button>
+      <div class="native-app-endpoint-bar" id="nativeEndpointBar" hidden>
+        <span class="native-endpoint-label" id="nativeEndpointText">连接端点：-</span>
+        <button type="button" class="native-endpoint-switch-button" id="nativeEndpointSwitchBtn">切换端点</button>
+      </div>
       <p class="guest-login-note">游客请求由当前浏览器直接发送到你配置的 API 服务端点；密钥仅保存在本机浏览器。</p>
       <p class="login-footnote"><span aria-hidden="true">●</span> 仅通过加密隧道或本机回环访问</p>
       <p class="login-attribution">© 2026 <a href="https://github.com/Bright-Chengliang" target="_blank" rel="noopener">@Bright-Chengliang</a> · Light-Chat</p>

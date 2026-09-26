@@ -3,13 +3,13 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 const elements = {
   appShell: $('.app-shell'), sidebar: $('#sidebar'), sidebarResizer: $('#sidebarResizer'), sidebarBackdrop: $('#sidebarBackdrop'), sidebarClose: $('#sidebarCloseButton'), menu: $('#menuButton'), translatorMenuButton: $('#translatorMenuButton'),
-  sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openFavoriteMediaDrawer: $('#openFavoriteMediaDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), openToolsDrawer: $('#openToolsDrawer'), toolsToggle: $('#toolsToggle'), addCustomToolButton: $('#addCustomToolButton'), toolsDrawerList: $('#toolsDrawerList'), openOpc: $('#openOpc'), openLearning: $('#openLearning'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
+  sidebarDrawerShell: $('#sidebarDrawerShell'), sidebarDrawerRoot: $('#sidebarDrawerRoot'), openFavoritesDrawer: $('#openFavoritesDrawer'), openFavoriteConversationsDrawer: $('#openFavoriteConversationsDrawer'), openTranslator: $('#openTranslator'), openRolesDrawer: $('#openRolesDrawer'), openRecentFilesDrawer: $('#openRecentFilesDrawer'), openFavoriteMediaDrawer: $('#openFavoriteMediaDrawer'), openWorkflowsDrawer: $('#openWorkflowsDrawer'), openToolsDrawer: $('#openToolsDrawer'), toolsToggle: $('#toolsToggle'), addCustomToolButton: $('#addCustomToolButton'), toolsDrawerList: $('#toolsDrawerList'), openOpc: $('#openOpc'), openLearning: $('#openLearning'), openGame: $('#openGame'), workflowsToggle: $('#workflowsToggle'), workflowList: $('#workflowList'), workflowComposerBanner: $('#workflowComposerBanner'), workflowComposerName: $('#workflowComposerName'), exitWorkflow: $('#exitWorkflowButton'), openHistoryDrawer: $('#openHistoryDrawer'),
   recentFiles: $('#recentFilesList'), recentFilesToggle: $('#recentFilesToggle'), recentFilesPagination: $('#recentFilesPagination'), previousRecentFilesPage: $('#previousRecentFilesPage'), nextRecentFilesPage: $('#nextRecentFilesPage'), recentFilesPageStatus: $('#recentFilesPageStatus'), refreshRecentFiles: $('#refreshRecentFilesButton'), favoriteMedia: $('#favoriteMediaList'), favoriteMediaToggle: $('#favoriteMediaToggle'), favoriteMediaPagination: $('#favoriteMediaPagination'), previousFavoriteMediaPage: $('#previousFavoriteMediaPage'), nextFavoriteMediaPage: $('#nextFavoriteMediaPage'), favoriteMediaPageStatus: $('#favoriteMediaPageStatus'), refreshFavoriteMedia: $('#refreshFavoriteMediaButton'),
   newConversation: $('#newConversationButton'), currentModelNewConversation: $('#currentModelNewConversationButton'), addHistoryFolder: $('#addHistoryFolderButton'), addFavoriteConversationFolder: $('#addFavoriteConversationFolderButton'), clearHistory: $('#clearHistoryButton'), history: $('#historyList'), historyToggle: $('#historyToggle'), historySearch: $('#historySearchInput'), favoriteConversations: $('#favoriteConversations'), favoriteConversationsToggle: $('#favoriteConversationsToggle'),
   sidebarFavorites: $('#sidebarFavorites'), sidebarFavoritesToggle: $('#sidebarFavoritesToggle'),
   quickModelPicker: $('#quickModelPicker'), quickChatPicker: $('#quickChatPicker'), quickImagePicker: $('#quickImagePicker'), quickChatCurrent: $('#quickChatCurrent'), quickImageCurrent: $('#quickImageCurrent'), quickChatModels: $('#quickChatModels'), quickImageModels: $('#quickImageModels'), manageFavorites: $('#manageFavoritesButton'),
   sidebarRoles: $('#sidebarRoles'), sidebarRolesToggle: $('#sidebarRolesToggle'), sidebarRolesResizer: $('#sidebarRolesResizer'), manageRoles: $('#manageRolesButton'),
-  sidebarAccount: $('.sidebar-account'), accountButton: $('#accountButton'), accountName: $('#accountName'), accountRoleBadge: $('#accountRoleBadge'), accountUid: $('#accountUid'), accountCredits: $('#accountCredits'), accountAvatar: $('#accountAvatar'), logout: $('#logoutButton'),
+  sidebarAccount: $('.sidebar-account'), accountButton: $('#accountButton'), accountName: $('#accountName'), accountRoleBadge: $('#accountRoleBadge'), accountUid: $('#accountUid'), accountCredits: $('#accountCredits'), accountAvatar: $('#accountAvatar'), logout: $('#logoutButton'), nativeEndpointSidebarButton: $('#nativeEndpointSidebarButton'),
   mainPanel: $('.main-panel'), title: $('#conversationTitle'), editConversationTitle: $('#editConversationTitleButton'), connection: $('#connectionStatus'), messageList: $('#messageList'), emptyState: $('#emptyState'),
   scroll: $('#conversationScroll'), typing: $('#typingIndicator'), form: $('#chatForm'), input: $('#messageInput'),
   count: $('#messageCount'), send: $('#sendButton'), status: $('#formStatus'), fileInput: $('#fileInput'),
@@ -23,6 +23,7 @@ const elements = {
   settingsDialog: $('#settingsDialog'), groupsEditor: $('#groupsEditor'), addGroup: $('#addGroupButton'), conversationTitleModel: $('#conversationTitleModelSelect'),
   saveSettings: $('#saveSettingsButton'), settingsStatus: $('#settingsStatus'), refreshModels: $('#refreshModelsButton'),
   guestConnectionSettings: $('#guestConnectionSettings'), guestEndpoint: $('#guestEndpointInput'), guestApiKey: $('#guestApiKeyInput'), guestClearApiKeyButton: $('#guestClearApiKeyButton'), fetchGuestModels: $('#fetchGuestModelsButton'), guestAvailableModels: $('#guestAvailableModels'), saveGuestApi: $('#saveGuestApiButton'), guestApiStatus: $('#guestApiStatus'), settingsConnectionText: $('#settingsConnectionText'),
+  nativeAppEndpointSettings: $('#nativeAppEndpointSettings'), nativeAppEndpointCurrentText: $('#nativeAppEndpointCurrentText'), switchNativeAppEndpointButton: $('#switchNativeAppEndpointButton'),
   renameConversationDialog: $('#renameConversationDialog'), renameConversationForm: $('#renameConversationForm'), renameConversationInput: $('#renameConversationInput'), renameConversationStatus: $('#renameConversationStatus'),
   accountDialog: $('#accountDialog'), accountForm: $('#accountForm'), currentUsername: $('#currentUsernameInput'),
   currentPassword: $('#currentPasswordInput'), newUsername: $('#newUsernameInput'), newPassword: $('#newPasswordInput'),
@@ -102,7 +103,7 @@ const state = {
   csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, guestSettings: { endpoint: '', hasApiKey: false, allowedModels: [] }, guestApiKey: '', guestCatalog: [], adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {}, favoriteMediaIds: [], conversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL },
   selected: null, stream: storedStreamPreference !== 'false', conversations: [], currentId: '',
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
-  historyFolders: [], openHistoryFolders: new Set(), historyUnfiledCollapsed: false, favoriteUnfiledCollapsed: false, historySearch: '',
+  historyFolders: [], openHistoryFolders: new Set(), closedFavoriteFolders: new Set(), historyUnfiledCollapsed: false, favoriteUnfiledCollapsed: false, historySearch: '',
   contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextRecentFileId: '', contextAssistantMessageId: '', renamingConversationId: '', deletedConversationIds: new Set(),
   pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingConversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', pendingRoleTransfer: null, pendingConversationFolderMove: null,
   followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], sidebarCollapsed: (() => { try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'; } catch { return false; } })(), appView: 'chat', translationHistory: [], translationModelId: '', modelDialogTarget: 'chat', translationOutput: '', recentFiles: [], recentFilesLoading: false, recentFilesPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, favoriteMedia: [], favoriteMediaLoading: false, favoriteMediaPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, workflows: [], workflowRunning: false, selectedWorkflow: null,
@@ -1160,7 +1161,7 @@ function renderRecentFiles() {
 function guestLocalMediaFiles() {
   const files = new Map();
   for (const conversation of state.conversations) for (const message of conversation.messages || []) for (const item of [...(message.attachments || []), ...(message.images || [])]) {
-    if (item?.url?.startsWith('data:image/') && item.id) files.set(item.id, item);
+    if (item && item.id) files.set(item.id, item);
   }
   return [...files.values()].sort((left, right) => String(right.id).localeCompare(String(left.id)));
 }
@@ -1276,8 +1277,8 @@ async function copyRecentImageFromContext() {
 function renderFavoriteMedia() {
   elements.favoriteMedia.replaceChildren();
   renderMediaPageControls(elements.favoriteMediaPagination, elements.previousFavoriteMediaPage, elements.nextFavoriteMediaPage, elements.favoriteMediaPageStatus, state.favoriteMediaPage, state.favoriteMediaLoading);
-  if (state.favoriteMediaLoading) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '正在加载收藏图片…' })); return; }
-  if (!state.favoriteMedia.length) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '还没有收藏图片。可在“最近文件”中右键选择收藏。' })); return; }
+  if (state.favoriteMediaLoading) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '正在加载收藏文件…' })); return; }
+  if (!state.favoriteMedia.length) { elements.favoriteMedia.append(Object.assign(document.createElement('p'), { className: 'empty-sidebar', textContent: '还没有收藏文件。可在“最近文件”中右键选择收藏。' })); return; }
   const images = state.favoriteMedia.filter((item) => item.isImage);
   for (const item of state.favoriteMedia) {
     const card = document.createElement('article'); card.className = 'favorite-media-card';
@@ -1299,7 +1300,7 @@ async function toggleFavoriteMedia(itemId) {
     renderRecentFiles();
     if (adding) setStatus(`已收藏“${recentFileName(item)}”`, 'success'); else setStatus(`已取消收藏“${recentFileName(item)}”`, 'success');
     void loadFavoriteMedia(adding ? 1 : state.favoriteMediaPage.page);
-  } catch (error) { setStatus(error.message || '收藏图片保存失败', 'error'); }
+  } catch (error) { setStatus(error.message || '收藏文件保存失败', 'error'); }
 }
 
 async function openRecentFile(item, images, { traverseRecentPool = false } = {}) {
@@ -1342,7 +1343,7 @@ async function loadFavoriteMedia(page = state.favoriteMediaPage.page) {
     const payload = await jsonRequest(`/api/media/favorites?page=${requestedPage}&limit=${MEDIA_PAGE_SIZE}`);
     state.favoriteMedia = Array.isArray(payload.files) ? payload.files : [];
     state.favoriteMediaPage = normalizeMediaPage(payload, requestedPage);
-  } catch (error) { state.favoriteMedia = []; state.favoriteMediaPage = { page: requestedPage, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }; setStatus(error.message || '收藏图片加载失败', 'error'); }
+  } catch (error) { state.favoriteMedia = []; state.favoriteMediaPage = { page: requestedPage, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }; setStatus(error.message || '收藏文件加载失败', 'error'); }
   finally { state.favoriteMediaLoading = false; renderFavoriteMedia(); }
 }
 
@@ -1407,6 +1408,10 @@ function openSidebarDrawer(view) {
   else state.sidebarDrawerStack = ['root', base];
   if (view.startsWith('role:')) renderRoles();
   else if (view.startsWith('workflow:')) renderWorkflows();
+  else if (base === 'favorite-conversations') { renderSidebarDrawerState(); renderFavoriteConversations(); }
+  else if (base === 'history') { renderSidebarDrawerState(); renderHistory(); }
+  else if (base === 'favorite-media') { renderSidebarDrawerState(); void loadFavoriteMedia(); }
+  else if (base === 'recent-files') { renderSidebarDrawerState(); void loadRecentFiles(); }
   else renderSidebarDrawerState();
   requestAnimationFrame(() => {
     const activePanel = $('[data-sidebar-drawer-panel]:not([hidden])', elements.sidebarDrawerShell);
@@ -1497,7 +1502,7 @@ function createFavoriteConversationFolder(folderId, name, conversations, { unfil
   const section = document.createElement('details');
   section.className = `favorite-conversation-folder${unfiled ? ' favorite-conversation-unfiled' : ''}`;
   if (folderId) section.dataset.folderId = folderId;
-  section.open = unfiled ? !state.favoriteUnfiledCollapsed : state.openHistoryFolders.has(folderId);
+  section.open = unfiled ? !state.favoriteUnfiledCollapsed : (conversations.length > 0 ? !state.closedFavoriteFolders.has(folderId) : state.openHistoryFolders.has(folderId));
   const heading = document.createElement('summary'); heading.className = 'favorite-conversation-folder-heading';
   const label = document.createElement('p'); label.className = 'favorite-group-title'; label.textContent = name;
   const count = document.createElement('small'); count.textContent = String(conversations.length); label.append(count);
@@ -1505,7 +1510,7 @@ function createFavoriteConversationFolder(folderId, name, conversations, { unfil
   if (!unfiled) {
     const tools = document.createElement('span'); tools.className = 'favorite-conversation-folder-tools';
     const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = '✏️'; rename.title = `重命名文件夹“${name}”`; rename.setAttribute('aria-label', `重命名文件夹“${name}”`); rename.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); renameHistoryFolder(folderId); });
-    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '🗑️'; remove.title = `删除文件夹“${name}”`; remove.setAttribute('aria-label', `删除文件夹“${name}”`); remove.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); deleteHistoryFolder(folderId); });
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'favorite-conversation-folder-tools'; remove.textContent = '🗑️'; remove.title = `删除文件夹“${name}”`; remove.setAttribute('aria-label', `删除文件夹“${name}”`); remove.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); deleteHistoryFolder(folderId); });
     tools.append(rename, remove);
     heading.append(tools);
   }
@@ -1518,8 +1523,8 @@ function createFavoriteConversationFolder(folderId, name, conversations, { unfil
   section.append(list);
   section.addEventListener('toggle', () => {
     if (unfiled) state.favoriteUnfiledCollapsed = !section.open;
-    else if (section.open) state.openHistoryFolders.add(folderId);
-    else state.openHistoryFolders.delete(folderId);
+    else if (section.open) state.closedFavoriteFolders.delete(folderId);
+    else state.closedFavoriteFolders.add(folderId);
     saveHistoryFolders();
   });
   return section;
@@ -1850,7 +1855,7 @@ function updateContextMenuAvailability(menu) {
     jumpButtons.forEach((button) => { button.disabled = !location; button.title = location ? `跳转到“${location.conversation.title}”中的对应消息` : '本机没有该文件对应的会话记录'; });
     const favorite = item && isFavoriteMedia(item.id);
     const favoriteButtons = [elements.toggleFavoriteMediaButton, elements.toggleLightboxFavoriteMediaButton];
-    favoriteButtons.forEach((button) => { button.textContent = favorite ? '♡ 取消收藏图片' : '♥ 收藏到图片'; button.disabled = !item || preferenceWritesInFlight > 0; });
+    favoriteButtons.forEach((button) => { button.textContent = favorite ? '♡ 取消收藏文件' : '♥ 收藏文件'; button.disabled = !item || preferenceWritesInFlight > 0; });
     const copyButtons = [elements.copyRecentFileImageButton, elements.copyLightboxImageButton];
     copyButtons.forEach((button) => { button.disabled = !item?.isImage || !item?.url; button.title = item?.isImage && item?.url ? `复制“${recentFileName(item)}”到剪切板` : '仅图片支持复制到剪切板'; });
     const downloadButtons = [elements.downloadRecentFileButton, elements.downloadLightboxFileButton];
@@ -4220,6 +4225,14 @@ function openSettings(options = {}) {
   state.editingGroups = cloneGroups(); state.editingModelContextLimits = { ...state.preferences.modelContextLimits }; state.editingConversationTitleModel = availableConversationTitleModel(); state.editingReadingMode = state.readingMode; applyReadingMode(state.editingReadingMode); setDialogStatus(elements.settingsStatus, ''); renderConversationTitleModelSelect(); renderGroupsEditor({ preserveScroll: false, focusFavorite }); elements.settingsDialog.showModal();
   const isGuest = state.userRole === 'guest';
   elements.guestConnectionSettings.hidden = !isGuest;
+  const isNativeApp = Boolean(window.LightChatApp?.isNativeApp?.() || navigator.userAgent.includes('light-chat-android'));
+  if (elements.nativeAppEndpointSettings) {
+    elements.nativeAppEndpointSettings.hidden = !isNativeApp;
+    if (isNativeApp && elements.nativeAppEndpointCurrentText) {
+      const cur = window.LightChatApp?.getCurrentServiceUrl?.() || location.origin;
+      elements.nativeAppEndpointCurrentText.textContent = `当前连接至：${cur}`;
+    }
+  }
   if (isGuest) {
     elements.guestEndpoint.value = state.guestSettings.endpoint || '';
     elements.guestApiKey.value = '';
@@ -7690,6 +7703,31 @@ function bindEvents() {
     const mode = model.modes.includes(model.suggestedMode) ? model.suggestedMode : model.modes[0];
     if (state.models.some((item) => item.id === modelId && item.modes.includes(mode))) setSelection(modelId, mode);
   });
+  function triggerNativeEndpointConfig() {
+    if (typeof window.LightChatApp?.openEndpointConfig === 'function') {
+      try {
+        window.LightChatApp.openEndpointConfig();
+        return;
+      } catch {}
+    }
+    try {
+      const res = window.prompt('lightchat:openEndpointConfig');
+      if (res === 'ok') return;
+    } catch {}
+    window.location.href = 'lightchat://switch-endpoint';
+  }
+
+  elements.switchNativeAppEndpointButton?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    elements.settingsDialog.close();
+    triggerNativeEndpointConfig();
+  });
+  elements.nativeEndpointSidebarButton?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    triggerNativeEndpointConfig();
+  });
   elements.saveGuestApi.addEventListener('click', () => { void saveGuestApiSettings().catch(() => {}); });
   elements.accountButton.addEventListener('click', openAccountCenter);
   elements.accountTabs.addEventListener('click', (event) => { const button = event.target.closest('[data-account-panel]'); if (button && !button.hidden) switchAccountPanel(button.dataset.accountPanel); });
@@ -7854,6 +7892,11 @@ function updateAccountUi() {
   const showWorkspaces = isAdmin && Boolean(state.enableWorkspaces);
   elements.openOpc.hidden = !showWorkspaces;
   elements.openLearning.hidden = !isAdmin || !state.enableWorkspaces;
+  if (elements.openGame) elements.openGame.hidden = !showWorkspaces;
+  if (elements.nativeEndpointSidebarButton) {
+    const isApp = Boolean(window.LightChatApp?.isNativeApp?.() || navigator.userAgent.includes('light-chat-android'));
+    elements.nativeEndpointSidebarButton.hidden = !isApp;
+  }
   for (const element of $$('[data-admin-only]', elements.accountDialog)) element.hidden = !isAdmin;
   for (const element of $$('[data-guest-hidden]', elements.accountDialog)) element.hidden = !isGuest;
   if (!isAdmin || isGuest) switchAccountPanel('quota');
