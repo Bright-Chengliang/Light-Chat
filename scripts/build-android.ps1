@@ -27,8 +27,8 @@ if (-not (Test-Path -LiteralPath $SdkRoot)) { throw "找不到 Android SDK：$Sd
 if (-not (Test-Path -LiteralPath (Join-Path $JavaRoot 'bin\java.exe'))) { throw "找不到 JDK：$JavaRoot" }
 
 $uri = [Uri]$BaseUrl
-if ($uri.Scheme -ne 'https' -or [string]::IsNullOrWhiteSpace($uri.Host) -or $uri.UserInfo -or ($uri.Port -notin @(-1, 443))) {
-    throw 'BaseUrl 必须是无用户信息、标准 HTTPS 端口的绝对地址。'
+if ($uri.Scheme -notin @('https', 'http') -or [string]::IsNullOrWhiteSpace($uri.Host) -or $uri.UserInfo) {
+    throw 'BaseUrl 必须是无用户信息的 HTTP 或 HTTPS 绝对地址。'
 }
 
 $env:ANDROID_HOME = $SdkRoot

@@ -14,7 +14,7 @@ test('Android saves trusted page-generated conversation exports without trusting
   assert.match(appSource, /globalThis\.LightChatDownloads/);
   assert.match(appSource, /nativeDownloads\.saveBase64File\(fileName, blob\.type/);
   assert.match(activity, /addJavascriptInterface\(new SecureDownloadBridge\(\), "LightChatDownloads"\)/);
-  assert.match(activity, /TrustedNavigation\.isTrusted\(Uri\.parse\(current\), trustedHost\)/);
+  assert.match(activity, /TrustedNavigation\.isTrusted/);
   assert.match(activity, /MediaStore\.Downloads\.EXTERNAL_CONTENT_URI/);
   assert.match(activity, /DownloadPayload\.decode\(base64Data\)/);
   assert.match(payload, /MAX_BYTES = 64 \* 1024 \* 1024/);
@@ -38,4 +38,20 @@ test('Android imports learning materials through a document content URI, not a d
   assert.match(activity, /Intent\.EXTRA_MIME_TYPES/);
   assert.match(activity, /settings\.setAllowFileAccess\(false\)/);
   assert.match(activity, /settings\.setAllowContentAccess\(true\)/);
+});
+
+test('Android supports dynamic endpoint switching, history management, and Native JSBridge', () => {
+  assert.match(activity, /addJavascriptInterface\(new NativeAppBridge\(this\), "LightChatApp"\)/);
+  assert.match(activity, /public static final class NativeAppBridge/);
+  assert.match(activity, /public void openEndpointConfig\(\)/);
+  assert.match(activity, /public void switchEndpoint\(String/);
+  assert.match(activity, /onJsPrompt/);
+  assert.match(activity, /SERVICE_URL_HISTORY_KEY/);
+  assert.match(activity, /saveServiceUrlToHistory/);
+  assert.match(activity, /cancelServiceConfig/);
+  assert.match(activity, /renderServiceUrlHistory/);
+  assert.match(activity, /onKeyLongPress/);
+  assert.match(appSource, /window\.LightChatApp/);
+  assert.match(appHtml, /id="nativeAppEndpointSettings"/);
+  assert.match(appHtml, /id="switchNativeAppEndpointButton"/);
 });

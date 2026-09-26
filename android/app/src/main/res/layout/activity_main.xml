@@ -13,76 +13,147 @@
         android:background="@color/paper"
         android:importantForAutofill="yes" />
 
-    <LinearLayout
+    <ScrollView
         android:id="@+id/serviceConfigPanel"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/paper"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:padding="34dp"
+        android:fillViewport="true"
         android:visibility="gone">
 
-        <TextView
-            android:layout_width="52dp"
-            android:layout_height="52dp"
-            android:background="@drawable/brand_tile_soft"
-            android:gravity="center"
-            android:text="@string/lightning_symbol"
-            android:textColor="@color/brand_accent"
-            android:textSize="24sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:text="@string/service_config_title"
-            android:textColor="@color/text_primary"
-            android:textSize="22sp"
-            android:textStyle="bold" />
-
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:text="@string/service_config_description"
-            android:textColor="@color/text_soft"
-            android:textSize="15sp" />
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="28dp">
 
-        <EditText
-            android:id="@+id/serviceUrlInput"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="22dp"
-            android:autofillHints="url"
-            android:hint="@string/service_url_hint"
-            android:inputType="textUri"
-            android:singleLine="true"
-            android:textColor="@color/text_primary"
-            android:textColorHint="@color/text_soft" />
+            <TextView
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:background="@drawable/brand_tile_soft"
+                android:gravity="center"
+                android:text="@string/lightning_symbol"
+                android:textColor="@color/brand_accent"
+                android:textSize="24sp"
+                android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/serviceConfigMessage"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:textColor="@color/brand_accent"
-            android:textSize="13sp"
-            android:visibility="gone" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/service_config_title"
+                android:textColor="@color/text_primary"
+                android:textSize="22sp"
+                android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/saveServiceUrlButton"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="16dp"
-            android:backgroundTint="@color/brand_accent"
-            android:text="@string/save_service_url"
-            android:textAllCaps="false"
-            android:textColor="@android:color/white" />
-    </LinearLayout>
+            <TextView
+                android:id="@+id/serviceConfigCurrentUrl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:textColor="@color/text_soft"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:text="@string/service_config_description"
+                android:textColor="@color/text_soft"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/serviceUrlInput"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="18dp"
+                android:autofillHints="url"
+                android:hint="@string/service_url_hint"
+                android:inputType="textUri"
+                android:singleLine="true"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_soft" />
+
+            <TextView
+                android:id="@+id/serviceConfigMessage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:textColor="@color/brand_accent"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/saveServiceUrlButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="14dp"
+                android:backgroundTint="@color/brand_accent"
+                android:text="@string/save_service_url"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white" />
+
+            <Button
+                android:id="@+id/cancelServiceConfigButton"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="@color/surface_soft"
+                android:text="@string/cancel_service_config"
+                android:textAllCaps="false"
+                android:textColor="@color/text_soft"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/serviceHistoryLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/service_history_title"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/clearHistoryButton"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:minHeight="0dp"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:text="@string/clear_history"
+                        android:textColor="@color/text_soft"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/serviceHistoryList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="vertical" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
 
     <LinearLayout
         android:id="@+id/loadingOverlay"

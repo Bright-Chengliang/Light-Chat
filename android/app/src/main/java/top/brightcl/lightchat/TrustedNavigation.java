@@ -9,8 +9,8 @@ import java.util.Locale;
 final class TrustedNavigation {
     private TrustedNavigation() {}
 
-    static boolean isTrusted(Uri uri, String trustedHost) {
-        return uri != null && isTrusted(uri.toString(), trustedHost);
+    static boolean isTrusted(Uri uri, String trustedOriginOrHost) {
+        return uri != null && isTrusted(uri.toString(), trustedOriginOrHost);
     }
 
     static String normalizeServiceUrl(String rawUrl) {
@@ -19,35 +19,59 @@ final class TrustedNavigation {
         if (candidate.isEmpty()) return null;
         try {
             URI uri = new URI(candidate);
+            String scheme = uri.getScheme();
             String host = uri.getHost();
             int port = uri.getPort();
-            if (!"https".equalsIgnoreCase(uri.getScheme())
-                    || host == null
-                    || uri.getUserInfo() != null
-                    || (port != -1 && port != 443)
-                    || uri.getQuery() != null
-                    || uri.getFragment() != null) return null;
-            StringBuilder normalized = new StringBuilder("https://").append(host.toLowerCase(Locale.ROOT));
-            if (port == 443) normalized.append(":443");
-            if (uri.getRawPath() != null && !uri.getRawPath().isEmpty()) normalized.append(uri.getRawPath());
-            if (normalized.charAt(normalized.length() - 1) != '/') normalized.append('/');
+            if (scheme == null || host == null) return null;
+            String lowerScheme = scheme.toLowerCase(Locale.ROOT);
+            if (!"https".equals(lowerScheme) && !"http".equals(lowerScheme)) return null;
+            if (uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null) return null;
+            if (port != -1 && (port < 1 || port > 65535)) return null;
+
+            StringBuilder normalized = new StringBuilder(lowerScheme).append("://").append(host.toLowerCase(Locale.ROOT));
+            if (port != -1) {
+                normalized.append(':').append(port);
+            }
+            if (uri.getRawPath() != null && !uri.getRawPath().isEmpty()) {
+                normalized.append(uri.getRawPath());
+            }
+            if (normalized.charAt(normalized.length() - 1) != '/') {
+                normalized.append('/');
+            }
             return normalized.toString();
         } catch (URISyntaxException error) {
             return null;
         }
     }
 
-    static boolean isTrusted(String rawUrl, String trustedHost) {
-        if (rawUrl == null || trustedHost == null) return false;
+    static boolean isTrusted(String rawUrl, String trustedOriginOrHost) {
+        if (rawUrl == null || trustedOriginOrHost == null) return false;
         try {
-            URI uri = new URI(rawUrl);
-            String host = uri.getHost();
-            int port = uri.getPort();
-            return "https".equalsIgnoreCase(uri.getScheme())
-                    && host != null
-                    && host.toLowerCase(Locale.ROOT).equals(trustedHost.toLowerCase(Locale.ROOT))
-                    && uri.getUserInfo() == null
-                    && (port == -1 || port == 443);
+            URI candidateUri = new URI(rawUrl);
+            String candScheme = candidateUri.getScheme();
+            String candHost = candidateUri.getHost();
+            int candPort = candidateUri.getPort();
+            if (candHost == null || candScheme == null) return false;
+            String candLowerScheme = candScheme.toLowerCase(Locale.ROOT);
+            if (!"https".equals(candLowerScheme) && !"http".equals(candLowerScheme)) return false;
+            if (candidateUri.getUserInfo() != null) return false;
+
+            if (trustedOriginOrHost.startsWith("http://") || trustedOriginOrHost.startsWith("https://")) {
+                URI trustedUri = new URI(trustedOriginOrHost);
+                String trustedScheme = trustedUri.getScheme();
+                String trustedHost = trustedUri.getHost();
+                int trustedPort = trustedUri.getPort();
+                if (trustedHost == null || trustedScheme == null) return false;
+
+                if (!candLowerScheme.equals(trustedScheme.toLowerCase(Locale.ROOT))) return false;
+                if (!candHost.toLowerCase(Locale.ROOT).equals(trustedHost.toLowerCase(Locale.ROOT))) return false;
+
+                int effectiveCandPort = candPort != -1 ? candPort : ("https".equals(candLowerScheme) ? 443 : 80);
+                int effectiveTrustedPort = trustedPort != -1 ? trustedPort : ("https".equalsIgnoreCase(trustedScheme) ? 443 : 80);
+                return effectiveCandPort == effectiveTrustedPort;
+            } else {
+                return candHost.toLowerCase(Locale.ROOT).equals(trustedOriginOrHost.toLowerCase(Locale.ROOT));
+            }
         } catch (URISyntaxException error) {
             return false;
         }

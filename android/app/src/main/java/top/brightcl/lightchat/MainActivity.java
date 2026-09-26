@@ -16,9 +16,15 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.webkit.CookieManager;
@@ -35,9 +41,13 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.OutputStream;
@@ -52,8 +62,13 @@ public final class MainActivity extends Activity {
 
     private WebView webView;
     private View serviceConfigPanel;
-    private android.widget.EditText serviceUrlInput;
+    private EditText serviceUrlInput;
     private TextView serviceConfigMessage;
+    private TextView serviceConfigCurrentUrl;
+    private Button cancelServiceConfigButton;
+    private View serviceHistoryLayout;
+    private LinearLayout serviceHistoryList;
+    private Button clearHistoryButton;
     private View loadingOverlay;
     private View errorPanel;
     private TextView errorMessage;
@@ -64,6 +79,12 @@ public final class MainActivity extends Activity {
 
     private static final String SETTINGS_NAME = "light_chat_settings";
     private static final String SERVICE_URL_KEY = "service_url";
+    private static final String SERVICE_URL_HISTORY_KEY = "service_url_history";
+    private static final int MAX_HISTORY_COUNT = 10;
+
+    private final Handler gestureHandler = new Handler(Looper.getMainLooper());
+    private Runnable twoFingerLongPressRunnable;
+    private boolean twoFingerTriggered;
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
@@ -76,6 +97,11 @@ public final class MainActivity extends Activity {
         serviceConfigPanel = findViewById(R.id.serviceConfigPanel);
         serviceUrlInput = findViewById(R.id.serviceUrlInput);
         serviceConfigMessage = findViewById(R.id.serviceConfigMessage);
+        serviceConfigCurrentUrl = findViewById(R.id.serviceConfigCurrentUrl);
+        cancelServiceConfigButton = findViewById(R.id.cancelServiceConfigButton);
+        serviceHistoryLayout = findViewById(R.id.serviceHistoryLayout);
+        serviceHistoryList = findViewById(R.id.serviceHistoryList);
+        clearHistoryButton = findViewById(R.id.clearHistoryButton);
         loadingOverlay = findViewById(R.id.loadingOverlay);
         errorPanel = findViewById(R.id.errorPanel);
         errorMessage = findViewById(R.id.errorMessage);
@@ -88,9 +114,16 @@ public final class MainActivity extends Activity {
         networkSettingsButton.setOnClickListener(view -> openNetworkSettings());
         changeServiceUrlButton.setOnClickListener(view -> showServiceConfig(null));
         findViewById(R.id.saveServiceUrlButton).setOnClickListener(view -> saveServiceUrl());
+        if (cancelServiceConfigButton != null) {
+            cancelServiceConfigButton.setOnClickListener(view -> cancelServiceConfig());
+        }
+        if (clearHistoryButton != null) {
+            clearHistoryButton.setOnClickListener(view -> clearServiceUrlHistory());
+        }
 
         configureCookies();
         configureWebView();
+        configureTwoFingerGesture();
 
         serviceUrl = loadSavedServiceUrl();
         if (serviceUrl == null) {
@@ -112,10 +145,128 @@ public final class MainActivity extends Activity {
         String buildDefault = TrustedNavigation.normalizeServiceUrl(BuildConfig.BASE_URL);
         if (buildDefault != null && !"https://chat.example.com/".equals(buildDefault)) {
             preferences.edit().putString(SERVICE_URL_KEY, buildDefault).apply();
+            saveServiceUrlToHistory(buildDefault);
             trustedHost = Uri.parse(buildDefault).getHost();
             return buildDefault;
         }
         return null;
+    }
+
+    private List<String> loadSavedServiceUrlHistory() {
+        SharedPreferences preferences = getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE);
+        String raw = preferences.getString(SERVICE_URL_HISTORY_KEY, "[]");
+        List<String> list = new ArrayList<>();
+        try {
+            JSONArray arr = new JSONArray(raw);
+            for (int i = 0; i < arr.length(); i++) {
+                String item = arr.optString(i, "").trim();
+                String normalized = TrustedNavigation.normalizeServiceUrl(item);
+                if (normalized != null && !list.contains(normalized)) {
+                    list.add(normalized);
+                }
+            }
+        } catch (JSONException ignored) {}
+        return list;
+    }
+
+    private void saveServiceUrlToHistory(String url) {
+        String normalized = TrustedNavigation.normalizeServiceUrl(url);
+        if (normalized == null) return;
+        List<String> list = loadSavedServiceUrlHistory();
+        list.remove(normalized);
+        list.add(0, normalized);
+        if (list.size() > MAX_HISTORY_COUNT) {
+            list = list.subList(0, MAX_HISTORY_COUNT);
+        }
+        JSONArray arr = new JSONArray(list);
+        getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE)
+                .edit()
+                .putString(SERVICE_URL_HISTORY_KEY, arr.toString())
+                .apply();
+    }
+
+    private void removeServiceUrlFromHistory(String url) {
+        if (url == null) return;
+        List<String> list = loadSavedServiceUrlHistory();
+        list.remove(url);
+        JSONArray arr = new JSONArray(list);
+        getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE)
+                .edit()
+                .putString(SERVICE_URL_HISTORY_KEY, arr.toString())
+                .apply();
+        renderServiceUrlHistory();
+    }
+
+    private void clearServiceUrlHistory() {
+        getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE)
+                .edit()
+                .remove(SERVICE_URL_HISTORY_KEY)
+                .apply();
+        renderServiceUrlHistory();
+        Toast.makeText(this, R.string.clear_history, Toast.LENGTH_SHORT).show();
+    }
+
+    private void renderServiceUrlHistory() {
+        if (serviceHistoryList == null || serviceHistoryLayout == null) return;
+        serviceHistoryList.removeAllViews();
+        List<String> history = loadSavedServiceUrlHistory();
+        if (history.isEmpty()) {
+            serviceHistoryLayout.setVisibility(View.GONE);
+            return;
+        }
+        serviceHistoryLayout.setVisibility(View.VISIBLE);
+
+        float density = getResources().getDisplayMetrics().density;
+        int dp8 = (int) (8 * density);
+        int dp10 = (int) (10 * density);
+        int dp6 = (int) (6 * density);
+        int dp4 = (int) (4 * density);
+
+        for (String itemUrl : history) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            rowParams.setMargins(0, dp4, 0, dp4);
+            row.setLayoutParams(rowParams);
+            row.setPadding(dp10, dp6, dp6, dp6);
+            row.setBackgroundResource(R.drawable.brand_tile_soft);
+
+            TextView label = new TextView(this);
+            label.setText(itemUrl);
+            label.setTextColor(Color.rgb(43, 41, 36));
+            label.setTextSize(13);
+            label.setSingleLine(true);
+            label.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+            LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            label.setLayoutParams(labelParams);
+
+            row.setOnClickListener(v -> {
+                serviceUrlInput.setText(itemUrl);
+                serviceUrlInput.setSelection(itemUrl.length());
+            });
+
+            Button useBtn = new Button(this, null, android.R.attr.borderlessButtonStyle);
+            useBtn.setText(R.string.save_service_url);
+            useBtn.setTextSize(11);
+            useBtn.setTextColor(Color.rgb(166, 75, 55));
+            useBtn.setPadding(dp8, 0, dp8, 0);
+            useBtn.setOnClickListener(v -> applyAndSwitchServiceUrl(itemUrl));
+
+            Button delBtn = new Button(this, null, android.R.attr.borderlessButtonStyle);
+            delBtn.setText("✕");
+            delBtn.setTextSize(12);
+            delBtn.setTextColor(Color.rgb(140, 137, 130));
+            delBtn.setPadding(dp6, 0, dp6, 0);
+            delBtn.setOnClickListener(v -> removeServiceUrlFromHistory(itemUrl));
+
+            row.addView(label);
+            row.addView(useBtn);
+            row.addView(delBtn);
+            serviceHistoryList.addView(row);
+        }
     }
 
     private void showServiceConfig(String message) {
@@ -123,18 +274,51 @@ public final class MainActivity extends Activity {
         webView.setVisibility(View.GONE);
         loadingOverlay.setVisibility(View.GONE);
         errorPanel.setVisibility(View.GONE);
-        if (serviceUrl != null) serviceUrlInput.setText(serviceUrl);
+
+        if (serviceUrl != null && !serviceUrl.isBlank()) {
+            serviceUrlInput.setText(serviceUrl);
+            if (serviceConfigCurrentUrl != null) {
+                serviceConfigCurrentUrl.setText(getString(R.string.current_service_url_prefix) + serviceUrl);
+                serviceConfigCurrentUrl.setVisibility(View.VISIBLE);
+            }
+            if (cancelServiceConfigButton != null) {
+                cancelServiceConfigButton.setVisibility(View.VISIBLE);
+            }
+        } else {
+            if (serviceConfigCurrentUrl != null) {
+                serviceConfigCurrentUrl.setVisibility(View.GONE);
+            }
+            if (cancelServiceConfigButton != null) {
+                cancelServiceConfigButton.setVisibility(View.GONE);
+            }
+        }
+
         if (message == null || message.isBlank()) {
             serviceConfigMessage.setVisibility(View.GONE);
         } else {
             serviceConfigMessage.setText(message);
             serviceConfigMessage.setVisibility(View.VISIBLE);
         }
+
+        renderServiceUrlHistory();
         serviceUrlInput.requestFocus();
     }
 
-    private void saveServiceUrl() {
-        String normalized = TrustedNavigation.normalizeServiceUrl(serviceUrlInput.getText().toString());
+    private void cancelServiceConfig() {
+        if (serviceUrl == null || serviceUrl.isBlank()) {
+            Toast.makeText(this, R.string.invalid_service_url, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        serviceConfigPanel.setVisibility(View.GONE);
+        if (mainFrameLoadFailed) {
+            errorPanel.setVisibility(View.VISIBLE);
+        } else {
+            webView.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void applyAndSwitchServiceUrl(String rawUrl) {
+        String normalized = TrustedNavigation.normalizeServiceUrl(rawUrl);
         if (normalized == null) {
             showServiceConfig(getString(R.string.invalid_service_url));
             return;
@@ -142,6 +326,8 @@ public final class MainActivity extends Activity {
         serviceUrl = normalized;
         trustedHost = Uri.parse(normalized).getHost();
         getSharedPreferences(SETTINGS_NAME, MODE_PRIVATE).edit().putString(SERVICE_URL_KEY, normalized).apply();
+        saveServiceUrlToHistory(normalized);
+
         webView.clearHistory();
         webView.clearCache(false);
         serviceConfigPanel.setVisibility(View.GONE);
@@ -149,6 +335,10 @@ public final class MainActivity extends Activity {
         loadingOverlay.setVisibility(View.VISIBLE);
         errorPanel.setVisibility(View.GONE);
         webView.loadUrl(serviceUrl);
+    }
+
+    private void saveServiceUrl() {
+        applyAndSwitchServiceUrl(serviceUrlInput.getText().toString());
     }
 
     private void configureSystemBars() {
@@ -181,10 +371,6 @@ public final class MainActivity extends Activity {
             int safeTypes = WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout();
             Insets safe = windowInsets.getInsets(safeTypes);
             view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
-
-            // WebView still receives IME updates, but not the system-bar/cutout insets
-            // already applied by the native container. This prevents duplicate safe-area
-            // padding while keeping keyboard viewport resizing functional.
             return new WindowInsets.Builder(windowInsets)
                     .setInsets(safeTypes, Insets.NONE)
                     .build();
@@ -192,7 +378,7 @@ public final class MainActivity extends Activity {
         root.requestApplyInsets();
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint({"SetJavaScriptEnabled", "ClickableViewAccessibility"})
     private void configureWebView() {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
         WebSettings settings = webView.getSettings();
@@ -217,7 +403,30 @@ public final class MainActivity extends Activity {
         webView.setWebViewClient(new LightChatWebViewClient());
         webView.setWebChromeClient(new LightChatChromeClient());
         webView.addJavascriptInterface(new SecureDownloadBridge(), "LightChatDownloads");
+        webView.addJavascriptInterface(new NativeAppBridge(this), "LightChatApp");
         webView.setDownloadListener(new SecureDownloadListener());
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void configureTwoFingerGesture() {
+        twoFingerLongPressRunnable = () -> {
+            twoFingerTriggered = true;
+            Toast.makeText(MainActivity.this, R.string.service_config_title, Toast.LENGTH_SHORT).show();
+            showServiceConfig(null);
+        };
+
+        webView.setOnTouchListener((view, event) -> {
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_POINTER_DOWN) {
+                if (event.getPointerCount() == 2) {
+                    twoFingerTriggered = false;
+                    gestureHandler.postDelayed(twoFingerLongPressRunnable, 900);
+                }
+            } else if (action == MotionEvent.ACTION_POINTER_UP || action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                gestureHandler.removeCallbacks(twoFingerLongPressRunnable);
+            }
+            return false;
+        });
     }
 
     private void retry() {
@@ -229,11 +438,23 @@ public final class MainActivity extends Activity {
             return;
         }
         String current = webView.getUrl();
-        if (current != null && TrustedNavigation.isTrusted(Uri.parse(current), trustedHost)) {
+        if (current != null && isUrlTrusted(current)) {
             webView.reload();
         } else {
             webView.loadUrl(serviceUrl);
         }
+    }
+
+    private boolean isUrlTrusted(Uri uri) {
+        if (uri == null) return false;
+        String target = serviceUrl != null ? serviceUrl : trustedHost;
+        return target != null && TrustedNavigation.isTrusted(uri, target);
+    }
+
+    private boolean isUrlTrusted(String rawUrl) {
+        if (rawUrl == null) return false;
+        String target = serviceUrl != null ? serviceUrl : trustedHost;
+        return target != null && TrustedNavigation.isTrusted(rawUrl, target);
     }
 
     private boolean isNetworkAvailable() {
@@ -272,7 +493,18 @@ public final class MainActivity extends Activity {
     }
 
     private boolean handleNavigation(Uri uri) {
-        if (TrustedNavigation.isTrusted(uri, trustedHost)) return false;
+        if (uri == null) return false;
+        String scheme = uri.getScheme();
+        String raw = uri.toString().toLowerCase(Locale.ROOT);
+        if ("lightchat".equalsIgnoreCase(scheme)
+                || raw.startsWith("lightchat:")
+                || raw.startsWith("lightchat://")
+                || raw.contains("switch-endpoint")
+                || raw.contains("action=switch-endpoint")) {
+            runOnUiThread(() -> showServiceConfig(null));
+            return true;
+        }
+        if (isUrlTrusted(uri)) return false;
         openExternal(uri);
         return true;
     }
@@ -306,7 +538,20 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+    public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            showServiceConfig(null);
+            return true;
+        }
+        return super.onKeyLongPress(keyCode, event);
+    }
+
+    @Override
     public void onBackPressed() {
+        if (serviceConfigPanel.getVisibility() == View.VISIBLE) {
+            cancelServiceConfig();
+            return;
+        }
         if (errorPanel.getVisibility() == View.VISIBLE) {
             if (webView.canGoBack()) {
                 mainFrameLoadFailed = false;
@@ -318,8 +563,11 @@ public final class MainActivity extends Activity {
             }
             return;
         }
-        if (webView.canGoBack()) webView.goBack();
-        else super.onBackPressed();
+        if (webView.canGoBack()) {
+            webView.goBack();
+        } else {
+            super.onBackPressed();
+        }
     }
 
     @Override
@@ -329,6 +577,7 @@ public final class MainActivity extends Activity {
         CookieManager.getInstance().flush();
         webView.stopLoading();
         webView.removeJavascriptInterface("LightChatDownloads");
+        webView.removeJavascriptInterface("LightChatApp");
         webView.setWebChromeClient(null);
         webView.setWebViewClient(null);
         webView.removeAllViews();
@@ -336,15 +585,63 @@ public final class MainActivity extends Activity {
         super.onDestroy();
     }
 
+    public static final class NativeAppBridge {
+        private final java.lang.ref.WeakReference<MainActivity> activityRef;
+
+        public NativeAppBridge(MainActivity activity) {
+            this.activityRef = new java.lang.ref.WeakReference<>(activity);
+        }
+
+        @JavascriptInterface
+        public boolean isNativeApp() {
+            return true;
+        }
+
+        @JavascriptInterface
+        public String getCurrentServiceUrl() {
+            MainActivity activity = activityRef.get();
+            return activity != null && activity.serviceUrl != null ? activity.serviceUrl : "";
+        }
+
+        @JavascriptInterface
+        public String getServiceUrlHistoryJson() {
+            MainActivity activity = activityRef.get();
+            if (activity == null) return "[]";
+            List<String> history = activity.loadSavedServiceUrlHistory();
+            return new JSONArray(history).toString();
+        }
+
+        @JavascriptInterface
+        public void openEndpointConfig() {
+            MainActivity activity = activityRef.get();
+            if (activity != null) {
+                activity.runOnUiThread(() -> activity.showServiceConfig(null));
+            }
+        }
+
+        @JavascriptInterface
+        public void switchEndpoint(String targetUrl) {
+            MainActivity activity = activityRef.get();
+            if (activity != null) {
+                activity.runOnUiThread(() -> activity.applyAndSwitchServiceUrl(targetUrl));
+            }
+        }
+    }
+
     private final class LightChatWebViewClient extends WebViewClient {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-            return handleNavigation(request.getUrl());
+            return handleNavigation(request != null ? request.getUrl() : null);
+        }
+
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, String url) {
+            return handleNavigation(url != null ? Uri.parse(url) : null);
         }
 
         @Override
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
-            if (TrustedNavigation.isTrusted(Uri.parse(url), trustedHost)) {
+            if (isUrlTrusted(url)) {
                 mainFrameLoadFailed = false;
                 errorPanel.setVisibility(View.GONE);
                 loadingOverlay.setVisibility(View.VISIBLE);
@@ -353,7 +650,7 @@ public final class MainActivity extends Activity {
 
         @Override
         public void onPageFinished(WebView view, String url) {
-            if (!TrustedNavigation.isTrusted(Uri.parse(url), trustedHost)) return;
+            if (!isUrlTrusted(url)) return;
             CookieManager.getInstance().flush();
             if (mainFrameLoadFailed) return;
             loadingOverlay.setVisibility(View.GONE);
@@ -388,7 +685,6 @@ public final class MainActivity extends Activity {
             String extension = value.toLowerCase(Locale.ROOT);
             if (extension.equals(".txt")) {
                 appendMimeType(accepted, "text/plain");
-                // Several Android document providers label plain text as this generic type.
                 appendMimeType(accepted, "application/octet-stream");
             } else if (extension.equals(".pdf")) {
                 appendMimeType(accepted, "application/pdf");
@@ -405,6 +701,23 @@ public final class MainActivity extends Activity {
             } else if (extension.equals(".pptx")) {
                 appendMimeType(accepted, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
             }
+        }
+
+        @Override
+        public boolean onJsPrompt(WebView view, String url, String message, String defaultValue, android.webkit.JsPromptResult result) {
+            if (message != null && message.startsWith("lightchat:")) {
+                if ("lightchat:openEndpointConfig".equals(message)) {
+                    runOnUiThread(() -> showServiceConfig(null));
+                    result.confirm("ok");
+                    return true;
+                } else if (message.startsWith("lightchat:switchEndpoint:")) {
+                    String target = message.substring("lightchat:switchEndpoint:".length());
+                    runOnUiThread(() -> applyAndSwitchServiceUrl(target));
+                    result.confirm("ok");
+                    return true;
+                }
+            }
+            return super.onJsPrompt(view, url, message, defaultValue, result);
         }
 
         @Override
@@ -451,7 +764,7 @@ public final class MainActivity extends Activity {
             Uri uri = Uri.parse(url);
             if ("blob".equalsIgnoreCase(uri.getScheme())) {
                 String currentUrl = webView.getUrl();
-                if (currentUrl == null || !TrustedNavigation.isTrusted(currentUrl, trustedHost)) {
+                if (currentUrl == null || !isUrlTrusted(currentUrl)) {
                     Toast.makeText(MainActivity.this, R.string.blocked_download, Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -459,7 +772,7 @@ public final class MainActivity extends Activity {
                 exportBlobFromTrustedPage(url, fileName, mimeType);
                 return;
             }
-            if (!TrustedNavigation.isTrusted(uri, trustedHost)) {
+            if (!isUrlTrusted(uri)) {
                 Toast.makeText(MainActivity.this, R.string.blocked_download, Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -503,7 +816,7 @@ public final class MainActivity extends Activity {
         public void saveBase64File(String fileName, String mimeType, String base64Data) {
             runOnUiThread(() -> {
                 String currentUrl = webView.getUrl();
-                if (currentUrl == null || !TrustedNavigation.isTrusted(currentUrl, trustedHost)) {
+                if (currentUrl == null || !isUrlTrusted(currentUrl)) {
                     Toast.makeText(MainActivity.this, R.string.blocked_download, Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -545,3 +858,4 @@ public final class MainActivity extends Activity {
         }
     }
 }
+
