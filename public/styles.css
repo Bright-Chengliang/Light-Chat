@@ -489,9 +489,13 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 .latex-preview .latex-citation { color: #2b5797; font-size: .9em; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .latex-preview .latex-list { margin: 10px 0 14px; padding-left: 24px; }
 .latex-preview .latex-list li { margin: 4px 0; }
-.latex-preview .katex-display { margin: 12px 0; overflow-x: auto; overflow-y: hidden; text-align: center; }
-.latex-preview .katex { font-size: 1em; line-height: 1.2; white-space: nowrap; text-align: left; text-rendering: auto; }
-.latex-preview .katex-display .katex { white-space: normal; }
+.latex-preview .katex-display { display: block; margin: 14px 0; overflow-x: auto; overflow-y: hidden; text-align: center; }
+.latex-preview .katex { font: normal 1.18em KaTeX_Main, "Times New Roman", serif; line-height: 1.2; white-space: nowrap; text-align: left; text-rendering: auto; }
+.latex-preview .katex-display > .katex { display: inline-block; white-space: normal; text-align: initial; }
+.latex-preview .katex-html { white-space: nowrap; }
+.latex-preview .katex-display .katex-html { white-space: normal; }
+.latex-preview .math-copy-button { color: #555; background: #f7f6f2; border: 1px solid #d5d1c8; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.latex-preview .math-copy-button:hover, .latex-preview .math-copy-button:focus-visible, .latex-preview .math-copy-button.copied { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
 .clipboard-fallback { position: fixed; left: -9999px; top: 0; }
 .message-text code:not(pre code) { padding: 2px 5px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 5px; font: .78em ui-monospace, monospace; }
 .message-text ul { margin: 8px 0; padding-left: 22px; }
