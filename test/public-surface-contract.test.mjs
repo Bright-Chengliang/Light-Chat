@@ -611,3 +611,25 @@ test('message up and down jumping targets top of previous and next message for u
   assert.match(publicSource, /button\.title = edge === 'start' \? '跳转到上一条消息顶部' : '跳转到下一条消息顶部'/);
 });
 
+test('code blocks default to word wrap and provide a one-click toggle button alongside copy action', () => {
+  assert.match(publicSource, /code-wrap-button/);
+  assert.match(publicSource, /切换自动换行/);
+  assert.match(publicSource, /code-toolbar-actions/);
+  assert.match(publicSource, /wrapButton\.closest\('\.code-block'\)/);
+  assert.match(publicSource, /block\.classList\.toggle\('is-nowrap'\)/);
+  assert.match(publicSource, /\.message-text pre \{[^}]*white-space:\s*pre-wrap/);
+  assert.match(publicSource, /\.code-block\.is-nowrap pre \{[^}]*white-space:\s*pre/);
+  assert.match(publicSource, /\.code-toolbar-actions \{ display: inline-flex/);
+});
+
+test('latex code blocks provide a one-click rendered preview toggle button', () => {
+  assert.match(publicSource, /function isLatexBlock\(language, content\)/);
+  assert.match(publicSource, /function renderLatexPreview\(container, content\)/);
+  assert.match(publicSource, /code-render-button/);
+  assert.match(publicSource, /渲染 LaTeX 预览/);
+  assert.match(publicSource, /renderButton\.closest\('\.code-block'\)/);
+  assert.match(publicSource, /block\.classList\.toggle\('is-rendered'\)/);
+  assert.match(publicSource, /\.code-block\.is-rendered pre \{ display: none; \}/);
+  assert.match(publicSource, /\.latex-preview \{/);
+});
+

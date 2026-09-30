@@ -25,3 +25,25 @@ test('default favorite display name follows model id without overwriting custom 
   assert.match(appSource, /if \(usesDefaultLabel\) item\.label = modelId/);
   assert.match(appSource, /label\.placeholder = item\.modelId \|\| item\.model \|\| '显示名称（默认模型 ID）'/);
 });
+
+test('model catalog is refreshed before favorites are offered or saved', () => {
+  assert.match(appSource, /async function syncModels\(\{ force = false \} = \{\}\)/);
+  assert.match(appSource, /function modelsAreStale\(maxAgeMs = 60_000\)/);
+  assert.match(appSource, /if \(!isGuest && modelsAreStale\(\)\) await syncModels\(\);/);
+  assert.match(appSource, /state\.userRole !== 'guest' && modelsAreStale\(\)/);
+  assert.match(appSource, /syncModels\(\)\.then\(\(result\) => \{/);
+  assert.match(appSource, /function refreshModelDialogCatalog\(\)/);
+  assert.match(appSource, /payload\.details && typeof payload\.details === 'object'\) error\.details = payload\.details/);
+});
+
+test('unavailable favorites stay visible, are named on save, and block silent drops', () => {
+  assert.match(appSource, /（不可用）/);
+  assert.match(appSource, /favorite-row-stale/);
+  assert.match(appSource, /function highlightFavoriteRows\(details = \{\}\)/);
+  assert.match(appSource, /function collectDroppedFavorites\(requestedGroups, sanitizedGroups\)/);
+  assert.match(appSource, /collectDroppedFavorites\(nextPreferences\.favoriteGroups, sanitizedFavoriteGroups\)/);
+  assert.match(appSource, /error\.details = \{ reason: 'not_in_catalog', scope: 'favorite', items: dropped \}/);
+  assert.match(appSource, /请先改选或移除/);
+  assert.match(appSource, /当前没有支持\$\{modeLabelText\(nextMode\)\}模式的可用模型/);
+  assert.match(appSource, /state\.editingDirty = true;/);
+});

@@ -666,6 +666,66 @@ test('preferences responses drop model context limits for unavailable models', a
   }
 });
 
+test('preference saves point at the exact favorite model that is unavailable', async () => {
+  const context = await fixture();
+  try {
+    const signedIn = await authenticated(context);
+    const putPreferences = async (body) => {
+      const response = await fetch(`${context.baseUrl}/api/preferences`, {
+        method: 'PUT',
+        headers: { Cookie: signedIn.cookie, Origin: context.baseUrl, 'X-CSRF-Token': signedIn.body.csrfToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return { response, body: await response.json() };
+    };
+
+    const unknownModel = await putPreferences({
+      favoriteGroups: [{ id: 'daily', name: '常用', items: [{ modelId: 'removed-model', model: 'removed-model', mode: 'chat', label: 'removed-model' }] }],
+      selected: null,
+      modelContextLimits: {},
+    });
+    assert.equal(unknownModel.response.status, 400, JSON.stringify(unknownModel.body));
+    assert.equal(unknownModel.body.code, 'MODEL_NOT_ALLOWED');
+    assert.match(unknownModel.body.error, /收藏组「常用」中的模型 removed-model 已不在当前可用模型列表/);
+    assert.equal(unknownModel.body.details.reason, 'not_in_catalog');
+    assert.equal(unknownModel.body.details.modelId, 'removed-model');
+    assert.equal(unknownModel.body.details.groupId, 'daily');
+    assert.equal(unknownModel.body.details.groupName, '常用');
+
+    const wrongMode = await putPreferences({
+      favoriteGroups: [{ id: 'chat', name: '对话', items: [{ modelId: 'gpt-image-2', model: 'gpt-image-2', mode: 'chat', label: 'gpt-image-2' }] }],
+      selected: null,
+      modelContextLimits: {},
+    });
+    assert.equal(wrongMode.response.status, 400, JSON.stringify(wrongMode.body));
+    assert.equal(wrongMode.body.code, 'MODEL_NOT_ALLOWED');
+    assert.match(wrongMode.body.error, /收藏组「对话」中的模型 gpt-image-2 不支持对话模式/);
+    assert.equal(wrongMode.body.details.reason, 'mode_unsupported');
+    assert.equal(wrongMode.body.details.modelId, 'gpt-image-2');
+    assert.equal(wrongMode.body.details.mode, 'chat');
+
+    const staleSelection = await putPreferences({
+      favoriteGroups: [],
+      selected: { modelId: 'gone-model', model: 'gone-model', mode: 'chat' },
+      modelContextLimits: {},
+    });
+    assert.equal(staleSelection.response.status, 400, JSON.stringify(staleSelection.body));
+    assert.equal(staleSelection.body.code, 'MODEL_NOT_ALLOWED');
+    assert.match(staleSelection.body.error, /当前对话模型 gone-model 已不在当前可用模型列表/);
+    assert.equal(staleSelection.body.details.scope, 'selected');
+
+    const saved = await putPreferences({
+      favoriteGroups: [{ id: 'daily', name: '常用', items: [{ modelId: 'chat-test', model: 'chat-test', mode: 'chat', label: 'chat-test' }] }],
+      selected: { modelId: 'chat-test', model: 'chat-test', mode: 'chat' },
+      modelContextLimits: {},
+    });
+    assert.equal(saved.response.status, 200, JSON.stringify(saved.body));
+    assert.deepEqual(saved.body.favoriteGroups[0].items.map((item) => item.modelId), ['chat-test']);
+  } finally {
+    await context.close();
+  }
+});
+
 test('poster workflow retries once with the untouched role response when the Chinese prompt request fails', async () => {
   const fullPosterResponse = '中文版：\n```markdown\n史诗神祇海报，熔岩与雷霆，强烈电影光。\n```\n\n英文版：\n```markdown\nAn epic deity poster with lava and lightning.\n```';
   const context = await fixture({ fakeOptions: { chatResponseText: fullPosterResponse, failImageGenerationAttempts: 1 } });

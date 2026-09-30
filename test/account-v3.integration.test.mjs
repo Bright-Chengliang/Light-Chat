@@ -656,6 +656,49 @@ test('model groups plus extra grants filter model listing and block forged chat/
   }
 });
 
+test('ordinary accounts never list unauthorized models and favorites name them on save', async () => {
+  const context = await fixture();
+  try {
+    const admin = await signIn(context);
+    const groups = await api(context, admin, 'PUT', '/api/admin/model-groups', {
+      groups: [{ id: 'basic-access', name: '基础权限', modelIds: ['chat-basic'] }],
+    });
+    assert.equal(groups.response.status, 200, JSON.stringify(groups.body));
+    const created = await createUser(context, admin, {
+      username: 'favorite-scoped-user', password: 'favorite-scoped-password', credits: 5,
+      modelGroupId: 'basic-access', extraModels: [],
+    });
+    const user = await signIn(context, created.username, 'favorite-scoped-password');
+
+    const listed = await api(context, user, 'GET', '/api/models');
+    assert.equal(listed.response.status, 200, JSON.stringify(listed.body));
+    assert.deepEqual(listed.body.models.map((model) => model.id), ['chat-basic']);
+
+    const denied = await api(context, user, 'PUT', '/api/preferences', {
+      favoriteGroups: [{ id: 'daily', name: '常用', items: [{ model: 'chat-denied', mode: 'chat', label: 'chat-denied' }] }],
+      selected: null,
+      modelContextLimits: {},
+    });
+    assert.equal(denied.response.status, 400, JSON.stringify(denied.body));
+    assert.equal(denied.body.code, 'MODEL_NOT_ALLOWED');
+    assert.match(denied.body.error, /常用/);
+    assert.match(denied.body.error, /chat-denied/);
+    assert.equal(denied.body.details.reason, 'not_in_catalog');
+    assert.equal(denied.body.details.groupId, 'daily');
+
+    const allowed = await api(context, user, 'PUT', '/api/preferences', {
+      favoriteGroups: [{ id: 'daily', name: '常用', items: [{ model: 'chat-basic', mode: 'chat', label: 'chat-basic' }] }],
+      selected: { model: 'chat-basic', mode: 'chat' },
+      modelContextLimits: {},
+    });
+    assert.equal(allowed.response.status, 200, JSON.stringify(allowed.body));
+    assert.deepEqual(allowed.body.favoriteGroups[0].items.map((item) => item.modelId), ['chat-basic']);
+    assert.deepEqual(allowed.body.selected, { modelId: 'chat-basic', model: 'chat-basic', mode: 'chat' });
+  } finally {
+    await context.close();
+  }
+});
+
 test('preferences, roles, and media are isolated by ordinary-user UID', async () => {
   const context = await fixture();
   try {

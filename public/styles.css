@@ -461,12 +461,37 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 .message-text details > summary { color: var(--text-soft); cursor: pointer; font-weight: 750; }
 .message-text details[open] > summary { margin-bottom: 9px; color: var(--text); }
 .message-text hr { margin: 20px 0; border: 0; border-top: 1px solid var(--border); }
-.message-text pre { max-width: 100%; margin: 0; padding: 14px; overflow: auto; color: #f7f4ec; background: #31302c; border-radius: 0 0 11px 11px; font: .76rem/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.message-text pre { max-width: 100%; margin: 0; padding: 14px; overflow: auto; color: #f7f4ec; background: #31302c; border-radius: 0 0 11px 11px; font: .76rem/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
 .code-block { position: relative; max-width: 100%; margin: 13px 0; overflow: visible; background: #31302c; border: 1px solid #45433e; border-radius: 11px; }
+.code-block.is-nowrap pre { white-space: pre; word-break: normal; overflow-wrap: normal; }
+.code-block.is-rendered { background: #ffffff; border-color: var(--border-strong); }
+.code-block.is-rendered pre { display: none; }
+.code-block:not(.is-rendered) .latex-preview { display: none; }
 .code-toolbar { position: sticky; top: 8px; min-height: 34px; padding: 0 10px 0 13px; display: flex; align-items: center; justify-content: space-between; color: #bbb7ae; background: rgba(59,57,52,.97); border-radius: 10px 10px 0 0; box-shadow: 0 1px 0 rgba(255,255,255,.04); font: 700 .58rem/1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .05em; z-index: 3; transition: box-shadow 140ms ease, background 140ms ease; }
 .code-block:hover .code-toolbar, .code-block:focus-within .code-toolbar { background: #3b3934; box-shadow: 0 7px 18px rgba(20,19,17,.2); }
+.code-block.is-rendered .code-toolbar { color: var(--text-soft); background: var(--surface-soft); border-bottom: 1px solid var(--border); box-shadow: none; }
+.code-block.is-rendered:hover .code-toolbar, .code-block.is-rendered:focus-within .code-toolbar { background: var(--surface-hover); box-shadow: 0 4px 12px rgba(43,41,36,.06); }
+.code-toolbar-actions { display: inline-flex; align-items: center; gap: 6px; }
 .code-toolbar button { min-width: 36px; min-height: 36px; padding: 0 8px; color: #ddd8cd; background: rgba(255,255,255,.07); border-radius: 8px; font-size: .8rem; line-height: 1; }
-.code-toolbar button:hover, .code-toolbar button.copied { color: #fff; background: rgba(255,255,255,.14); }
+.code-toolbar button:hover, .code-toolbar button.copied, .code-toolbar button.active, .code-toolbar button[aria-pressed="true"] { color: #fff; background: rgba(255,255,255,.16); }
+.code-block.is-rendered .code-toolbar button { color: var(--text-soft); background: color-mix(in srgb, var(--page) 80%, var(--border)); }
+.code-block.is-rendered .code-toolbar button:hover, .code-block.is-rendered .code-toolbar button.copied, .code-block.is-rendered .code-toolbar button.active, .code-block.is-rendered .code-toolbar button[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
+.latex-preview { padding: 18px 20px; color: #000000; background: #ffffff; border-radius: 0 0 11px 11px; font-family: -apple-system, BlinkMacSystemFont, "Times New Roman", "Nimbus Roman", "Noto Serif", Georgia, serif, "PingFang SC", "Microsoft YaHei", sans-serif; font-size: .92rem; line-height: 1.8; white-space: normal; word-break: break-word; overflow-wrap: break-word; overflow-x: auto; }
+.latex-preview .latex-paragraph { margin: 0 0 14px; text-align: left; line-height: inherit; }
+.latex-preview .latex-paragraph:last-child { margin-bottom: 0; }
+.latex-preview .latex-large { font-size: 1.18em; font-weight: 700; display: inline-block; margin-bottom: 4px; }
+.latex-preview .latex-Large { font-size: 1.32em; font-weight: 700; display: inline-block; margin-bottom: 6px; }
+.latex-preview .latex-huge { font-size: 1.5em; font-weight: 700; display: inline-block; margin-bottom: 8px; }
+.latex-preview .latex-small { font-size: .88em; }
+.latex-preview .latex-tiny { font-size: .75em; }
+.latex-preview h3, .latex-preview h4, .latex-preview h5 { margin: 18px 0 10px; color: #000000; font-weight: 700; line-height: 1.4; }
+.latex-preview h3:first-child, .latex-preview h4:first-child, .latex-preview h5:first-child { margin-top: 0; }
+.latex-preview .latex-citation { color: #2b5797; font-size: .9em; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.latex-preview .latex-list { margin: 10px 0 14px; padding-left: 24px; }
+.latex-preview .latex-list li { margin: 4px 0; }
+.latex-preview .katex-display { margin: 12px 0; overflow-x: auto; overflow-y: hidden; text-align: center; }
+.latex-preview .katex { font-size: 1em; line-height: 1.2; white-space: nowrap; text-align: left; text-rendering: auto; }
+.latex-preview .katex-display .katex { white-space: normal; }
 .clipboard-fallback { position: fixed; left: -9999px; top: 0; }
 .message-text code:not(pre code) { padding: 2px 5px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 5px; font: .78em ui-monospace, monospace; }
 .message-text ul { margin: 8px 0; padding-left: 22px; }
@@ -717,6 +742,8 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 .drag-handle:hover { color: var(--accent); background: var(--accent-soft); }
 .group-card.drag-over, .favorite-row.drag-over, .favorite-rows.drag-over { border-color: rgba(166,75,55,.45); background: var(--accent-soft); }
 .favorite-row.focused { border-color: rgba(166,75,55,.58); background: var(--accent-soft); box-shadow: 0 0 0 3px rgba(166,75,55,.08); }
+.favorite-row.favorite-row-stale { border-color: rgba(164,63,53,.42); background: rgba(164,63,53,.05); }
+.favorite-row.favorite-row-error { border-color: var(--danger); background: rgba(164,63,53,.1); box-shadow: 0 0 0 3px rgba(164,63,53,.14); }
 .add-model-button, .add-group-button { min-height: 37px; margin-top: 9px; color: var(--accent); background: var(--accent-soft); border-radius: 9px; font-size: .65rem; }
 .add-group-button { width: 100%; margin-top: 10px; border: 1px dashed rgba(166,75,55,.35); }
 .account-dialog { width: min(96vw, 920px); }

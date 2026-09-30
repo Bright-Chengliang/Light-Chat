@@ -100,7 +100,7 @@ if (localStorage.getItem(STREAM_KEY) === null && storedStreamPreference !== null
   localStorage.setItem(STREAM_KEY, storedStreamPreference); localStorage.removeItem(LEGACY_STREAM_KEY);
 }
 const state = {
-  csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, guestSettings: { endpoint: '', hasApiKey: false, allowedModels: [] }, guestApiKey: '', guestCatalog: [], adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], preferences: { favoriteGroups: [], selected: null, modelContextLimits: {}, favoriteMediaIds: [], conversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL },
+  csrf: '', user: '', userUid: '', userRole: 'user', credits: 0, quota: null, guestSettings: { endpoint: '', hasApiKey: false, allowedModels: [] }, guestApiKey: '', guestCatalog: [], adminUsers: [], adminRevision: 0, modelAccessGroups: [], lastSelectedModels: { chat: '', image: '' }, models: [], modelsLoadedAt: 0, preferences: { favoriteGroups: [], selected: null, modelContextLimits: {}, favoriteMediaIds: [], conversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL },
   selected: null, stream: storedStreamPreference !== 'false', conversations: [], currentId: '',
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
   historyFolders: [], openHistoryFolders: new Set(), closedFavoriteFolders: new Set(), historyUnfiledCollapsed: false, favoriteUnfiledCollapsed: false, historySearch: '',
@@ -247,7 +247,13 @@ async function jsonRequest(url, options = {}) {
     location.replace('/');
     throw new Error('登录已失效');
   }
-  if (!response.ok) throw new Error(payload.error || '请求失败');
+  if (!response.ok) {
+    const error = new Error(payload.error || '请求失败');
+    error.status = response.status;
+    if (payload.code) error.code = payload.code;
+    if (payload.details && typeof payload.details === 'object') error.details = payload.details;
+    throw error;
+  }
   return payload;
 }
 
@@ -472,6 +478,7 @@ function openTranslatorModelDialog() {
   elements.modelDialogTitle.textContent = '配置翻译模型';
   elements.modelDialogDescription.textContent = '此设置仅用于快速翻译，不会改变任何对话的模型。';
   elements.modelMode.value = 'chat'; elements.modelMode.disabled = true; elements.modelSearch.value = ''; renderModelList(); elements.modelDialog.showModal(); requestAnimationFrame(() => elements.modelSearch.focus());
+  refreshModelDialogCatalog();
 }
 
 async function consumeTranslationStream(response) {
@@ -2362,16 +2369,138 @@ async function copyText(value, button) {
   setTimeout(() => { button.textContent = original; button.classList.remove('copied'); }, 1200);
 }
 
+function isLatexBlock(language, content) {
+  const normalizedLang = String(language || '').trim().toLowerCase();
+  if (['latex', 'tex', 'math', 'katex'].includes(normalizedLang)) return true;
+  if (!normalizedLang || normalizedLang === 'text') {
+    return /\b(?:documentclass|usepackage)\b|\\(?:noindent|large|Large|huge|textbf|textit|section|frac|sum|int|begin\{|alpha|beta|gamma|theta|lambda|pi|sigma|Omega|partial|nabla|infty|times|cdot|approx|equiv|neq|leq|geq|forall|exists|in|notin|subset|cup|cap|to|leftarrow|rightarrow|Rightarrow|Leftarrow|Leftrightarrow)\b/.test(content || '');
+  }
+  return false;
+}
+
+function convertLatexToHtml(source) {
+  if (!source || !source.trim()) return '';
+  let text = source.trim();
+
+  const mathPlaceholders = [];
+  function saveMath(math, display) {
+    const id = `___LATEX_MATH_${mathPlaceholders.length}___`;
+    mathPlaceholders.push({ id, math, display });
+    return id;
+  }
+
+  text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => saveMath(math, true));
+  text = text.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => saveMath(math, true));
+  text = text.replace(/\\begin\{(equation\*?|align\*?|aligned|gather\*?|multline\*?|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases)\}([\s\S]*?)\\end\{\1\}/g, (match) => saveMath(match, true));
+  text = text.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => saveMath(math, false));
+  text = text.replace(/\$([^\$\n]+?)\$/g, (_, math) => saveMath(math, false));
+
+  text = text.replace(/(^|[^\\])%.*$/gm, '$1');
+
+  text = text.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (_, items) => {
+    const listItems = items.split(/\\item\b/).map((s) => s.trim()).filter(Boolean);
+    return `<ul class="latex-list">${listItems.map((item) => `<li>${item}</li>`).join('')}</ul>`;
+  });
+  text = text.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (_, items) => {
+    const listItems = items.split(/\\item\b/).map((s) => s.trim()).filter(Boolean);
+    return `<ol class="latex-list">${listItems.map((item) => `<li>${item}</li>`).join('')}</ol>`;
+  });
+
+  text = text.replace(/\{(?:\s*\\(large|Large|huge|Huge|small|tiny)\s*)([\s\S]*?)\}/g, (_, size, inner) => `<span class="latex-${size.toLowerCase()}">${inner}</span>`);
+  text = text.replace(/\\(large|Large|huge|Huge|small|tiny)\b/gi, '');
+
+  text = text.replace(/\\textbf\{([\s\S]*?)\}/g, '<strong>$1</strong>');
+  text = text.replace(/\{\\bf\s+([\s\S]*?)\}/g, '<strong>$1</strong>');
+  text = text.replace(/\\(?:textit|emph)\{([\s\S]*?)\}/g, '<em>$1</em>');
+  text = text.replace(/\{\\it\s+([\s\S]*?)\}/g, '<em>$1</em>');
+  text = text.replace(/\\underline\{([\s\S]*?)\}/g, '<u>$1</u>');
+  text = text.replace(/\\texttt\{([\s\S]*?)\}/g, '<code>$1</code>');
+
+  text = text.replace(/\\textcolor\{([a-zA-Z#0-9]+)\}\{([\s\S]*?)\}/g, '<span style="color:$1">$2</span>');
+  text = text.replace(/\\colorbox\{([a-zA-Z#0-9]+)\}\{([\s\S]*?)\}/g, '<span style="background-color:$1">$2</span>');
+
+  text = text.replace(/\\section\*?\{([\s\S]*?)\}/g, '<h3>$1</h3>');
+  text = text.replace(/\\subsection\*?\{([\s\S]*?)\}/g, '<h4>$1</h4>');
+  text = text.replace(/\\subsubsection\*?\{([\s\S]*?)\}/g, '<h5>$1</h5>');
+  text = text.replace(/\\paragraph\*?\{([\s\S]*?)\}/g, '<strong>$1</strong> ');
+
+  text = text.replace(/\\(?:cite[a-z]*|ref|eqref|pageref)\{([^}]+)\}/g, '<span class="latex-citation">[$1]</span>');
+
+  text = text.replace(/\\noindent\b/g, '');
+  text = text.replace(/~/g, '&nbsp;');
+  text = text.replace(/\\\\/g, '<br>');
+  text = text.replace(/\\newline\b/g, '<br>');
+  text = text.replace(/\\quad\b/g, '&emsp;');
+  text = text.replace(/\\qquad\b/g, '&emsp;&emsp;');
+
+  text = text.replace(/\\([%&#$_])/g, '$1');
+  text = text.replace(/\\\{/g, '{');
+  text = text.replace(/\\\}/g, '}');
+
+  const rawParagraphs = text.split(/\n\s*\n+/);
+  const htmlParagraphs = rawParagraphs.map((para) => {
+    let p = para.trim().replace(/\n/g, ' ');
+    if (!p) return '';
+    for (const { id, math, display } of mathPlaceholders) {
+      if (p.includes(id)) {
+        let renderedMath = '';
+        if (typeof globalThis.katex?.renderToString === 'function') {
+          try {
+            renderedMath = globalThis.katex.renderToString(math.trim(), { displayMode: display, throwOnError: false });
+          } catch {
+            renderedMath = display ? `<pre>${math}</pre>` : `<code>${math}</code>`;
+          }
+        } else {
+          renderedMath = display ? `<pre>${math}</pre>` : `<code>${math}</code>`;
+        }
+        p = p.replaceAll(id, renderedMath);
+      }
+    }
+    if (!mathPlaceholders.length && /\\(frac|sum|int|sqrt|alpha|beta|gamma|theta|nabla|partial|times|cdot|left|right|mathbb|mathcal|mathbf)\b/.test(p) && !/[a-zA-Z]{5,}\s+[a-zA-Z]{5,}/.test(p)) {
+      if (typeof globalThis.katex?.renderToString === 'function') {
+        try {
+          return globalThis.katex.renderToString(p, { displayMode: true, throwOnError: true });
+        } catch {
+          // keep as paragraph
+        }
+      }
+    }
+    if (p.startsWith('<h3>') || p.startsWith('<h4>') || p.startsWith('<h5>') || p.startsWith('<ul') || p.startsWith('<ol')) return p;
+    return `<p class="latex-paragraph">${p}</p>`;
+  }).filter(Boolean);
+
+  return htmlParagraphs.join('\n');
+}
+
+function renderLatexPreview(container, content) {
+  container.innerHTML = convertLatexToHtml(content);
+  decorateCopyableMath(container);
+}
+
 function createCodeBlock(content, language = '', { copyable = true } = {}) {
   const block = document.createElement('div'); block.className = 'code-block';
   const toolbar = document.createElement('div'); toolbar.className = 'code-toolbar';
   const label = document.createElement('span'); label.textContent = (language || 'text').toUpperCase();
   const pre = document.createElement('pre'); const code = document.createElement('code'); code.textContent = content; pre.append(code);
   toolbar.append(label);
-  if (copyable) {
-    const copy = document.createElement('button'); copy.type = 'button'; copy.textContent = '📋'; copy.title = '复制文本块'; copy.setAttribute('aria-label', '复制文本块');
-    toolbar.append(copy);
+  const actions = document.createElement('div'); actions.className = 'code-toolbar-actions';
+  if (isLatexBlock(language, content)) {
+    const renderBtn = document.createElement('button');
+    renderBtn.type = 'button';
+    renderBtn.className = 'code-render-button';
+    renderBtn.textContent = '👁️';
+    renderBtn.title = '渲染 LaTeX 预览';
+    renderBtn.setAttribute('aria-label', '渲染 LaTeX 预览');
+    renderBtn.setAttribute('aria-pressed', 'false');
+    actions.append(renderBtn);
   }
+  const wrap = document.createElement('button'); wrap.type = 'button'; wrap.className = 'code-wrap-button active'; wrap.textContent = '↵'; wrap.title = '关闭自动换行'; wrap.setAttribute('aria-label', '切换自动换行'); wrap.setAttribute('aria-pressed', 'true');
+  actions.append(wrap);
+  if (copyable) {
+    const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'code-copy-button'; copy.textContent = '📋'; copy.title = '复制文本块'; copy.setAttribute('aria-label', '复制文本块');
+    actions.append(copy);
+  }
+  toolbar.append(actions);
   block.append(toolbar, pre); return block;
 }
 
@@ -3857,14 +3986,125 @@ function sanitizeFavoriteGroups(groups, models) {
     .filter((group) => group.items.length);
 }
 
+function setModels(next) {
+  state.models = Array.isArray(next) ? next : [];
+  state.modelsLoadedAt = Date.now();
+}
+
+function modelsAreStale(maxAgeMs = 60_000) {
+  return !state.modelsLoadedAt || Date.now() - state.modelsLoadedAt > maxAgeMs;
+}
+
+function collectUnavailableFavorites(models, groups = state.preferences.favoriteGroups) {
+  const unavailable = [];
+  const seen = new Set();
+  for (const group of groups || []) {
+    for (const item of group.items || []) {
+      if (favoriteModelAvailable(item, models)) continue;
+      const modelId = item.modelId || item.model;
+      const key = `${group.id}\0${item.mode}\0${modelId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unavailable.push({ groupId: group.id, groupName: group.name, modelId, mode: item.mode });
+    }
+  }
+  return unavailable;
+}
+
+function collectDroppedFavorites(requestedGroups, sanitizedGroups) {
+  const available = new Set();
+  for (const group of sanitizedGroups || []) {
+    for (const item of group.items || []) available.add(`${item.mode}\0${item.modelId || item.model}`);
+  }
+  const dropped = [];
+  for (const group of requestedGroups || []) {
+    for (const item of group.items || []) {
+      const modelId = item.modelId || item.model;
+      if (available.has(`${item.mode}\0${modelId}`)) continue;
+      if (dropped.some((entry) => entry.groupId === group.id && entry.modelId === modelId && entry.mode === item.mode)) continue;
+      dropped.push({ groupId: group.id, groupName: group.name, modelId, mode: item.mode });
+    }
+  }
+  return dropped;
+}
+
+function describeUnavailableFavorites(items) {
+  return items.map((item) => `${item.groupName ? `收藏组「${item.groupName}」中的` : ''}${item.modelId}（${item.mode === 'image' ? '生图' : '对话'}）`).join('、');
+}
+
+function notifyUnavailableFavorites(items) {
+  if (!items.length) return false;
+  const message = `模型目录已更新，以下收藏已不可用：${describeUnavailableFavorites(items)}。保存前请在收藏组中改选或移除。`;
+  if (elements.settingsDialog?.open) setDialogStatus(elements.settingsStatus, message, 'error');
+  else setStatus(message, 'error');
+  return true;
+}
+
+function highlightFavoriteRows(details = {}) {
+  if (!elements.settingsDialog?.open) return;
+  const targets = Array.isArray(details.items) && details.items.length
+    ? details.items
+    : (details.modelId ? [{ groupId: details.groupId, modelId: details.modelId }] : []);
+  if (!targets.length) return;
+  for (const target of targets) {
+    const row = $$('.favorite-row', elements.groupsEditor).find((candidate) =>
+      candidate.dataset.favoriteModelId === target.modelId
+      && (!target.groupId || candidate.dataset.favoriteGroupId === target.groupId));
+    if (!row) continue;
+    row.classList.add('favorite-row-error');
+    row.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+    row.querySelector('select')?.focus({ preventScroll: true });
+  }
+}
+
+let modelsSyncInFlight = null;
+
+async function syncModels({ force = false } = {}) {
+  if (state.userRole === 'guest') return { changed: false, dropped: [], failed: false };
+  if (modelsSyncInFlight) return modelsSyncInFlight;
+  const previousIds = state.models.map((model) => model.id).join('\n');
+  modelsSyncInFlight = (async () => {
+    try {
+      const payload = await jsonRequest(force ? '/api/models?refresh=1' : '/api/models');
+      const next = Array.isArray(payload.models) ? payload.models : [];
+      const changed = previousIds !== next.map((model) => model.id).join('\n');
+      const dropped = changed ? collectUnavailableFavorites(next) : [];
+      setModels(next);
+      if (changed) {
+        initializeTranslationModel();
+        state.selected = normalizeSelection(state.selected);
+      }
+      return { changed, dropped, failed: false };
+    } catch (error) {
+      return { changed: false, dropped: [], failed: true, error };
+    } finally {
+      modelsSyncInFlight = null;
+    }
+  })();
+  return modelsSyncInFlight;
+}
+
 async function savePreferences(nextPreferences = state.preferences) {
   preferenceWritesInFlight += 1;
   try {
+    const isGuest = state.userRole === 'guest';
+    // Re-sync a stale catalog before validating, so an upstream removal or a
+    // permission-group change is discovered here instead of as a failed save.
+    if (!isGuest && modelsAreStale()) await syncModels();
     // The model catalog can change while the settings dialog is open (for
     // example after a refresh or an upstream model removal). Keep the
     // payload aligned with the catalog that is currently rendered instead of
     // submitting stale favorite rows or a stale selection to the server.
     const sanitizedFavoriteGroups = sanitizeFavoriteGroups(nextPreferences.favoriteGroups, state.models);
+    if (!isGuest) {
+      const dropped = collectDroppedFavorites(nextPreferences.favoriteGroups, sanitizedFavoriteGroups);
+      if (dropped.length) {
+        const error = new Error(`模型目录已更新，无法保存不可用的收藏：${describeUnavailableFavorites(dropped)}。请先改选或移除。`);
+        error.code = 'MODEL_NOT_ALLOWED';
+        error.details = { reason: 'not_in_catalog', scope: 'favorite', items: dropped };
+        throw error;
+      }
+    }
     const selectedValue = Object.prototype.hasOwnProperty.call(nextPreferences, 'selected')
       ? nextPreferences.selected
       : state.selected;
@@ -3874,7 +4114,7 @@ async function savePreferences(nextPreferences = state.preferences) {
     for (const [modelId, limit] of Object.entries(requestedContextLimits)) if (limit === DEFAULT_CONTEXT_TOKENS) delete requestedContextLimits[modelId];
     const requestedReadingMode = nextPreferences.readingMode || state.editingReadingMode || state.readingMode || 'classic';
     const requestedStream = typeof nextPreferences.stream === 'boolean' ? nextPreferences.stream : state.stream;
-    if (state.userRole === 'guest') {
+    if (isGuest) {
       state.preferences = { favoriteGroups: sanitizedFavoriteGroups, selected, modelContextLimits: requestedContextLimits, favoriteMediaIds: Array.isArray(nextPreferences.favoriteMediaIds) ? [...new Set(nextPreferences.favoriteMediaIds)] : [], conversationTitleModel: requestedTitleModel, readingMode: requestedReadingMode, stream: requestedStream };
       localStorage.setItem('light-chat-guest-preferences-v2', JSON.stringify({ favoriteGroups: state.preferences.favoriteGroups, selected: state.preferences.selected, modelContextLimits: requestedContextLimits, conversationTitleModel: requestedTitleModel, readingMode: requestedReadingMode, stream: requestedStream }));
       renderFavorites(); renderConversation();
@@ -3906,7 +4146,36 @@ async function savePreferences(nextPreferences = state.preferences) {
     }
     state.selected = normalizeSelection(state.preferences.selected);
     renderFavorites(); renderConversation();
+  } catch (error) {
+    if (error?.code === 'MODEL_NOT_ALLOWED') {
+      // Refresh the catalog instead of failing blindly: if the model came
+      // back, say so and let the user resave; otherwise point at the rows.
+      const result = await syncModels({ force: true });
+      highlightFavoriteRows(error.details || {});
+      if (!result.failed && result.changed) {
+        const items = Array.isArray(error.details?.items)
+          ? error.details.items
+          : (error.details?.modelId ? [{ groupId: error.details.groupId, groupName: error.details.groupName, modelId: error.details.modelId, mode: error.details.mode || 'chat' }] : []);
+        const recovered = items.filter((item) => state.models.some((model) => model.id === item.modelId));
+        if (items.length && recovered.length === items.length) {
+          const notice = new Error(`模型列表已刷新，${recovered.map((item) => item.modelId).join('、')} 已恢复可用，请重新保存。`);
+          notice.code = 'MODEL_LIST_REFRESHED';
+          notice.details = error.details;
+          throw notice;
+        }
+        notifyUnavailableFavorites(result.dropped);
+      }
+    }
+    throw error;
   } finally { preferenceWritesInFlight = Math.max(0, preferenceWritesInFlight - 1); }
+}
+
+function refreshModelDialogCatalog() {
+  if (state.userRole === 'guest') return;
+  // Always offer a freshly authorized catalog in the picker.
+  syncModels().then((result) => {
+    if (result.changed && elements.modelDialog.open) renderModelList();
+  });
 }
 
 function openModelDialog() {
@@ -3916,6 +4185,7 @@ function openModelDialog() {
   elements.modelDialogDescription.textContent = '从当前可用模型中选择，并明确对话或生图模式。';
   elements.modelMode.disabled = false;
   elements.modelMode.value = state.selected?.mode || 'chat'; elements.modelSearch.value = ''; renderModelList(); elements.modelDialog.showModal(); requestAnimationFrame(() => elements.modelSearch.focus());
+  refreshModelDialogCatalog();
 }
 
 function cloneGroups() {
@@ -3945,6 +4215,10 @@ function renderConversationTitleModelSelect() {
   }
 }
 
+function modeLabelText(mode) {
+  return mode === 'image' ? '生图' : '对话';
+}
+
 function nextFavoriteCandidate(group) {
   const items = Array.isArray(group?.items) ? group.items : [];
   const existing = new Set(items.map((item) => `${item.mode}\0${item.modelId || item.model}`));
@@ -3952,11 +4226,22 @@ function nextFavoriteCandidate(group) {
   const modes = [...new Set([preferredMode, 'chat', 'image'])];
   for (const mode of modes) {
     const preferredId = state.selected?.mode === mode ? state.selected.modelId : preferredModel(mode);
+    const capable = state.models.filter((model) => modelSupportsMode(model, mode, { allowImageModeOverride: mode === 'image' }));
+    // For image mode every model is technically allowed (the server exempts
+    // it), but prefer models that actually generate images and only fall back
+    // to the override when no native image model is left.
+    const nativeIds = mode === 'image' ? state.models.filter((model) => model.modes.includes('image')).map((model) => model.id) : capable.map((model) => model.id);
+    const overrideIds = mode === 'image' ? capable.map((model) => model.id) : [];
+    const preferredFirst = mode !== 'image' || nativeIds.includes(preferredId);
     const candidates = [...new Set([
-      preferredId,
-      ...state.models.filter((model) => modelSupportsMode(model, mode, { allowImageModeOverride: mode === 'image' })).map((model) => model.id),
+      ...(preferredFirst ? [preferredId] : []),
+      ...nativeIds,
+      ...(preferredFirst ? [] : [preferredId]),
+      ...overrideIds,
     ].filter(Boolean))];
-    const modelId = candidates.find((candidate) => !existing.has(`${mode}\0${candidate}`));
+    const modelId = candidates.find((candidate) =>
+      !existing.has(`${mode}\0${candidate}`)
+      && state.models.some((entry) => entry.id === candidate && modelSupportsMode(entry, mode, { allowImageModeOverride: mode === 'image' })));
     if (modelId) return { modelId, mode };
   }
   return null;
@@ -3992,43 +4277,63 @@ function renderGroupsEditor(options = {}) {
     card.addEventListener('drop', (event) => {
       if (!event.dataTransfer.types.includes('text/x-light-chat-group')) return;
       event.preventDefault(); card.classList.remove('drag-over'); const sourceId = event.dataTransfer.getData('text/x-light-chat-group'); const sourceIndex = state.editingGroups.findIndex((item) => item.id === sourceId);
-      if (sourceIndex < 0 || sourceIndex === groupIndex) return; const [moved] = state.editingGroups.splice(sourceIndex, 1); const targetIndex = state.editingGroups.findIndex((item) => item.id === group.id); state.editingGroups.splice(targetIndex, 0, moved); renderGroupsEditor();
+      if (sourceIndex < 0 || sourceIndex === groupIndex) return; state.editingDirty = true; const [moved] = state.editingGroups.splice(sourceIndex, 1); const targetIndex = state.editingGroups.findIndex((item) => item.id === group.id); state.editingGroups.splice(targetIndex, 0, moved); renderGroupsEditor();
     });
     const heading = document.createElement('div'); heading.className = 'group-heading';
     const groupHandle = document.createElement('span'); groupHandle.className = 'drag-handle'; groupHandle.textContent = '⠿'; groupHandle.title = '拖动收藏组调整顺序'; groupHandle.draggable = true; groupHandle.addEventListener('dragstart', (event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/x-light-chat-group', group.id); });
     const name = document.createElement('input'); name.value = group.name; name.maxLength = 24; name.setAttribute('aria-label', '收藏组名称'); name.addEventListener('input', () => { group.name = name.value; });
-    const add = document.createElement('button'); add.type = 'button'; add.className = 'add-favorite-inline'; add.textContent = '＋ 添加模型'; add.setAttribute('aria-label', `向“${group.name}”添加收藏模型`); add.addEventListener('click', (event) => {
+    const add = document.createElement('button'); add.type = 'button'; add.className = 'add-favorite-inline'; add.textContent = '＋ 添加模型'; add.setAttribute('aria-label', `向“${group.name}”添加收藏模型`); add.addEventListener('click', async (event) => {
       event.preventDefault(); event.stopPropagation();
       if (group.items.length >= 20) { setDialogStatus(elements.settingsStatus, '每个收藏组最多添加 20 个模型', 'error'); return; }
+      if (state.userRole !== 'guest' && modelsAreStale()) {
+        setDialogStatus(elements.settingsStatus, '正在刷新可用模型…', 'pending');
+        const result = await syncModels();
+        if (result.failed) { setDialogStatus(elements.settingsStatus, '可用模型刷新失败，请稍后重试', 'error'); return; }
+        if (result.changed) {
+          const staleRows = collectUnavailableFavorites(state.models, state.editingGroups);
+          highlightFavoriteRows({ items: staleRows });
+          notifyUnavailableFavorites(staleRows);
+        }
+      }
       const candidate = nextFavoriteCandidate(group);
       if (!candidate) { setDialogStatus(elements.settingsStatus, '当前没有尚未加入该组的可用模型', 'error'); return; }
       const itemIndex = group.items.length;
+      state.editingDirty = true;
       group.items.push({ modelId: candidate.modelId, model: candidate.modelId, mode: candidate.mode, label: candidate.modelId });
       renderGroupsEditor({ focusFavorite: { groupId: group.id, itemIndex }, focusBlock: 'end' });
       setDialogStatus(elements.settingsStatus, `已添加 ${candidate.modelId}，保存设置后生效`, 'success');
     });
-    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '删除'; remove.addEventListener('click', () => { state.editingGroups.splice(groupIndex, 1); renderGroupsEditor(); });
+    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '删除'; remove.addEventListener('click', () => { state.editingDirty = true; state.editingGroups.splice(groupIndex, 1); renderGroupsEditor(); });
     heading.append(groupHandle, name, add, remove);
     const rows = document.createElement('div'); rows.className = 'favorite-rows';
     rows.addEventListener('dragover', (event) => { if (event.dataTransfer.types.includes('text/x-light-chat-favorite')) { event.preventDefault(); rows.classList.add('drag-over'); } });
     rows.addEventListener('dragleave', () => rows.classList.remove('drag-over'));
     rows.addEventListener('drop', (event) => {
       if (!event.dataTransfer.types.includes('text/x-light-chat-favorite') || event.target.closest('.favorite-row')) return;
-      event.preventDefault(); rows.classList.remove('drag-over'); const source = JSON.parse(event.dataTransfer.getData('text/x-light-chat-favorite')); const sourceGroup = state.editingGroups.find((item) => item.id === source.groupId); if (!sourceGroup?.items[source.itemIndex]) return; const [moved] = sourceGroup.items.splice(source.itemIndex, 1); group.items.push(moved); renderGroupsEditor();
+      event.preventDefault(); rows.classList.remove('drag-over'); const source = JSON.parse(event.dataTransfer.getData('text/x-light-chat-favorite')); const sourceGroup = state.editingGroups.find((item) => item.id === source.groupId); if (!sourceGroup?.items[source.itemIndex]) return; state.editingDirty = true; const [moved] = sourceGroup.items.splice(source.itemIndex, 1); group.items.push(moved); renderGroupsEditor();
     });
     group.items.forEach((item, itemIndex) => {
-      const row = document.createElement('div'); row.className = 'favorite-row'; row.dataset.favoriteGroupId = group.id; row.dataset.favoriteItemIndex = String(itemIndex);
+      const row = document.createElement('div'); row.className = 'favorite-row'; row.dataset.favoriteGroupId = group.id; row.dataset.favoriteItemIndex = String(itemIndex); row.dataset.favoriteModelId = item.modelId || item.model || '';
       row.addEventListener('dragover', (event) => { if (event.dataTransfer.types.includes('text/x-light-chat-favorite')) { event.preventDefault(); event.stopPropagation(); row.classList.add('drag-over'); } });
       row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
       row.addEventListener('drop', (event) => {
         if (!event.dataTransfer.types.includes('text/x-light-chat-favorite')) return;
         event.preventDefault(); event.stopPropagation(); row.classList.remove('drag-over'); const source = JSON.parse(event.dataTransfer.getData('text/x-light-chat-favorite')); const sourceGroup = state.editingGroups.find((candidate) => candidate.id === source.groupId); const targetGroup = state.editingGroups.find((candidate) => candidate.id === group.id); if (!sourceGroup?.items[source.itemIndex] || !targetGroup) return;
         if (sourceGroup === targetGroup && sourceGroup.items[source.itemIndex] === item) return;
+        state.editingDirty = true;
         const [moved] = sourceGroup.items.splice(source.itemIndex, 1); const targetIndex = targetGroup.items.findIndex((candidate) => candidate === item); targetGroup.items.splice(targetIndex < 0 ? targetGroup.items.length : targetIndex, 0, moved); renderGroupsEditor();
       });
       const itemHandle = document.createElement('span'); itemHandle.className = 'drag-handle'; itemHandle.textContent = '⠿'; itemHandle.title = '拖动模型调整顺序或移动到其他组'; itemHandle.draggable = true; itemHandle.addEventListener('dragstart', (event) => { event.stopPropagation(); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/x-light-chat-favorite', JSON.stringify({ groupId: group.id, itemIndex })); });
       const model = document.createElement('select'); model.setAttribute('aria-label', '模型');
-      for (const candidate of state.models.filter((entry) => modelSupportsMode(entry, item.mode, { allowImageModeOverride: item.mode === 'image' }))) { const option = document.createElement('option'); option.value = candidate.id; option.textContent = candidate.id; option.selected = candidate.id === item.modelId; model.append(option); }
+      const currentModelId = item.modelId || item.model;
+      const selectableModels = state.models.filter((entry) => modelSupportsMode(entry, item.mode, { allowImageModeOverride: item.mode === 'image' }));
+      if (currentModelId && !selectableModels.some((entry) => entry.id === currentModelId)) {
+        // The row references a model that is no longer available: keep it
+        // visible and explicitly marked instead of silently dropping it.
+        const staleOption = document.createElement('option'); staleOption.value = currentModelId; staleOption.textContent = `${currentModelId}（不可用）`; staleOption.selected = true; model.append(staleOption);
+        row.classList.add('favorite-row-stale');
+      }
+      for (const candidate of selectableModels) { const option = document.createElement('option'); option.value = candidate.id; option.textContent = candidate.id; option.selected = candidate.id === currentModelId; model.append(option); }
       model.addEventListener('change', () => { updateFavoriteModel(item, model.value); renderGroupsEditor(); });
       const mode = document.createElement('select'); mode.setAttribute('aria-label', '模式');
       for (const value of ['chat', 'image']) { const option = document.createElement('option'); option.value = value; option.textContent = value === 'chat' ? '对话' : '生图'; option.selected = value === item.mode; mode.append(option); }
@@ -4038,7 +4343,12 @@ function renderGroupsEditor(options = {}) {
         const currentModel = state.models.find((entry) => entry.id === currentModelId);
         if (!modelSupportsMode(currentModel, nextMode, { allowImageModeOverride: nextMode === 'image' })) {
           const first = state.models.find((entry) => modelSupportsMode(entry, nextMode));
-          if (first) updateFavoriteModel(item, first.id);
+          if (!first) {
+            mode.value = item.mode;
+            setDialogStatus(elements.settingsStatus, `当前没有支持${modeLabelText(nextMode)}模式的可用模型，无法切换`, 'error');
+            return;
+          }
+          updateFavoriteModel(item, first.id);
         }
         item.mode = nextMode;
         renderGroupsEditor();
@@ -4052,7 +4362,7 @@ function renderGroupsEditor(options = {}) {
         if (limit === DEFAULT_CONTEXT_TOKENS) delete state.editingModelContextLimits[item.modelId]; else state.editingModelContextLimits[item.modelId] = limit;
         $$('.favorite-context-limit', elements.groupsEditor).filter((input) => input !== contextLimit && input.dataset.modelId === item.modelId).forEach((input) => { input.value = String(limit); input.setAttribute('aria-invalid', 'false'); });
       });
-      const removeItem = document.createElement('button'); removeItem.type = 'button'; removeItem.textContent = '×'; removeItem.setAttribute('aria-label', '移除模型'); removeItem.addEventListener('click', () => { group.items.splice(itemIndex, 1); renderGroupsEditor(); });
+      const removeItem = document.createElement('button'); removeItem.type = 'button'; removeItem.textContent = '×'; removeItem.setAttribute('aria-label', '移除模型'); removeItem.addEventListener('click', () => { state.editingDirty = true; group.items.splice(itemIndex, 1); renderGroupsEditor(); });
       row.append(itemHandle, model, mode, label, contextLimit, removeItem); rows.append(row);
     });
     card.append(heading, rows); elements.groupsEditor.append(card);
@@ -4117,7 +4427,7 @@ async function fetchGuestModels() {
     const apiKey = elements.guestApiKey.value.trim() || state.guestApiKey;
     const catalog = await loadGuestDirectModels({ endpoint, apiKey, allowedModels: [] });
     state.guestCatalog = catalog;
-    state.models = state.guestCatalog;
+    setModels(state.guestCatalog);
     initializeTranslationModel();
     state.selected = normalizeSelection(state.selected);
     state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
@@ -4157,7 +4467,7 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
     const apiKey = pendingGuestKeyClear ? '' : (elements.guestApiKey.value.trim() || state.guestApiKey);
     if (!endpoint && !apiKey && !pendingGuestKeyClear) {
       const saved = saveGuestLocalConfig({ endpoint: '', apiKey: '', allowedModels: [] });
-      state.guestCatalog = []; state.models = []; state.selected = null; state.preferences.favoriteGroups = [];
+      state.guestCatalog = []; setModels([]); state.selected = null; state.preferences.favoriteGroups = [];
       renderGroupsEditor(); updateSelectionUi(); renderGuestModelSelect();
       setDialogStatus(elements.settingsStatus, '尚未配置游客模型连接', 'success');
       return saved;
@@ -4165,7 +4475,7 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
     if (!endpoint) throw new Error('请先填写 API 服务端点');
     if (!apiKey && pendingGuestKeyClear) {
       const saved = saveGuestLocalConfig({ endpoint, apiKey: '', allowedModels: [] });
-      state.guestCatalog = []; state.models = []; state.selected = null; state.preferences.favoriteGroups = [];
+      state.guestCatalog = []; setModels([]); state.selected = null; state.preferences.favoriteGroups = [];
       pendingGuestKeyClear = false; renderGroupsEditor(); updateSelectionUi(); renderGuestModelSelect();
       setDialogStatus(elements.settingsStatus, '游客 API 密钥已从本机浏览器清除', 'success');
       return saved;
@@ -4174,7 +4484,7 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
     const catalog = await loadGuestDirectModels({ endpoint, apiKey, allowedModels: [] });
     const saved = saveGuestLocalConfig({ endpoint, apiKey, allowedModels: catalog.map((model) => model.id) });
     state.guestCatalog = catalog;
-    state.models = catalog;
+    setModels(catalog);
     pendingGuestKeyClear = false;
     elements.guestClearApiKeyButton.hidden = !state.guestSettings.hasApiKey;
     initializeTranslationModel();
@@ -4221,8 +4531,23 @@ function openSettings(options = {}) {
   if (preferenceContextMutationInFlight) { setStatus('收藏设置正在更新，请稍候', 'error'); return; }
   const focusFavorite = options?.focusFavorite;
   state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models);
-  state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
-  state.editingGroups = cloneGroups(); state.editingModelContextLimits = { ...state.preferences.modelContextLimits }; state.editingConversationTitleModel = availableConversationTitleModel(); state.editingReadingMode = state.readingMode; applyReadingMode(state.editingReadingMode); setDialogStatus(elements.settingsStatus, ''); renderConversationTitleModelSelect(); renderGroupsEditor({ preserveScroll: false, focusFavorite }); elements.settingsDialog.showModal();
+  state.editingGroups = cloneGroups(); state.editingModelContextLimits = { ...state.preferences.modelContextLimits }; state.editingConversationTitleModel = availableConversationTitleModel(); state.editingReadingMode = state.readingMode; applyReadingMode(state.editingReadingMode); setDialogStatus(elements.settingsStatus, ''); renderConversationTitleModelSelect(); renderGroupsEditor({ preserveScroll: false, focusFavorite }); state.editingDirty = false; elements.settingsDialog.showModal();
+  if (state.userRole !== 'guest') {
+    // Refresh the available-model list as soon as the dialog opens so the
+    // group editor never offers models that are already unavailable.
+    syncModels().then((result) => {
+      if (result.changed) notifyUnavailableFavorites(result.dropped);
+      if (!elements.settingsDialog.open || state.editingDirty) return;
+      if (result.changed) {
+        state.editingGroups = cloneGroups();
+        state.editingModelContextLimits = { ...state.preferences.modelContextLimits };
+        state.editingConversationTitleModel = availableConversationTitleModel();
+        renderConversationTitleModelSelect();
+        renderGroupsEditor({ preserveScroll: true });
+        updateSelectionUi();
+      }
+    });
+  }
   const isGuest = state.userRole === 'guest';
   elements.guestConnectionSettings.hidden = !isGuest;
   const isNativeApp = Boolean(window.LightChatApp?.isNativeApp?.() || navigator.userAgent.includes('light-chat-android'));
@@ -7519,6 +7844,41 @@ function bindEvents() {
   bindSidebarResize();
   bindSidebarRolesResize();
   elements.messageList.addEventListener('click', (event) => {
+    const renderButton = event.target.closest('.code-toolbar .code-render-button');
+    if (renderButton && elements.messageList.contains(renderButton)) {
+      event.preventDefault(); event.stopPropagation();
+      const block = renderButton.closest('.code-block');
+      if (block) {
+        const isRendered = block.classList.toggle('is-rendered');
+        renderButton.classList.toggle('active', isRendered);
+        renderButton.setAttribute('aria-pressed', String(isRendered));
+        renderButton.title = isRendered ? '查看 LaTeX 源码' : '渲染 LaTeX 预览';
+        renderButton.setAttribute('aria-label', isRendered ? '查看 LaTeX 源码' : '渲染 LaTeX 预览');
+        let preview = block.querySelector('.latex-preview');
+        if (isRendered) {
+          if (!preview) {
+            preview = document.createElement('div');
+            preview.className = 'latex-preview';
+            const code = block.querySelector('pre code');
+            renderLatexPreview(preview, code?.textContent || '');
+            block.append(preview);
+          }
+        }
+      }
+      return;
+    }
+    const wrapButton = event.target.closest('.code-toolbar .code-wrap-button');
+    if (wrapButton && elements.messageList.contains(wrapButton)) {
+      event.preventDefault(); event.stopPropagation();
+      const block = wrapButton.closest('.code-block');
+      if (block) {
+        const isNowrap = block.classList.toggle('is-nowrap');
+        wrapButton.classList.toggle('active', !isNowrap);
+        wrapButton.setAttribute('aria-pressed', String(!isNowrap));
+        wrapButton.title = isNowrap ? '开启自动换行' : '关闭自动换行';
+      }
+      return;
+    }
     const button = event.target.closest('.code-toolbar button, .quote-copy-button');
     if (!button || !elements.messageList.contains(button)) return;
     event.preventDefault(); event.stopPropagation();
@@ -7685,14 +8045,44 @@ function bindEvents() {
     if (modelId) setSelection(modelId, mode); else setStatus(`当前没有可用的${mode === 'image' ? '生图' : '对话'}模型`, 'error');
   });
   elements.streamButton.addEventListener('click', () => { state.stream = !state.stream; localStorage.setItem(STREAM_KEY, String(state.stream)); elements.streamButton.classList.toggle('active', state.stream); elements.streamButton.setAttribute('aria-pressed', String(state.stream)); elements.streamText.textContent = state.stream ? '流式' : '非流式'; if (state.userRole !== 'guest') savePreferences({ ...state.preferences, stream: state.stream }).catch(() => {}); });
-  elements.addGroup.addEventListener('click', () => { state.editingGroups.push({ id: `group-${Date.now().toString(36)}`, name: '新收藏组', items: [] }); renderGroupsEditor(); });
+  elements.addGroup.addEventListener('click', () => { state.editingGroups.push({ id: `group-${Date.now().toString(36)}`, name: '新收藏组', items: [] }); state.editingDirty = true; renderGroupsEditor(); });
+  // Any edit inside the group editor means a background catalog refresh must
+  // not re-clone and overwrite what the user is typing.
+  elements.groupsEditor.addEventListener('input', () => { state.editingDirty = true; }, true);
+  elements.groupsEditor.addEventListener('change', () => { state.editingDirty = true; }, true);
   elements.addRoleFolder.addEventListener('click', () => { state.editingRoleLibrary.folders.push({ id: `folder-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, name: '新文件夹', roles: [] }); renderRolesEditor(); });
   elements.saveRoles.addEventListener('click', saveRoleLibrary);
   for (const input of $$('input[name="readingMode"]', elements.settingsDialog)) input.addEventListener('change', () => { if (!input.checked) return; state.editingReadingMode = applyReadingMode(input.value); });
   elements.settingsDialog.addEventListener('close', () => applyReadingMode(state.readingMode));
   elements.saveSettings.addEventListener('click', async () => { if ($$('.favorite-context-limit', elements.groupsEditor).some((input) => input.getAttribute('aria-invalid') === 'true')) { setDialogStatus(elements.settingsStatus, '最大上下文 token 必须为 1024–16777216 的整数', 'error'); return; } setDialogStatus(elements.settingsStatus, '正在保存…'); try { if (state.userRole === 'guest') { await saveGuestApiSettings({ showStatus: false }); } await savePreferences({ favoriteGroups: state.editingGroups, modelContextLimits: state.editingModelContextLimits, conversationTitleModel: state.editingConversationTitleModel, readingMode: state.editingReadingMode }); state.readingMode = applyReadingMode(state.editingReadingMode, { persist: true }); setDialogStatus(elements.settingsStatus, '设置已保存', 'success'); setTimeout(() => elements.settingsDialog.close(), 350); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); } });
   elements.conversationTitleModel.addEventListener('change', () => { state.editingConversationTitleModel = elements.conversationTitleModel.value; });
-  elements.refreshModels.addEventListener('click', async () => { elements.refreshModels.disabled = true; setDialogStatus(elements.settingsStatus, '正在刷新模型…'); try { const payload = state.userRole === 'guest' ? { models: await loadGuestDirectModels() } : await jsonRequest('/api/models?refresh=1'); state.models = payload.models || []; state.guestCatalog = state.userRole === 'guest' ? state.models : state.guestCatalog; initializeTranslationModel(); state.selected = normalizeSelection(state.selected); state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models); state.editingGroups = sanitizeFavoriteGroups(state.editingGroups, state.models); state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models); state.editingModelContextLimits = sanitizeContextLimits(state.editingModelContextLimits, state.models); renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi(); setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型`, 'success'); setSettingsConnectionText(state.userRole === 'guest' && !state.guestSettings.endpoint ? '尚未配置游客模型连接' : `已加载 ${state.models.length} 个模型`, state.userRole !== 'guest' || state.models.length > 0); } catch (error) { setDialogStatus(elements.settingsStatus, error.message, 'error'); setSettingsConnectionText('模型服务连接失败', false); } finally { elements.refreshModels.disabled = false; } });
+  elements.refreshModels.addEventListener('click', async () => {
+    elements.refreshModels.disabled = true;
+    setDialogStatus(elements.settingsStatus, '正在刷新模型…');
+    try {
+      if (state.userRole === 'guest') {
+        setModels(await loadGuestDirectModels());
+        state.guestCatalog = state.models;
+      } else {
+        const result = await syncModels({ force: true });
+        if (result.failed) throw result.error;
+      }
+      initializeTranslationModel();
+      state.selected = normalizeSelection(state.selected);
+      const removed = collectUnavailableFavorites(state.models);
+      state.preferences.favoriteGroups = sanitizeFavoriteGroups(state.preferences.favoriteGroups, state.models);
+      state.editingGroups = sanitizeFavoriteGroups(state.editingGroups, state.models);
+      state.preferences.modelContextLimits = sanitizeContextLimits(state.preferences.modelContextLimits, state.models);
+      state.editingModelContextLimits = sanitizeContextLimits(state.editingModelContextLimits, state.models);
+      renderConversationTitleModelSelect(); renderGroupsEditor(); updateSelectionUi();
+      const removedNote = removed.length ? `；已移除不可用收藏：${describeUnavailableFavorites(removed)}` : '';
+      setDialogStatus(elements.settingsStatus, `已加载 ${state.models.length} 个模型${removedNote}`, removed.length ? 'error' : 'success');
+      setSettingsConnectionText(state.userRole === 'guest' && !state.guestSettings.endpoint ? '尚未配置游客模型连接' : `已加载 ${state.models.length} 个模型`, state.userRole !== 'guest' || state.models.length > 0);
+    } catch (error) {
+      setDialogStatus(elements.settingsStatus, error.message, 'error');
+      setSettingsConnectionText('模型服务连接失败', false);
+    } finally { elements.refreshModels.disabled = false; }
+  });
   elements.fetchGuestModels.addEventListener('click', () => { void fetchGuestModels(); });
   elements.guestClearApiKeyButton.addEventListener('click', clearGuestApiKey);
   elements.guestApiKey.addEventListener('input', () => { pendingGuestKeyClear = false; });
@@ -7945,7 +8335,7 @@ async function initialize() {
           jsonRequest('/api/preferences').catch(() => ({ favoriteGroups: [], selected: null })),
           jsonRequest('/api/roles').catch(() => ({ version: 1, folders: [] })),
         ]);
-    state.models = modelsPayload.models || [];
+    setModels(modelsPayload.models);
     state.roleLibrary = rolesPayload?.version === 1 && Array.isArray(rolesPayload.folders) ? rolesPayload : { version: 1, folders: [] };
     const validRoleIds = new Set(allRoles().map((role) => role.id));
     state.openRoleConversationIds = new Set([...state.openRoleConversationIds].filter((id) => id === DEFAULT_ROLE_CONVERSATIONS_ID || validRoleIds.has(id)));
