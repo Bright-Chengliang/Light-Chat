@@ -105,7 +105,7 @@ const state = {
   roleLibrary: { version: 1, folders: [] }, selectedRoleId: localStorage.getItem(ROLE_SELECTION_KEY) || '', openRoleFolders: new Set(), openRoleConversationIds: new Set(), editingRoleLibrary: null,
   historyFolders: [], openHistoryFolders: new Set(), closedFavoriteFolders: new Set(), historyUnfiledCollapsed: false, favoriteUnfiledCollapsed: false, historySearch: '',
   contextConversationId: '', contextRoleFolderId: '', contextRoleId: '', contextFavoriteGroupId: '', contextFavoriteModelId: '', contextFavoriteMode: '', contextRecentFileId: '', contextAssistantMessageId: '', renamingConversationId: '', deletedConversationIds: new Set(),
-  pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingConversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', pendingRoleTransfer: null, pendingConversationFolderMove: null,
+  pendingAttachments: [], messageQueues: new Map(), blockedMessageQueues: new Set(), busyConversationIds: new Set(), editingGroups: [], editingModelContextLimits: {}, editingConversationTitleModel: DEFAULT_CONVERSATION_TITLE_MODEL, editingWorkflows: [], workflowGraph: { selectedWorkflowId: '', selectedNodeId: '', pendingSource: '' }, editingMessageId: '', editingReasoningMessageId: '', pendingRoleTransfer: null, pendingConversationFolderMove: null,
   followOutput: true, readingMode: initialReadingMode, editingReadingMode: initialReadingMode, sidebarDrawerStack: ['root'], sidebarCollapsed: (() => { try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'; } catch { return false; } })(), appView: 'chat', translationHistory: [], translationModelId: '', modelDialogTarget: 'chat', translationOutput: '', recentFiles: [], recentFilesLoading: false, recentFilesPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, favoriteMedia: [], favoriteMediaLoading: false, favoriteMediaPage: { page: 1, pageSize: MEDIA_PAGE_SIZE, total: 0, totalPages: 1 }, workflows: [], workflowRunning: false, selectedWorkflow: null,
 };
 let globalFileDragDepth = 0;
@@ -820,6 +820,7 @@ function createConversation({ activate = true, roleId = validRoleId(state.select
   if (activate) {
     state.currentId = conversation.id;
     state.editingMessageId = '';
+    state.editingReasoningMessageId = '';
     resumeOutputFollow();
     restoreConversationDraft(conversation.id);
   }
@@ -987,7 +988,7 @@ function activateWorkflow(workflow, { forceNew = false } = {}) {
   if (model?.imageOptions?.sizes?.includes(workflow.defaultSize)) elements.imageSize.value = workflow.defaultSize;
   const reusable = forceNew ? null : latestReusableWorkflowConversation(workflow.id);
   if (reusable) {
-    state.currentId = reusable.id; state.editingMessageId = ''; reusable.updatedAt = Date.now(); resumeOutputFollow(); saveConversations(); renderConversation();
+    state.currentId = reusable.id; state.editingMessageId = ''; state.editingReasoningMessageId = ''; reusable.updatedAt = Date.now(); resumeOutputFollow(); saveConversations(); renderConversation();
   } else createConversation({ roleId: '', workflowId: workflow.id, close: false });
   openSidebarDrawer(`workflow:${workflow.id}`); openSidebar();
   renderWorkflowComposer(); renderWorkflows(); autoResize();
@@ -1699,6 +1700,7 @@ function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar
   }
   restoreConversationRequest(conversation);
   state.editingMessageId = '';
+  state.editingReasoningMessageId = '';
   resumeOutputFollow();
   restoreConversationDraft(conversationId);
   renderWorkflowComposer(); renderWorkflows(); renderConversation(); updateSendState();
@@ -3034,7 +3036,7 @@ function switchAssistantVariant(messageId, direction) {
   const next = Math.max(0, Math.min(message.variants.length - 1, (message.variantIndex || 0) + direction));
   if (next === message.variantIndex) return;
   showAssistantVariant(conversation, message, message.variants[next], next);
-  state.editingMessageId = ''; conversation.updatedAt = Date.now(); resumeOutputFollow(); saveConversations(); renderConversation(); setStatus(`已切换到第 ${next + 1}/${message.variants.length} 个回答及其后续对话`, 'success');
+  state.editingMessageId = ''; state.editingReasoningMessageId = ''; conversation.updatedAt = Date.now(); resumeOutputFollow(); saveConversations(); renderConversation(); setStatus(`已切换到第 ${next + 1}/${message.variants.length} 个回答及其后续对话`, 'success');
 }
 
 function createMessageActions(message) {
@@ -3211,10 +3213,7 @@ function createMessageElement(message) {
 
   const text = document.createElement('div'); text.className = `message-text${message.streaming ? ' streaming' : ''}`; renderRichText(text, message.streaming ? streamingMarkdownSource(message.content) : message.content, { streaming: message.streaming, sourceValue: message.content });
   if (message.reasoning) {
-    const details = document.createElement('details'); details.className = 'reasoning-block';
-    const summary = document.createElement('summary'); summary.textContent = '查看思考过程';
-    const content = document.createElement('div'); content.className = 'message-text reasoning-content'; renderRichText(content, message.reasoning, { streaming: message.streaming, sourceValue: message.reasoning });
-    details.append(summary, content); body.append(details);
+    body.append(createReasoningBlock(message));
   }
   if (state.editingMessageId === message.id) {
     body.append(createMessageEditor(message));
@@ -3250,6 +3249,83 @@ function createMessageElement(message) {
     messageActionsObserver.observe(actions);
   });
   return article;
+}
+
+function createReasoningBlock(message) {
+  const details = document.createElement('details'); details.className = 'reasoning-block';
+  const isEditing = state.editingReasoningMessageId === message.id;
+  if (isEditing) details.open = true;
+
+  const summary = document.createElement('summary'); summary.className = 'reasoning-summary';
+  const title = document.createElement('span'); title.className = 'reasoning-title'; title.textContent = '查看思考过程';
+
+  const actions = document.createElement('span'); actions.className = 'reasoning-actions';
+
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.className = 'reasoning-action-btn reasoning-copy-button';
+  copy.textContent = '📋';
+  copy.title = '复制思考过程';
+  copy.setAttribute('aria-label', '复制思考过程');
+  copy.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void copyText(message.reasoning || '', copy);
+  });
+
+  const edit = document.createElement('button');
+  edit.type = 'button';
+  edit.className = 'reasoning-action-btn reasoning-edit-button';
+  edit.textContent = '✏️';
+  edit.title = '编辑思考过程';
+  edit.setAttribute('aria-label', '编辑思考过程');
+  edit.disabled = Boolean(message.streaming || isConversationBusy());
+  edit.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    state.followOutput = false;
+    state.editingReasoningMessageId = message.id;
+    renderConversation();
+  });
+
+  actions.append(copy, edit);
+  summary.append(title, actions);
+  details.append(summary);
+
+  if (isEditing) {
+    const editor = document.createElement('div'); editor.className = 'reasoning-editor';
+    const textarea = document.createElement('textarea');
+    textarea.value = message.reasoning || '';
+    textarea.maxLength = MAX_STORED_MESSAGE_CHARS;
+    textarea.rows = Math.min(14, Math.max(4, (message.reasoning || '').split('\n').length + 1));
+    textarea.setAttribute('aria-label', '编辑思考过程');
+
+    const footer = document.createElement('div'); footer.className = 'reasoning-editor-footer';
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = '取消';
+    cancel.addEventListener('click', () => {
+      state.editingReasoningMessageId = '';
+      renderConversation();
+    });
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'primary-button';
+    save.textContent = '保存';
+    save.addEventListener('click', () => {
+      saveEditedReasoning(message.id, textarea.value);
+    });
+
+    footer.append(cancel, save);
+    editor.append(textarea, footer);
+    details.append(editor);
+  } else {
+    const content = document.createElement('div'); content.className = 'message-text reasoning-content';
+    renderRichText(content, message.reasoning, { streaming: message.streaming, sourceValue: message.reasoning });
+    details.append(content);
+  }
+
+  return details;
 }
 
 function createMessageEditor(message) {
@@ -3391,6 +3467,27 @@ function saveEditedMessage(messageId, content, attachments, images) {
   saveConversations(); renderConversation(); setStatus('历史消息已保存', 'success');
 }
 
+function saveEditedReasoning(messageId, nextReasoning) {
+  const conversation = currentConversation();
+  if (!conversation || isConversationBusy(conversation.id)) return;
+  const message = conversation.messages.find((item) => item.id === messageId);
+  if (!message) return;
+  const trimmed = typeof nextReasoning === 'string' ? nextReasoning.trim() : '';
+  if (trimmed.length > MAX_STORED_MESSAGE_CHARS || /\0/.test(trimmed)) {
+    setStatus('思考过程包含无效字符或超过本机历史安全保存上限', 'error');
+    return;
+  }
+  message.reasoning = trimmed;
+  if (message.role === 'assistant' && message.variants?.[message.variantIndex]) {
+    message.variants[message.variantIndex].reasoning = trimmed;
+  }
+  conversation.updatedAt = Date.now();
+  state.editingReasoningMessageId = '';
+  saveConversations();
+  renderConversation();
+  setStatus('思考过程已保存', 'success');
+}
+
 function deleteSingleMessage(messageId) {
   const conversation = currentConversation();
   const index = conversation?.messages.findIndex((message) => message.id === messageId) ?? -1;
@@ -3400,6 +3497,7 @@ function deleteSingleMessage(messageId) {
   if (!confirm(`确认只删除这条${label}？后续消息会保留，此操作无法撤销。`)) return;
   conversation.messages.splice(index, 1);
   if (state.editingMessageId === messageId) state.editingMessageId = '';
+  if (state.editingReasoningMessageId === messageId) state.editingReasoningMessageId = '';
   const firstUser = conversation.messages.find((item) => item.role === 'user');
   if (!conversation.titleCustomized) conversation.title = firstUser ? fallbackConversationTitle(firstUser.content, firstUser.attachments) : '新对话';
   conversation.updatedAt = Date.now();
@@ -3427,7 +3525,7 @@ function branchFromMessage(messageId) {
     folderId: state.historyFolders.some((folder) => folder.id === source.folderId) ? source.folderId : '',
     messages: branchMessages,
   };
-  state.conversations.unshift(branch); state.currentId = branch.id; state.editingMessageId = ''; resumeOutputFollow();
+  state.conversations.unshift(branch); state.currentId = branch.id; state.editingMessageId = ''; state.editingReasoningMessageId = ''; resumeOutputFollow();
   saveConversations(); renderConversation(); updateSendState(); setStatus(`已从第 ${index + 1} 条消息创建分支`, 'success'); elements.input.focus();
 }
 
@@ -3608,9 +3706,7 @@ function updateStreamingMessage(message, conversationId = state.currentId) {
   const renderedReasoning = streamingMarkdownSource(message.reasoning);
   if (message.reasoning) {
     if (!reasoning) {
-      reasoning = document.createElement('details'); reasoning.className = 'reasoning-block';
-      const summary = document.createElement('summary'); summary.textContent = '查看思考过程';
-      const content = document.createElement('div'); content.className = 'message-text reasoning-content'; reasoning.append(summary, content);
+      reasoning = createReasoningBlock(message);
       text.before(reasoning);
     }
     const content = $('.reasoning-content', reasoning);

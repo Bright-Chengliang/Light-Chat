@@ -633,3 +633,16 @@ test('latex code blocks provide a one-click rendered preview toggle button', () 
   assert.match(publicSource, /\.latex-preview \{/);
 });
 
+test('reasoning block provides one-click copy and inline edit buttons', () => {
+  assert.match(publicSource, /function createReasoningBlock\(message\)/);
+  assert.match(publicSource, /reasoning-copy-button/);
+  assert.match(publicSource, /复制思考过程/);
+  assert.match(publicSource, /reasoning-edit-button/);
+  assert.match(publicSource, /编辑思考过程/);
+  assert.match(publicSource, /function saveEditedReasoning\(messageId, nextReasoning\)/);
+  assert.match(publicSource, /state\.editingReasoningMessageId/);
+  assert.match(publicSource, /\.reasoning-summary/);
+  assert.match(publicSource, /\.reasoning-actions/);
+  assert.match(publicSource, /\.reasoning-editor/);
+});
+
