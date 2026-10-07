@@ -216,6 +216,22 @@
     </div>
   </dialog>
 
+  <dialog class="app-dialog favorite-model-picker" id="favoriteModelPicker" aria-labelledby="favoriteModelPickerTitle">
+    <div class="dialog-shell">
+      <header><div><p class="eyebrow">Model browser</p><h2 id="favoriteModelPickerTitle">选择模型</h2><p id="favoriteModelPickerDescription"></p></div><button class="icon-button dialog-close" data-close-dialog="favoriteModelPicker" type="button" aria-label="关闭">×</button></header>
+      <div class="favorite-model-picker-controls">
+        <input id="favoriteModelPickerSearch" type="search" placeholder="搜索模型 ID…" aria-label="搜索模型" autocomplete="off">
+        <div class="favorite-model-picker-modes" role="radiogroup" aria-label="模式">
+          <button type="button" role="radio" data-picker-mode="chat">对话</button>
+          <button type="button" role="radio" data-picker-mode="image">生图</button>
+        </div>
+      </div>
+      <p class="favorite-model-picker-count" id="favoriteModelPickerCount" aria-live="polite"></p>
+      <div class="favorite-model-picker-list" id="favoriteModelPickerList"></div>
+      <footer><span class="favorite-model-picker-selection" id="favoriteModelPickerSelection"></span><button class="secondary-button" data-close-dialog="favoriteModelPicker" type="button">取消</button><button class="primary-button" id="favoriteModelPickerConfirm" type="button">添加</button></footer>
+    </div>
+  </dialog>
+
   <dialog class="app-dialog settings-dialog" id="settingsDialog" aria-labelledby="settingsDialogTitle">
     <div class="dialog-shell wide-dialog">
       <header><div><p class="eyebrow">Preferences</p><h2 id="settingsDialogTitle">偏好设置</h2><p>调整对话显示宽度、收藏组与每个模型的上下文上限。</p></div><button class="icon-button dialog-close" data-close-dialog="settingsDialog" type="button" aria-label="关闭">×</button></header>

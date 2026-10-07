@@ -192,9 +192,24 @@ test('administrator history uses the server as the only persistent store and cle
   assert.match(publicSource, /function clearAdministratorBrowserConversationData\(\)/);
   assert.match(publicSource, /localStorage\.removeItem\(STORAGE_KEY\);/);
   assert.match(publicSource, /if \(state\.userRole === 'admin'\) \{ clearAdministratorBrowserConversationData\(\); return; \}/);
-  assert.match(publicSource, /const payload = await jsonRequest\('\/api\/conversations'\);/);
-  assert.match(publicSource, /const merged = mergeConversations\(\[\], payload\.conversations\);\s+state\.conversations = merged;\s+clearAdministratorBrowserConversationData\(\);/);
   assert.doesNotMatch(publicSource, /ADMIN_CONVERSATION_RECOVERY_KEY|loadAdministratorBrowserRecovery|saveAdministratorBrowserRecovery/);
+});
+
+test('administrator history loads lazily: metadata index first, messages on demand, stubs never sent as full conversations', () => {
+  assert.match(publicSource, /jsonRequest\('\/api\/conversations\/index', \{ cache: 'no-cache' \}\)/);
+  assert.match(publicSource, /state\.conversations = \[\];\s+applyAdminConversationIndex\(payload\);\s+clearAdministratorBrowserConversationData\(\);/);
+  assert.match(publicSource, /jsonRequest\(`\/api\/conversations\/\$\{encodeURIComponent\(conversationId\)\}`\)/);
+  // Stubs only ever produce metadata patches; full payloads come from loaded conversations.
+  assert.match(publicSource, /const snapshot = stub \? conversationMetaFields\(conversation\) : structuredClone\(conversation\);\s+if \(stub\) metas\.push\(snapshot\);/);
+  assert.match(publicSource, /method: 'PATCH'/);
+  assert.doesNotMatch(publicSource, /method: 'PUT', headers: \{ 'Content-Type': 'application\/json' \}, body: JSON\.stringify\(\{ version: 1, folders: foldersSnapshot, conversations: snapshot/);
+  // An emptied history must be declared explicitly so the server can refuse accidental wipes.
+  assert.match(publicSource, /clearedIds\.push\(conversation\.id\)/);
+  // Unloaded conversations cannot be sent to or reused as blank conversations.
+  assert.match(publicSource, /if \(isConversationStub\(conversation\)\) \{ if \(!queuedDraft\) setStatus\('对话仍在加载，请稍候再发送', 'error'\); return false; \}/);
+  assert.match(publicSource, /&& !isConversationStub\(conversation\)\s+&& conversation\.messages\.length === 0/);
+  // The IndexedDB mirror is dropped on sign-out.
+  assert.match(publicSource, /finally \{ await conversationCacheClear\(\); location\.replace\('\/'\); \}/);
 });
 
 test('the global new-conversation action exits an active packaged workflow', () => {
@@ -646,3 +661,22 @@ test('reasoning block provides one-click copy and inline edit buttons', () => {
   assert.match(publicSource, /\.reasoning-editor/);
 });
 
+
+test('mobile layout keeps streamed content and the composer inside the viewport', () => {
+  // An implicit auto grid column grows to the widest child's min-content and
+  // pushed the conversation and composer off-screen while long lines streamed.
+  assert.match(publicSource, /\.main-panel \{[^}]*grid-template-columns: minmax\(0, 1fr\);[^}]*\}/);
+  assert.match(publicSource, /\.main-panel > \* \{ min-width: 0; \}/);
+  // Phone dialogs must override the UA dialog max-width cap.
+  assert.match(publicSource, /\.app-dialog \{ width: calc\(100vw - 16px\); max-width: calc\(100vw - 16px\);/);
+});
+
+test('model pickers use the full composer width and give model IDs room', () => {
+  // Static pickers position each dropdown against the two-picker row (full width).
+  assert.match(publicSource, /\.quick-model-picker \{ position: static; min-width: 0; \}/);
+  assert.match(publicSource, /\.quick-model-chip span \{ white-space: normal; overflow-wrap: anywhere;/);
+  // The settings dialog scrolls as a whole instead of a squeezed nested list.
+  assert.doesNotMatch(publicSource, /\.groups-editor \{[^}]*max-height: 440px/);
+  assert.match(publicSource, /\.favorite-row > :nth-child\(2\) \{ grid-column: 2 \/ 4; grid-row: 1;/);
+  assert.match(publicSource, /\.model-list \{[^}]*max-height: none;[^}]*flex: 1 1 auto;/);
+});
