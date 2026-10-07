@@ -3,3 +3,8 @@
 # (the Windows default) that would otherwise mark the whole tree stale.
 # Binaries are auto-detected and left untouched.
 * text=auto eol=lf
+# cmd.exe mis-parses LF-only batch files (labels, `if (...)` blocks, `set`
+# lines split into garbage commands). Batch files are always CRLF, which is
+# still one deterministic byte form on every platform.
+*.cmd text eol=crlf
+*.bat text eol=crlf
