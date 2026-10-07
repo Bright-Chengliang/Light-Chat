@@ -20,6 +20,7 @@ const elements = {
   streamButton: $('#streamButton'), streamText: $('#streamText'), webSearchToggle: $('#webSearchToggle'), webSearchText: $('#webSearchText'), headerModelPicker: $('#headerModelPicker'), headerModelMenu: $('#headerModelMenu'), modelButton: $('#modelButton'), modelButtonText: $('#modelButtonText'),
   settingsButton: $('#settingsButton'), modelDialog: $('#modelDialog'), modelSearch: $('#modelSearchInput'),
   modelMode: $('#modelModeSelect'), modelList: $('#modelList'), openSettingsFromModel: $('#openSettingsFromModel'),
+  favoriteModelPicker: $('#favoriteModelPicker'), favoriteModelPickerTitle: $('#favoriteModelPickerTitle'), favoriteModelPickerDescription: $('#favoriteModelPickerDescription'), favoriteModelPickerSearch: $('#favoriteModelPickerSearch'), favoriteModelPickerCount: $('#favoriteModelPickerCount'), favoriteModelPickerList: $('#favoriteModelPickerList'), favoriteModelPickerSelection: $('#favoriteModelPickerSelection'), favoriteModelPickerConfirm: $('#favoriteModelPickerConfirm'),
   settingsDialog: $('#settingsDialog'), groupsEditor: $('#groupsEditor'), addGroup: $('#addGroupButton'), conversationTitleModel: $('#conversationTitleModelSelect'),
   saveSettings: $('#saveSettingsButton'), settingsStatus: $('#settingsStatus'), refreshModels: $('#refreshModelsButton'),
   guestConnectionSettings: $('#guestConnectionSettings'), guestEndpoint: $('#guestEndpointInput'), guestApiKey: $('#guestApiKeyInput'), guestClearApiKeyButton: $('#guestClearApiKeyButton'), fetchGuestModels: $('#fetchGuestModelsButton'), guestAvailableModels: $('#guestAvailableModels'), saveGuestApi: $('#saveGuestApiButton'), guestApiStatus: $('#guestApiStatus'), settingsConnectionText: $('#settingsConnectionText'),
@@ -112,7 +113,6 @@ let globalFileDragDepth = 0;
 let editingAttachmentDropHandler = null;
 let adminConversationSyncQueue = Promise.resolve();
 let adminConversationSyncTimer = null;
-let adminConversationRevision = 0;
 let adminConversationSyncFailed = false;
 const titleGenerationConversationIds = new Set();
 let preferredSidebarWidth = Number.parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY) || '', 10);
@@ -167,7 +167,14 @@ function mergeConversations(localConversations, serverConversations, deletedIds 
     const existing = merged.get(conversation.id);
     if (!existing || conversation.updatedAt >= existing.updatedAt) merged.set(conversation.id, conversation);
   }
-  return [...merged.values()].sort((left, right) => right.updatedAt - left.updatedAt).slice(0, conversationStorageLimit());
+  const all = [...merged.values()].sort((left, right) => right.updatedAt - left.updatedAt);
+  const limit = conversationStorageLimit();
+  if (all.length <= limit) return all;
+  const favorites = all.filter((c) => Number.isFinite(c.favoritedAt) && c.favoritedAt > 0);
+  const nonFavorites = all.filter((c) => !Number.isFinite(c.favoritedAt) || c.favoritedAt <= 0);
+  const remainingBudget = Math.max(0, limit - favorites.length);
+  const keptNonFavorites = nonFavorites.slice(0, remainingBudget);
+  return [...favorites, ...keptNonFavorites].sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
 function clearAdministratorBrowserConversationData() {
@@ -182,29 +189,266 @@ function saveConversationsToBrowser() {
   catch { setStatus('浏览器存储空间不足，本次对话可能无法长期保存', 'error'); }
 }
 
+// ---------------------------------------------------------------------------
+// Administrator conversations: lazy loading + incremental sync.
+//
+// The server is the authority. On start-up only the metadata index is fetched;
+// conversations with messages become "stubs" (meta + messages: []) until they
+// are opened. Stubs are never sent as full conversations: their changes go out
+// as metadata patches, so an unloaded history can never overwrite the stored
+// messages. IndexedDB keeps a read-only mirror of opened conversations keyed by
+// updatedAt/messageCount so reopening them costs no network.
+// ---------------------------------------------------------------------------
+const conversationStubIds = new Set();
+const conversationStubCounts = new Map();
+const conversationLoads = new Map();
+const conversationLoadErrors = new Map();
+const adminSyncedFingerprints = new Map();
+const adminSyncedMessageCounts = new Map();
+const adminSyncedDeletedIds = new Set();
+let adminSyncedFolderKey = '';
+const CONVERSATION_META_FIELDS = ['id', 'title', 'titleCustomized', 'createdAt', 'updatedAt', 'roleId', 'workflowId', 'folderId', 'copiedFromConversationId', 'favoriteOrder', 'favoritedAt', 'lastRequest'];
+
+function isConversationStub(conversation) { return Boolean(conversation) && conversationStubIds.has(conversation.id); }
+function conversationMessageCount(conversation) {
+  if (!conversation) return 0;
+  return isConversationStub(conversation) ? (conversationStubCounts.get(conversation.id) || 0) : conversation.messages.length;
+}
+function conversationMetaFields(conversation) {
+  return Object.fromEntries(CONVERSATION_META_FIELDS.map((key) => [key, conversation[key] ?? null]));
+}
+function hashString(value) {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) { hash ^= value.charCodeAt(index); hash = Math.imul(hash, 0x01000193); }
+  return `${(hash >>> 0).toString(36)}:${value.length}`;
+}
+// Metadata and messages are fingerprinted separately so a rename, favorite or
+// folder move on a loaded conversation is sent as a small metadata patch; the
+// full conversation is uploaded only when its messages actually changed.
+function conversationFingerprint(conversation) {
+  return {
+    meta: hashString(JSON.stringify(conversationMetaFields(conversation))),
+    messages: isConversationStub(conversation) ? null : hashString(JSON.stringify(conversation.messages)),
+  };
+}
+function rememberSyncedConversation(conversation) {
+  adminSyncedFingerprints.set(conversation.id, conversationFingerprint(conversation));
+  adminSyncedMessageCounts.set(conversation.id, conversationMessageCount(conversation));
+}
+function conversationSyncChange(conversation) {
+  const previous = adminSyncedFingerprints.get(conversation.id);
+  const current = conversationFingerprint(conversation);
+  if (isConversationStub(conversation)) return { current, kind: previous?.meta === current.meta ? 'none' : 'meta' };
+  if (!previous || previous.messages !== current.messages) return { current, kind: 'full' };
+  return { current, kind: previous.meta === current.meta ? 'none' : 'meta' };
+}
+function conversationHasUnsyncedChanges(conversation) { return conversationSyncChange(conversation).kind !== 'none'; }
+function markConversationStub(conversation, messageCount) {
+  conversation.messages = [];
+  conversationStubIds.add(conversation.id);
+  conversationStubCounts.set(conversation.id, messageCount);
+  rememberSyncedConversation(conversation);
+}
+function historyFolderKey(folders) { return JSON.stringify((folders || []).map((folder) => [folder.id, folder.name]).sort()); }
+
+const CONVERSATION_CACHE_DB = 'light-chat-conversation-cache-v1';
+let conversationCacheDbPromise = null;
+function conversationCacheDb() {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  conversationCacheDbPromise ||= new Promise((resolve) => {
+    try {
+      const request = indexedDB.open(CONVERSATION_CACHE_DB, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('conversations');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+      request.onblocked = () => resolve(null);
+    } catch { resolve(null); }
+  });
+  return conversationCacheDbPromise;
+}
+function conversationCacheKey(conversationId) { return `${state.userUid || 'admin'}:${conversationId}`; }
+async function conversationCacheRequest(mode, run) {
+  const db = await conversationCacheDb();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const transaction = db.transaction('conversations', mode);
+      const request = run(transaction.objectStore('conversations'));
+      transaction.oncomplete = () => resolve(request?.result ?? null);
+      transaction.onerror = () => resolve(null);
+      transaction.onabort = () => resolve(null);
+    } catch { resolve(null); }
+  });
+}
+async function conversationCacheGet(conversationId, updatedAt, messageCount) {
+  const entry = await conversationCacheRequest('readonly', (store) => store.get(conversationCacheKey(conversationId)));
+  return entry && entry.updatedAt === updatedAt && entry.messageCount === messageCount && Array.isArray(entry.conversation?.messages) ? entry.conversation : null;
+}
+function conversationCachePut(conversation) {
+  if (state.userRole !== 'admin' || !conversation?.id || !conversation.messages?.length) return Promise.resolve(null);
+  return conversationCacheRequest('readwrite', (store) => store.put({ updatedAt: conversation.updatedAt, messageCount: conversation.messages.length, conversation }, conversationCacheKey(conversation.id)));
+}
+function conversationCachePrune(validIds) {
+  const prefix = `${state.userUid || 'admin'}:`;
+  return conversationCacheRequest('readwrite', (store) => {
+    const cursorRequest = store.openCursor();
+    cursorRequest.onsuccess = () => {
+      const cursor = cursorRequest.result;
+      if (!cursor) return;
+      const key = String(cursor.key);
+      if (key.startsWith(prefix) && !validIds.has(key.slice(prefix.length))) cursor.delete();
+      cursor.continue();
+    };
+    return cursorRequest;
+  });
+}
+function conversationCacheClear() { return conversationCacheRequest('readwrite', (store) => store.clear()).catch(() => null); }
+
+async function ensureConversationLoaded(conversationId) {
+  const existing = state.conversations.find((item) => item.id === conversationId) || null;
+  if (!existing || !conversationStubIds.has(conversationId)) return existing;
+  if (conversationLoads.has(conversationId)) return conversationLoads.get(conversationId);
+  const load = (async () => {
+    const expectedUpdatedAt = existing.updatedAt;
+    const expectedCount = conversationStubCounts.get(conversationId) || 0;
+    let full = await conversationCacheGet(conversationId, expectedUpdatedAt, expectedCount);
+    if (!full) {
+      try {
+        const payload = await jsonRequest(`/api/conversations/${encodeURIComponent(conversationId)}`);
+        full = payload?.conversation;
+      } catch (error) {
+        if (error.status === 404) {
+          // Gone on the server (deleted elsewhere): a stub holds no local messages, so dropping it loses nothing.
+          conversationStubIds.delete(conversationId); conversationStubCounts.delete(conversationId);
+          state.conversations = state.conversations.filter((item) => item.id !== conversationId);
+          if (state.currentId === conversationId) state.currentId = '';
+          renderHistory(); renderFavoriteConversations();
+          return null;
+        }
+        throw error;
+      }
+      if (!full || !Array.isArray(full.messages)) throw new Error('服务器返回的会话记录无效');
+      void conversationCachePut(full);
+    }
+    const target = state.conversations.find((item) => item.id === conversationId);
+    if (!target || !conversationStubIds.has(conversationId)) return target || null;
+    const localMetaChanged = conversationHasUnsyncedChanges(target);
+    // Keep local metadata edits made while loading; adopt the stored messages.
+    if (!localMetaChanged) Object.assign(target, conversationMetaFields(full));
+    target.messages = full.messages;
+    conversationStubIds.delete(conversationId); conversationStubCounts.delete(conversationId);
+    conversationLoadErrors.delete(conversationId);
+    if (localMetaChanged) { adminSyncedMessageCounts.set(conversationId, target.messages.length); scheduleAdministratorConversationSync(); }
+    else rememberSyncedConversation(target);
+    return target;
+  })();
+  conversationLoads.set(conversationId, load);
+  try { return await load; } finally { conversationLoads.delete(conversationId); }
+}
+
+async function loadConversationForDisplay(conversationId) {
+  try {
+    await ensureConversationLoaded(conversationId);
+  } catch (error) {
+    conversationLoadErrors.set(conversationId, error.message || '加载失败');
+    if (state.currentId === conversationId) setStatus(`对话加载失败：${error.message}`, 'error');
+  }
+  if (state.currentId === conversationId || !state.currentId) { renderConversation(); updateSendState(); }
+}
+
+function applyAdminConversationIndex(payload) {
+  if (!payload || !Array.isArray(payload.conversations)) throw new Error('服务器返回的管理员会话记录无效');
+  if (Array.isArray(payload.deletedIds)) {
+    for (const id of payload.deletedIds) { state.deletedConversationIds.add(id); adminSyncedDeletedIds.add(id); }
+  }
+  const localById = new Map(state.conversations.map((conversation) => [conversation.id, conversation]));
+  let reloadCurrent = false;
+  for (const meta of payload.conversations) {
+    if (!meta || typeof meta.id !== 'string' || state.deletedConversationIds.has(meta.id)) continue;
+    const messageCount = Number.isSafeInteger(meta.messageCount) ? meta.messageCount : 0;
+    const fields = conversationMetaFields(meta);
+    const local = localById.get(meta.id);
+    if (!local) {
+      const created = { ...fields, messages: [] };
+      state.conversations.push(created);
+      if (messageCount > 0) markConversationStub(created, messageCount); else rememberSyncedConversation(created);
+      continue;
+    }
+    if (!(meta.updatedAt > local.updatedAt)) continue;
+    if (isConversationStub(local)) {
+      Object.assign(local, fields); conversationStubCounts.set(local.id, messageCount); rememberSyncedConversation(local);
+      continue;
+    }
+    // Server holds a newer version (another device). Only replace a local copy
+    // that has nothing unsynced and is not generating.
+    if (isConversationBusy(local.id) || conversationHasUnsyncedChanges(local)) continue;
+    Object.assign(local, fields);
+    if (messageCount > 0) {
+      markConversationStub(local, messageCount);
+      if (local.id === state.currentId) reloadCurrent = true;
+    } else { local.messages = []; rememberSyncedConversation(local); }
+  }
+  state.conversations = mergeConversations(state.conversations, []);
+  if (Array.isArray(payload.folders)) {
+    adminSyncedFolderKey = historyFolderKey(payload.folders);
+    state.historyFolders = mergeFolderLists(state.historyFolders, payload.folders);
+    saveHistoryFoldersToBrowser();
+  }
+  if (reloadCurrent) void loadConversationForDisplay(state.currentId);
+}
+
+async function syncAdministratorConversations() {
+  const conversations = []; const metas = []; const clearedIds = []; const sent = [];
+  for (const conversation of state.conversations) {
+    if (state.deletedConversationIds.has(conversation.id)) continue;
+    const { current: fingerprint, kind } = conversationSyncChange(conversation);
+    if (kind === 'none') continue;
+    // Stubs (and loaded conversations whose messages are unchanged) only ever produce metadata patches.
+    const stub = kind === 'meta';
+    const snapshot = stub ? conversationMetaFields(conversation) : structuredClone(conversation);
+    if (stub) metas.push(snapshot);
+    else {
+      conversations.push(snapshot);
+      if (!conversation.messages.length && (adminSyncedMessageCounts.get(conversation.id) || 0) > 0) clearedIds.push(conversation.id);
+    }
+    sent.push({ id: conversation.id, stub, snapshot, fingerprint, count: conversationMessageCount(conversation) });
+  }
+  const deletedIds = [...state.deletedConversationIds].filter((id) => !adminSyncedDeletedIds.has(id));
+  const folderKey = historyFolderKey(state.historyFolders);
+  const folders = folderKey !== adminSyncedFolderKey ? structuredClone(state.historyFolders) : undefined;
+  if (!conversations.length && !metas.length && !deletedIds.length && folders === undefined) return;
+  const payload = await jsonRequest('/api/conversations', {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ version: 1, conversations, metas, deletedIds, clearedIds, ...(folders ? { folders } : {}) }),
+  });
+  const rejected = new Set(Array.isArray(payload?.rejectedIds) ? payload.rejectedIds : []);
+  const serverMeta = new Map((payload?.conversations || []).map((meta) => [meta.id, meta]));
+  for (const item of sent) {
+    if (rejected.has(item.id)) continue;
+    adminSyncedFingerprints.set(item.id, item.fingerprint);
+    adminSyncedMessageCounts.set(item.id, item.count);
+    const meta = serverMeta.get(item.id);
+    if (!item.stub && meta && meta.updatedAt === item.snapshot.updatedAt && meta.messageCount === item.snapshot.messages.length) void conversationCachePut(item.snapshot);
+  }
+  for (const id of rejected) {
+    // The server refused to empty a stored history; reload its copy instead.
+    const local = state.conversations.find((conversation) => conversation.id === id);
+    const meta = serverMeta.get(id);
+    if (local && meta && !isConversationBusy(id)) { markConversationStub(local, meta.messageCount || 0); if (id === state.currentId) void loadConversationForDisplay(id); }
+  }
+  for (const id of deletedIds) adminSyncedDeletedIds.add(id);
+  if (folders) adminSyncedFolderKey = folderKey;
+  applyAdminConversationIndex(payload);
+  clearAdministratorBrowserConversationData(); renderHistory(); renderFavoriteConversations(); renderRoles(); renderWorkflows();
+}
+
 function scheduleAdministratorConversationSync() {
   if (state.userRole !== 'admin') return;
   if (adminConversationSyncTimer) clearTimeout(adminConversationSyncTimer);
   adminConversationSyncTimer = setTimeout(() => {
     adminConversationSyncTimer = null;
-    const revision = ++adminConversationRevision;
-    const snapshot = structuredClone(state.conversations);
-    const foldersSnapshot = structuredClone(state.historyFolders);
-    const deletedSnapshot = [...state.deletedConversationIds];
     adminConversationSyncQueue = adminConversationSyncQueue.then(async () => {
-      const payload = await jsonRequest('/api/conversations', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, folders: foldersSnapshot, conversations: snapshot, deletedIds: deletedSnapshot }),
-      });
-      if (!Array.isArray(payload.conversations) || revision !== adminConversationRevision) return;
-      if (Array.isArray(payload.deletedIds)) {
-        for (const id of payload.deletedIds) state.deletedConversationIds.add(id);
-      }
-      state.conversations = mergeConversations(state.conversations, payload.conversations);
-      if (Array.isArray(payload.folders)) {
-        state.historyFolders = mergeFolderLists(state.historyFolders, payload.folders);
-        saveHistoryFoldersToBrowser();
-      }
-      clearAdministratorBrowserConversationData(); renderHistory(); renderFavoriteConversations(); renderRoles(); renderWorkflows();
+      await syncAdministratorConversations();
       adminConversationSyncFailed = false;
     }).catch((error) => {
       if (!adminConversationSyncFailed) setStatus(`管理员会话未同步到服务器：${error.message}`, 'error');
@@ -213,28 +457,42 @@ function scheduleAdministratorConversationSync() {
   }, 350);
 }
 
+function fetchAdminConversationIndex() {
+  // no-cache: the browser revalidates with the ETag and gets a 304 when nothing changed.
+  return jsonRequest('/api/conversations/index', { cache: 'no-cache' });
+}
+
+let pendingAdminConversationIndex = null;
+
 async function loadPersistedConversations() {
   if (state.userRole !== 'admin') return loadConversations();
   try {
-    const payload = await jsonRequest('/api/conversations');
-    if (!Array.isArray(payload.conversations)) throw new Error('服务器返回的管理员会话记录无效');
-    if (Array.isArray(payload.deletedIds)) {
-      for (const id of payload.deletedIds) state.deletedConversationIds.add(id);
-    }
-    const merged = mergeConversations([], payload.conversations);
-    state.conversations = merged;
+    const indexRequest = pendingAdminConversationIndex || fetchAdminConversationIndex();
+    pendingAdminConversationIndex = null;
+    const payload = await indexRequest;
+    state.conversations = [];
+    applyAdminConversationIndex(payload);
     clearAdministratorBrowserConversationData();
-    if (Array.isArray(payload.folders)) {
-      state.historyFolders = mergeFolderLists(state.historyFolders, payload.folders);
-      saveHistoryFoldersToBrowser();
-      renderHistory();
-      renderFavoriteConversations();
-    }
-    return merged;
+    void conversationCachePrune(new Set(state.conversations.map((conversation) => conversation.id)));
+    return state.conversations;
   } catch (error) {
     setStatus(`管理员会话读取失败，无法从服务器恢复历史：${error.message}`, 'error');
     return [];
   }
+}
+
+// Warm the most recent conversations in the background so the first switch
+// is instant. Cached copies cost no network; skipped on data-saver.
+function prefetchRecentConversations(limit = 3) {
+  if (state.userRole !== 'admin' || navigator.connection?.saveData) return;
+  const run = async () => {
+    const candidates = [...state.conversations].filter(isConversationStub).sort((left, right) => right.updatedAt - left.updatedAt).slice(0, limit);
+    for (const conversation of candidates) {
+      try { await ensureConversationLoaded(conversation.id); } catch { return; }
+    }
+  };
+  const start = () => { void run(); };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(start, { timeout: 4000 }); else setTimeout(start, 1500);
 }
 
 async function jsonRequest(url, options = {}) {
@@ -324,7 +582,8 @@ async function loadGuestDirectModels({ endpoint, apiKey, allowedModels } = {}) {
 function returnToLogin() {
   sessionRevocationEvents?.close();
   sessionRevocationEvents = null;
-  location.replace('/');
+  // Session revoked (password change / sign-out elsewhere): drop the local conversation mirror.
+  void conversationCacheClear().finally(() => location.replace('/'));
 }
 
 function startSessionRevocationListener() {
@@ -896,6 +1155,7 @@ function validWorkflowId(workflowId) { return findWorkflowById(workflowId)?.id |
 function workflowConversations(workflowId) { return state.conversations.filter((conversation) => conversation.workflowId === workflowId).sort((a, b) => b.updatedAt - a.updatedAt); }
 function isReusableWorkflowConversation(conversation, workflowId) {
   return conversation?.workflowId === workflowId
+    && !isConversationStub(conversation)
     && conversation.messages.length === 0
     && !isConversationBusy(conversation.id);
 }
@@ -910,7 +1170,9 @@ function renderWorkflows() {
     if (expanded) entry.setAttribute('data-workflow-drawer-active', 'true');
     const button = document.createElement('button'); button.type = 'button'; button.className = 'workflow-card';
     const active = workflow.id === state.selectedWorkflow?.id;
-    button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); button.disabled = state.workflowRunning; button.setAttribute('aria-expanded', String(expanded)); button.setAttribute('aria-controls', `workflow-conversations-${workflow.id}`);
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'true');
+    button.disabled = state.workflowRunning; button.setAttribute('aria-expanded', String(expanded)); button.setAttribute('aria-controls', `workflow-conversations-${workflow.id}`);
     const title = document.createElement('strong'); title.textContent = workflow.name;
     const description = document.createElement('small'); description.textContent = workflow.description;
     const count = document.createElement('span'); count.className = 'workflow-history-count'; count.textContent = `${conversations.length} 条绘画记录`;
@@ -1217,9 +1479,23 @@ function highlightRecentFileMessage(messageId) {
   return true;
 }
 
-function jumpToRecentFileMessage() {
-  const location = recentFileMessageLocation(state.contextRecentFileId);
+// Unloaded (stub) conversations are searched on the server instead of
+// downloading every history to the device.
+async function locateRecentFileMessage(fileId) {
+  const local = recentFileMessageLocation(fileId);
+  if (local || state.userRole !== 'admin' || !conversationStubIds.size || !fileId) return local;
+  try {
+    const found = await jsonRequest(`/api/conversations/locate-media?id=${encodeURIComponent(fileId)}`);
+    const conversation = await ensureConversationLoaded(found.conversationId);
+    const message = conversation?.messages.find((item) => item.id === found.messageId);
+    return conversation && message ? { conversation, message } : null;
+  } catch { return null; }
+}
+
+async function jumpToRecentFileMessage() {
+  const fileId = state.contextRecentFileId;
   closeAllContextMenus();
+  const location = await locateRecentFileMessage(fileId);
   if (!location) { setStatus('本机没有该文件对应的会话记录', 'error'); return; }
   if (elements.imageLightbox.open) elements.imageLightbox.close();
   activateConversation(location.conversation.id, { closeSidebar: true });
@@ -1540,16 +1816,20 @@ function createFavoriteConversationFolder(folderId, name, conversations, { unfil
 
 function createFavoriteConversationItem(conversation) {
   const busy = isConversationBusy(conversation.id);
+  const row = document.createElement('div'); row.className = 'list-action-row favorite-conversation-row';
   const item = document.createElement('button'); item.type = 'button';
   item.className = `favorite-conversation-item${conversation.id === state.currentId ? ' active' : ''}${busy ? ' busy' : ''}`;
   item.dataset.conversationId = conversation.id;
-  item.title = '打开对话；右键管理';
+  item.title = '打开对话；右键或使用操作菜单管理';
   const title = document.createElement('span'); title.className = 'favorite-conversation-title'; title.textContent = conversation.title;
   const time = document.createElement('time'); time.textContent = busy ? '生成中…' : formatTime(conversation.updatedAt);
   item.append(title, time);
   item.addEventListener('click', () => activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true }));
-  bindContextMenuTrigger(item, 'historyContextMenu', (x, y, trigger) => openHistoryContextMenu(conversation.id, x, y, trigger));
-  return item;
+  const openMenu = (x, y, trigger) => openHistoryContextMenu(conversation.id, x, y, trigger);
+  bindContextMenuTrigger(item, 'historyContextMenu', openMenu);
+  const more = createContextMenuButton(`管理收藏对话“${conversation.title}”`, 'historyContextMenu', openMenu);
+  row.append(item, more);
+  return row;
 }
 
 function setHistoryCollapsed(collapsed, { persist = true } = {}) {
@@ -1595,13 +1875,18 @@ function createHistoryItem(conversation) {
       event.stopPropagation();
     }
   });
-  let startX = 0; let startY = 0; let isDragging = false;
+  let startX = 0; let startY = 0; let isDragging = false; let menuOpenedDuringPress = false;
   button.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
-    startX = event.clientX; startY = event.clientY; isDragging = false;
+    startX = event.clientX; startY = event.clientY; isDragging = false; menuOpenedDuringPress = false;
   });
+  button.addEventListener('contextmenu', () => { menuOpenedDuringPress = true; });
   button.addEventListener('pointerup', (event) => {
     if (event.button !== 0 || isDragging) return;
+    if (menuOpenedDuringPress) {
+      menuOpenedDuringPress = false;
+      return;
+    }
     if (Math.hypot(event.clientX - startX, event.clientY - startY) < 8) {
       ignoreNextHistoryClick = true;
       activateConversation(conversation.id, { closeSidebar: false, keepDrawer: true });
@@ -1704,6 +1989,7 @@ function activateConversation(conversationId, { closeSidebar: shouldCloseSidebar
   resumeOutputFollow();
   restoreConversationDraft(conversationId);
   renderWorkflowComposer(); renderWorkflows(); renderConversation(); updateSendState();
+  if (isConversationStub(conversation)) void loadConversationForDisplay(conversationId);
   if (shouldCloseSidebar) closeSidebar();
   else if (keepDrawer) { openSidebar(); renderSidebarDrawerState(); }
 }
@@ -1861,7 +2147,8 @@ function updateContextMenuAvailability(menu) {
     const item = mediaItemById(state.contextRecentFileId);
     const location = recentFileMessageLocation(state.contextRecentFileId);
     const jumpButtons = [elements.jumpToRecentFileMessage, elements.jumpToLightboxFileMessage];
-    jumpButtons.forEach((button) => { button.disabled = !location; button.title = location ? `跳转到“${location.conversation.title}”中的对应消息` : '本机没有该文件对应的会话记录'; });
+    const canSearchServer = !location && state.userRole === 'admin' && conversationStubIds.size > 0;
+    jumpButtons.forEach((button) => { button.disabled = !location && !canSearchServer; button.title = location ? `跳转到“${location.conversation.title}”中的对应消息` : canSearchServer ? '在服务器会话记录中查找对应消息' : '本机没有该文件对应的会话记录'; });
     const favorite = item && isFavoriteMedia(item.id);
     const favoriteButtons = [elements.toggleFavoriteMediaButton, elements.toggleLightboxFavoriteMediaButton];
     favoriteButtons.forEach((button) => { button.textContent = favorite ? '♡ 取消收藏文件' : '♥ 收藏文件'; button.disabled = !item || preferenceWritesInFlight > 0; });
@@ -2164,7 +2451,19 @@ function jumpToSourceConversationContext() {
   setStatus(`已跳转到原会话“${source.title}”`, 'success');
 }
 
-function exportConversationTxt(conversationId) {
+async function loadConversationForExport(conversationId) {
+  if (!conversationStubIds.has(conversationId)) return true;
+  setStatus('正在加载对话内容…');
+  try {
+    if (await ensureConversationLoaded(conversationId)) return true;
+    closeHistoryContextMenu({ restoreFocus: true }); setStatus('对话已不存在', 'error'); return false;
+  } catch (error) {
+    closeHistoryContextMenu({ restoreFocus: true }); setStatus(`对话加载失败：${error.message}`, 'error'); return false;
+  }
+}
+
+async function exportConversationTxt(conversationId) {
+  if (!await loadConversationForExport(conversationId)) return;
   const conversation = state.conversations.find((item) => item.id === conversationId); if (!conversation) return;
   if (isConversationBusy(conversationId)) { closeHistoryContextMenu({ restoreFocus: true }); setStatus('模型仍在生成，完成后再导出对话', 'error'); return; }
   const content = [`${conversation.title}`, `导出时间：${new Date().toLocaleString('zh-CN')}`, '', ...conversation.messages.flatMap((message, index) => [messagePlainText(message), ...(index < conversation.messages.length - 1 ? ['', '---', ''] : [])])].join('\n');
@@ -2182,7 +2481,8 @@ function conversationMarkdownText(conversation) {
   return markdown.join('\n');
 }
 
-function exportConversationMarkdownText(conversationId) {
+async function exportConversationMarkdownText(conversationId) {
+  if (!await loadConversationForExport(conversationId)) return;
   const conversation = state.conversations.find((item) => item.id === conversationId); if (!conversation) return;
   if (isConversationBusy(conversationId)) { closeHistoryContextMenu({ restoreFocus: true }); setStatus('模型仍在生成，完成后再导出对话', 'error'); return; }
   downloadBlob(new Blob([conversationMarkdownText(conversation)], { type: 'text/markdown;charset=utf-8' }), `${safeExportStem(conversation.title)}.md`); closeHistoryContextMenu({ restoreFocus: true });
@@ -2231,6 +2531,7 @@ function buildZip(entries) {
 }
 
 async function exportConversationMarkdownZip(conversationId) {
+  if (!await loadConversationForExport(conversationId)) return;
   const source = state.conversations.find((item) => item.id === conversationId); if (!source) return;
   if (isConversationBusy(conversationId)) { closeHistoryContextMenu({ restoreFocus: true }); setStatus('模型仍在生成，完成后再导出对话', 'error'); return; }
   if (markdownZipExportInFlight) { closeHistoryContextMenu({ restoreFocus: true }); setStatus('已有 Markdown ZIP 正在打包，请稍候', 'error'); return; }
@@ -2272,12 +2573,14 @@ function deleteHistoryConversation(conversationId) {
   const conversation = state.conversations.find((item) => item.id === conversationId); if (!conversation) return;
   if (isConversationBusy(conversationId)) { setStatus('正在响应的对话暂时不能删除', 'error'); closeHistoryContextMenu({ restoreFocus: true }); return; }
   closeHistoryContextMenu({ restoreFocus: true });
-  if (!confirm(`删除对话“${conversation.title}”（共 ${conversation.messages.length} 条消息）？\n\n此操作无法撤销。`)) return;
+  if (!confirm(`删除对话“${conversation.title}”（共 ${conversationMessageCount(conversation)} 条消息）？\n\n此操作无法撤销。`)) return;
   conversationDrafts.delete(conversationId);
   state.deletedConversationIds.add(conversationId);
   state.conversations = state.conversations.filter((item) => item.id !== conversationId);
   if (state.userRole === 'admin') {
-    jsonRequest(`/api/conversations/${encodeURIComponent(conversationId)}`, { method: 'DELETE' }).catch(() => {});
+    jsonRequest(`/api/conversations/${encodeURIComponent(conversationId)}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).then(() => { adminSyncedDeletedIds.add(conversationId); }).catch(() => {});
+    conversationStubIds.delete(conversationId); conversationStubCounts.delete(conversationId);
+    void conversationCacheRequest('readwrite', (store) => store.delete(conversationCacheKey(conversationId)));
   }
   if (!state.conversations.length) { state.currentId = ''; createConversation(); return; }
   if (state.currentId === conversationId) {
@@ -3629,6 +3932,31 @@ function renderConversation() {
   localStorage.setItem(ROLE_SELECTION_KEY, state.selectedRoleId);
   elements.title.textContent = conversation.title;
 
+  if (isConversationStub(conversation)) {
+    // Messages are fetched on demand; show a placeholder until they arrive.
+    const conversationId = conversation.id;
+    const loadError = conversationLoadErrors.get(conversationId);
+    if (!loadError && !conversationLoads.has(conversationId)) void loadConversationForDisplay(conversationId);
+    const placeholder = document.createElement('div');
+    placeholder.className = 'conversation-loading';
+    placeholder.setAttribute('role', 'status');
+    placeholder.textContent = loadError ? `对话加载失败：${loadError}` : `正在加载对话（${conversationMessageCount(conversation)} 条消息）…`;
+    if (loadError) {
+      const retry = document.createElement('button');
+      retry.type = 'button'; retry.className = 'secondary'; retry.textContent = '重试';
+      retry.addEventListener('click', () => { conversationLoadErrors.delete(conversationId); renderConversation(); void loadConversationForDisplay(conversationId); });
+      placeholder.append(' ', retry);
+    }
+    state.renderedMessageCount = 0;
+    elements.messageList.replaceChildren(placeholder);
+    setupHistoryObserver(null);
+    elements.emptyState.hidden = true;
+    elements.typing.hidden = true;
+    renderHistory(); renderMessageQueue();
+    renderRoles(); updateRoleUi();
+    return;
+  }
+
   const total = conversation.messages.length;
   let renderCount = MESSAGE_PAGE_SIZE;
   if (editingMessageId) {
@@ -4357,9 +4685,138 @@ function focusFavoriteEditorRow(focusFavorite, block = 'center') {
     if (!row) return;
     row.classList.add('focused');
     row.scrollIntoView({ block, inline: 'nearest', behavior: 'auto' });
-    row.querySelector('select')?.focus({ preventScroll: true });
+    row.querySelector('.favorite-model-button, select')?.focus({ preventScroll: true });
     setTimeout(() => row.classList.remove('focused'), 1800);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Favorite model browser: a large, searchable, provider-grouped picker that
+// opens above the settings dialog instead of a native <select> squeezed into
+// a favorite row. Multi-select when adding (across both modes), single pick
+// when replacing a row's model.
+// ---------------------------------------------------------------------------
+const favoriteModelPicker = { mode: 'chat', multiple: false, existing: new Set(), selected: new Set(), currentModelId: '', limit: Infinity, onConfirm: null };
+
+function favoriteModelPickerKey(mode, modelId) { return `${mode}\0${modelId}`; }
+
+function modelProviderLabel(modelId) {
+  const id = String(modelId || '');
+  if (id.includes('/')) return id.split('/')[0] || '其他';
+  return id.split(/[-_.:]/)[0] || '其他';
+}
+
+function favoriteModelBadge(model, mode) {
+  if (mode === 'image') return model.modes.includes('image') ? 'Images API' : '手动生图模式';
+  return model.inputImages ? '支持图片' : '文本对话';
+}
+
+function openFavoriteModelPicker({ title, description = '', mode = 'chat', multiple = false, existing = [], currentModelId = '', limit = Infinity, onConfirm }) {
+  Object.assign(favoriteModelPicker, { mode, multiple, existing: new Set(existing), selected: new Set(), currentModelId, limit, onConfirm });
+  elements.favoriteModelPickerTitle.textContent = title;
+  elements.favoriteModelPickerDescription.textContent = description;
+  elements.favoriteModelPickerSearch.value = '';
+  elements.favoriteModelPickerConfirm.hidden = !multiple;
+  renderFavoriteModelPicker();
+  elements.favoriteModelPicker.showModal();
+  elements.favoriteModelPickerList.scrollTop = 0;
+  // Do not pop the soft keyboard on touch devices; desktop users can type at once.
+  if (!matchMedia('(pointer: coarse)').matches) elements.favoriteModelPickerSearch.focus();
+  if (!multiple && currentModelId) {
+    requestAnimationFrame(() => elements.favoriteModelPickerList.querySelector('.favorite-model-option.current')?.scrollIntoView({ block: 'center' }));
+  }
+}
+
+function updateFavoriteModelPickerSelection() {
+  const { multiple, selected, limit } = favoriteModelPicker;
+  if (!multiple) { elements.favoriteModelPickerSelection.textContent = '点击模型即可替换'; return; }
+  const remaining = Number.isFinite(limit) ? `，本组还可添加 ${Math.max(0, limit - selected.size)} 个` : '';
+  elements.favoriteModelPickerSelection.textContent = selected.size ? `已选 ${selected.size} 个${remaining}` : `点击模型以选择${remaining}`;
+  elements.favoriteModelPickerConfirm.disabled = selected.size === 0;
+  elements.favoriteModelPickerConfirm.textContent = selected.size ? `添加 ${selected.size} 个` : '添加';
+}
+
+function renderFavoriteModelPicker() {
+  const { mode, multiple, existing, selected, currentModelId, limit } = favoriteModelPicker;
+  for (const button of $$('[data-picker-mode]', elements.favoriteModelPicker)) {
+    const active = button.dataset.pickerMode === mode;
+    button.classList.toggle('active', active); button.setAttribute('aria-checked', String(active));
+  }
+  const query = elements.favoriteModelPickerSearch.value.trim().toLowerCase();
+  const available = state.models.filter((model) => modelSupportsMode(model, mode, { allowImageModeOverride: mode === 'image' }));
+  // In image mode, native image models come before chat models used through the manual override.
+  const ranked = mode === 'image' ? [...available].sort((left, right) => Number(right.modes.includes('image')) - Number(left.modes.includes('image'))) : available;
+  const matches = ranked.filter((model) => model.id.toLowerCase().includes(query));
+  elements.favoriteModelPickerCount.textContent = query ? `匹配 ${matches.length} / ${available.length} 个${modeLabelText(mode)}模型` : `共 ${available.length} 个可用${modeLabelText(mode)}模型`;
+  elements.favoriteModelPickerList.replaceChildren();
+  if (!matches.length) {
+    const empty = document.createElement('p'); empty.className = 'empty-sidebar'; empty.textContent = query ? `没有匹配“${elements.favoriteModelPickerSearch.value.trim()}”的模型` : `当前没有支持${modeLabelText(mode)}模式的可用模型`;
+    elements.favoriteModelPickerList.append(empty);
+  }
+  const groups = new Map();
+  for (const model of matches) {
+    const provider = modelProviderLabel(model.id);
+    if (!groups.has(provider)) groups.set(provider, []);
+    groups.get(provider).push(model);
+  }
+  for (const [provider, models] of [...groups].sort(([left], [right]) => left.localeCompare(right))) {
+    const section = document.createElement('section'); section.className = 'favorite-model-picker-group';
+    const heading = document.createElement('h3'); heading.textContent = `${provider} · ${models.length}`;
+    const grid = document.createElement('div'); grid.className = 'favorite-model-picker-grid';
+    for (const model of models) {
+      const key = favoriteModelPickerKey(mode, model.id);
+      const inGroup = multiple && existing.has(key);
+      const isCurrent = !multiple && model.id === currentModelId;
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'favorite-model-option';
+      button.classList.toggle('current', isCurrent);
+      button.classList.toggle('selected', selected.has(key) || isCurrent);
+      button.setAttribute('aria-pressed', String(selected.has(key) || isCurrent));
+      button.disabled = inGroup;
+      const name = document.createElement('strong'); name.textContent = model.id;
+      const meta = document.createElement('small'); meta.textContent = inGroup ? '已在本组' : isCurrent ? '当前模型' : favoriteModelBadge(model, mode);
+      button.append(name, meta);
+      button.addEventListener('click', () => {
+        if (!multiple) {
+          const done = favoriteModelPicker.onConfirm;
+          elements.favoriteModelPicker.close();
+          done?.([{ modelId: model.id, mode }]);
+          return;
+        }
+        if (selected.has(key)) selected.delete(key);
+        else if (selected.size >= limit) { elements.favoriteModelPickerSelection.textContent = '每个收藏组最多 20 个模型'; return; }
+        else selected.add(key);
+        // Toggle in place so scroll position and focus are preserved.
+        button.classList.toggle('selected', selected.has(key)); button.setAttribute('aria-pressed', String(selected.has(key)));
+        updateFavoriteModelPickerSelection();
+      });
+      grid.append(button);
+    }
+    section.append(heading, grid); elements.favoriteModelPickerList.append(section);
+  }
+  updateFavoriteModelPickerSelection();
+}
+
+function confirmFavoriteModelPicker() {
+  const picks = [...favoriteModelPicker.selected].map((key) => { const [mode, modelId] = key.split('\0'); return { modelId, mode }; });
+  const done = favoriteModelPicker.onConfirm;
+  elements.favoriteModelPicker.close();
+  if (picks.length) done?.(picks);
+}
+
+function bindFavoriteModelPicker() {
+  elements.favoriteModelPickerSearch.addEventListener('input', renderFavoriteModelPicker);
+  elements.favoriteModelPickerSearch.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    const options = $$('.favorite-model-option:not(:disabled)', elements.favoriteModelPickerList);
+    if (!favoriteModelPicker.multiple && options.length === 1) options[0].click();
+    else if (favoriteModelPicker.multiple && favoriteModelPicker.selected.size) confirmFavoriteModelPicker();
+  });
+  for (const button of $$('[data-picker-mode]', elements.favoriteModelPicker)) {
+    button.addEventListener('click', () => { favoriteModelPicker.mode = button.dataset.pickerMode; renderFavoriteModelPicker(); });
+  }
+  elements.favoriteModelPickerConfirm.addEventListener('click', confirmFavoriteModelPicker);
+  elements.favoriteModelPicker.addEventListener('close', () => { favoriteModelPicker.onConfirm = null; favoriteModelPicker.selected.clear(); });
 }
 
 function renderGroupsEditor(options = {}) {
@@ -4391,13 +4848,25 @@ function renderGroupsEditor(options = {}) {
           notifyUnavailableFavorites(staleRows);
         }
       }
-      const candidate = nextFavoriteCandidate(group);
-      if (!candidate) { setDialogStatus(elements.settingsStatus, '当前没有尚未加入该组的可用模型', 'error'); return; }
-      const itemIndex = group.items.length;
-      state.editingDirty = true;
-      group.items.push({ modelId: candidate.modelId, model: candidate.modelId, mode: candidate.mode, label: candidate.modelId });
-      renderGroupsEditor({ focusFavorite: { groupId: group.id, itemIndex }, focusBlock: 'end' });
-      setDialogStatus(elements.settingsStatus, `已添加 ${candidate.modelId}，保存设置后生效`, 'success');
+      // The suggestion only decides which mode the browser opens in.
+      const suggestion = nextFavoriteCandidate(group);
+      if (!suggestion) { setDialogStatus(elements.settingsStatus, '当前没有尚未加入该组的可用模型', 'error'); return; }
+      openFavoriteModelPicker({
+        title: `向“${group.name.trim() || '收藏组'}”添加模型`,
+        description: '可多选，也可在对话 / 生图之间切换后一并添加；保存设置后生效。',
+        mode: suggestion.mode,
+        multiple: true,
+        existing: group.items.map((existingItem) => favoriteModelPickerKey(existingItem.mode, existingItem.modelId || existingItem.model)),
+        limit: 20 - group.items.length,
+        onConfirm: (picks) => {
+          const itemIndex = group.items.length;
+          for (const candidate of picks) group.items.push({ modelId: candidate.modelId, model: candidate.modelId, mode: candidate.mode, label: candidate.modelId });
+          state.editingDirty = true;
+          renderGroupsEditor({ focusFavorite: { groupId: group.id, itemIndex }, focusBlock: 'end' });
+          const [candidate] = picks;
+          setDialogStatus(elements.settingsStatus, picks.length === 1 ? `已添加 ${candidate.modelId}，保存设置后生效` : `已添加 ${picks.length} 个模型，保存设置后生效`, 'success');
+        },
+      });
     });
     const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '删除'; remove.addEventListener('click', () => { state.editingDirty = true; state.editingGroups.splice(groupIndex, 1); renderGroupsEditor(); });
     heading.append(groupHandle, name, add, remove);
@@ -4420,17 +4889,33 @@ function renderGroupsEditor(options = {}) {
         const [moved] = sourceGroup.items.splice(source.itemIndex, 1); const targetIndex = targetGroup.items.findIndex((candidate) => candidate === item); targetGroup.items.splice(targetIndex < 0 ? targetGroup.items.length : targetIndex, 0, moved); renderGroupsEditor();
       });
       const itemHandle = document.createElement('span'); itemHandle.className = 'drag-handle'; itemHandle.textContent = '⠿'; itemHandle.title = '拖动模型调整顺序或移动到其他组'; itemHandle.draggable = true; itemHandle.addEventListener('dragstart', (event) => { event.stopPropagation(); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/x-light-chat-favorite', JSON.stringify({ groupId: group.id, itemIndex })); });
-      const model = document.createElement('select'); model.setAttribute('aria-label', '模型');
       const currentModelId = item.modelId || item.model;
       const selectableModels = state.models.filter((entry) => modelSupportsMode(entry, item.mode, { allowImageModeOverride: item.mode === 'image' }));
+      // The row shows the full model ID and opens the model browser to change it.
+      const model = document.createElement('button'); model.type = 'button'; model.className = 'favorite-model-button';
+      const modelName = document.createElement('span'); modelName.className = 'favorite-model-name';
       if (currentModelId && !selectableModels.some((entry) => entry.id === currentModelId)) {
         // The row references a model that is no longer available: keep it
         // visible and explicitly marked instead of silently dropping it.
-        const staleOption = document.createElement('option'); staleOption.value = currentModelId; staleOption.textContent = `${currentModelId}（不可用）`; staleOption.selected = true; model.append(staleOption);
+        modelName.textContent = `${currentModelId}（不可用）`;
         row.classList.add('favorite-row-stale');
-      }
-      for (const candidate of selectableModels) { const option = document.createElement('option'); option.value = candidate.id; option.textContent = candidate.id; option.selected = candidate.id === currentModelId; model.append(option); }
-      model.addEventListener('change', () => { updateFavoriteModel(item, model.value); renderGroupsEditor(); });
+      } else modelName.textContent = currentModelId || '选择模型';
+      const modelChevron = document.createElement('span'); modelChevron.className = 'favorite-model-chevron'; modelChevron.setAttribute('aria-hidden', 'true');
+      model.append(modelName, modelChevron);
+      model.setAttribute('aria-label', `模型：${currentModelId || '未选择'}，点击更换`);
+      model.addEventListener('click', () => openFavoriteModelPicker({
+        title: '更换模型',
+        description: `当前：${currentModelId || '未选择'}。切换到其他模式选择时，该行模式会一并改变。`,
+        mode: item.mode,
+        currentModelId,
+        onConfirm: ([pick]) => {
+          if (!pick) return;
+          state.editingDirty = true;
+          updateFavoriteModel(item, pick.modelId);
+          item.mode = pick.mode;
+          renderGroupsEditor({ focusFavorite: { groupId: group.id, itemIndex } });
+        },
+      }));
       const mode = document.createElement('select'); mode.setAttribute('aria-label', '模式');
       for (const value of ['chat', 'image']) { const option = document.createElement('option'); option.value = value; option.textContent = value === 'chat' ? '对话' : '生图'; option.selected = value === item.mode; mode.append(option); }
       mode.addEventListener('change', () => {
@@ -4938,7 +5423,7 @@ function setRoleSelection(roleId, { close = true } = {}) {
   const folder = state.roleLibrary.folders.find((candidate) => candidate.roles.some((role) => role.id === normalized));
   if (folder) { state.openRoleFolders.add(folder.id); persistOpenRoleFolders(); }
   state.selectedRoleId = normalized; localStorage.setItem(ROLE_SELECTION_KEY, normalized);
-  if (conversation?.messages.length && conversation.roleId !== normalized) {
+  if (conversationMessageCount(conversation) && conversation.roleId !== normalized) {
     createConversation({ roleId: normalized, close });
     setStatus(normalized ? `已使用“${findRoleById(normalized).name}”创建新对话` : '已使用默认助手创建新对话', 'success');
     return;
@@ -6233,7 +6718,7 @@ function updateSendState() {
   elements.send.title = busy ? (canCancel ? '中断响应（本次调用按正常模型费用扣除）' : '正在中断响应…') : '发送消息';
   elements.send.disabled = busy
     ? !canCancel
-    : state.busyConversationIds.size >= MAX_PARALLEL_REQUESTS || !state.selected || (!elements.input.value.trim() && state.pendingAttachments.length === 0);
+    : isConversationStub(currentConversation()) || state.busyConversationIds.size >= MAX_PARALLEL_REQUESTS || !state.selected || (!elements.input.value.trim() && state.pendingAttachments.length === 0);
   renderMessageQueue();
 }
 
@@ -6952,6 +7437,7 @@ async function sendMessage(queuedDraft = null) {
     ? state.conversations.find((item) => item.id === queuedDraft.conversationId)
     : currentConversation() || createConversation();
   if (!conversation) return false;
+  if (isConversationStub(conversation)) { if (!queuedDraft) setStatus('对话仍在加载，请稍候再发送', 'error'); return false; }
   if (state.selectedWorkflow && !queuedDraft) return runWorkflowMessage();
   if (isConversationBusy(conversation.id)) {
     if (!queuedDraft) return enqueueCurrentMessage();
@@ -7210,6 +7696,7 @@ function selectGlobalConversationDefaults({ persist = true, firstFavorite = firs
 function isReusableEntryGlobalConversation(conversation) {
   return Boolean(
     conversation
+    && !isConversationStub(conversation)
     && conversation.messages.length === 0
     && conversation.title === '新对话'
     && conversation.titleCustomized !== true
@@ -8086,7 +8573,9 @@ function bindEvents() {
       for (const c of state.conversations) state.deletedConversationIds.add(c.id);
       state.conversations = [];
       if (state.userRole === 'admin') {
-        jsonRequest('/api/conversations', { method: 'DELETE' }).catch(() => {});
+        jsonRequest('/api/conversations', { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => {});
+        conversationStubIds.clear(); conversationStubCounts.clear();
+        void conversationCacheClear();
       }
       createGlobalConversation();
     }
@@ -8125,6 +8614,7 @@ function bindEvents() {
   elements.currentRoleCard.addEventListener('click', toggleHeaderRoleMenu);
   elements.headerRoleMenu.addEventListener('keydown', (event) => { if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return; const buttons = $$('button', elements.headerRoleMenu); if (!buttons.length) return; const currentIndex = buttons.indexOf(document.activeElement); let nextIndex = currentIndex; if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1 + buttons.length) % buttons.length; if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + buttons.length) % buttons.length; if (event.key === 'Home') nextIndex = 0; if (event.key === 'End') nextIndex = buttons.length - 1; event.preventDefault(); buttons[nextIndex].focus(); });
   elements.modelSearch.addEventListener('input', renderModelList); elements.modelMode.addEventListener('change', renderModelList);
+  bindFavoriteModelPicker();
   elements.modelDialog.addEventListener('close', () => { state.modelDialogTarget = 'chat'; elements.modelMode.disabled = false; });
   elements.openSettingsFromModel.addEventListener('click', () => { elements.modelDialog.close(); openSettings(); });
   for (const picker of [elements.quickChatPicker, elements.quickImagePicker]) picker.addEventListener('toggle', () => {
@@ -8133,6 +8623,11 @@ function bindEvents() {
     const other = mode === 'chat' ? elements.quickImagePicker : elements.quickChatPicker;
     other.open = false;
     activateQuickMode(mode);
+  });
+  document.addEventListener('click', (event) => {
+    for (const picker of [elements.quickChatPicker, elements.quickImagePicker]) {
+      if (picker && picker.open && !picker.contains(event.target)) picker.open = false;
+    }
   });
   elements.modeButton.addEventListener('click', () => {
     const mode = state.selected?.mode === 'chat' ? 'image' : 'chat';
@@ -8292,7 +8787,7 @@ function bindEvents() {
     } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); } finally { elements.saveWorkflows.disabled = false; }
   });
   elements.accountForm.addEventListener('submit', async (event) => { event.preventDefault(); setDialogStatus(elements.accountStatus, '正在验证并保存…'); try { const payload = await jsonRequest('/api/account', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: elements.currentUsername.value.trim(), currentPassword: elements.currentPassword.value, newUsername: elements.newUsername.value.trim(), newPassword: elements.newPassword.value }) }); if (payload.authenticated === false) { returnToLogin(); return; } state.user = payload.username; state.userUid = payload.uid; state.userRole = payload.role || state.userRole; state.credits = payload.credits; state.csrf = payload.csrfToken; updateAccountUi(); setDialogStatus(elements.accountStatus, '账户已更新，会话已安全轮换', 'success'); elements.currentPassword.value = ''; elements.newPassword.value = ''; } catch (error) { setDialogStatus(elements.accountStatus, error.message, 'error'); } });
-  elements.logout.addEventListener('click', async () => { try { await jsonRequest('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } finally { location.replace('/'); } });
+  elements.logout.addEventListener('click', async () => { try { await jsonRequest('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } finally { await conversationCacheClear(); location.replace('/'); } });
   elements.renameConversation.addEventListener('click', renameConversationFromContext);
   elements.regenerateConversationTitle.addEventListener('click', regenerateConversationTitleFromContext);
   elements.toggleFavoriteConversation.addEventListener('click', toggleFavoriteConversationFromContext);
@@ -8405,6 +8900,15 @@ async function initialize() {
     const session = await jsonRequest('/api/session');
     if (!session.authenticated) { location.replace('/'); return; }
     state.user = session.username; state.userUid = session.uid; state.userRole = session.role || 'user'; state.credits = session.credits; state.csrf = session.csrfToken; state.sessionDefaultModel = typeof session.defaultModel === 'string' ? session.defaultModel : null; state.enableWorkspaces = Boolean(session.enableWorkspaces); startSessionRevocationListener(); state.translationHistory = loadTranslationHistory(); state.translationModelId = loadTranslationModel(); state.lastSelectedModels = loadLastSelectedModels(); updateAccountUi();
+    // Start every independent bootstrap request at once instead of in series.
+    if (state.userRole === 'admin') {
+      pendingAdminConversationIndex = fetchAdminConversationIndex();
+      pendingAdminConversationIndex.catch(() => {});
+    }
+    const remotePreferencesRequest = state.userRole === 'guest' ? null : Promise.all([
+      jsonRequest('/api/preferences').catch(() => ({ favoriteGroups: [], selected: null })),
+      jsonRequest('/api/roles', { cache: 'no-cache' }).catch(() => ({ version: 1, folders: [] })),
+    ]);
     let modelsPayload;
     if (state.userRole === 'guest') {
       const guestConfig = loadGuestLocalConfig();
@@ -8427,10 +8931,7 @@ async function initialize() {
     const localGuestRoles = state.userRole === 'guest' ? (() => { try { return JSON.parse(localStorage.getItem('light-chat-guest-roles-v2') || '{"version":1,"folders":[]}'); } catch { return { version: 1, folders: [] }; } })() : null;
     const [preferencesPayload, rolesPayload] = state.userRole === 'guest'
       ? [{ ...(localGuestPreferences || {}), favoriteGroups: localGuestPreferences?.favoriteGroups || [], selected: localGuestPreferences?.selected || null }, localGuestRoles]
-      : await Promise.all([
-          jsonRequest('/api/preferences').catch(() => ({ favoriteGroups: [], selected: null })),
-          jsonRequest('/api/roles').catch(() => ({ version: 1, folders: [] })),
-        ]);
+      : await remotePreferencesRequest;
     setModels(modelsPayload.models);
     state.roleLibrary = rolesPayload?.version === 1 && Array.isArray(rolesPayload.folders) ? rolesPayload : { version: 1, folders: [] };
     const validRoleIds = new Set(allRoles().map((role) => role.id));
@@ -8465,6 +8966,7 @@ async function initialize() {
     renderFavoriteConversations();
     elements.connection.textContent = state.models.length ? `${state.models.length} 个模型可用 · 服务连接已就绪` : '模型服务未连接';
     updateSelectionUi(); renderConversation(); renderPendingAttachments(); autoResize();
+    prefetchRecentConversations();
   } catch (error) { elements.connection.textContent = '服务初始化失败'; setStatus(error.message, 'error'); }
 }
 

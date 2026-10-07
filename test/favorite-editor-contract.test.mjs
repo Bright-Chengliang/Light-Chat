@@ -47,3 +47,15 @@ test('unavailable favorites stay visible, are named on save, and block silent dr
   assert.match(appSource, /当前没有支持\$\{modeLabelText\(nextMode\)\}模式的可用模型/);
   assert.match(appSource, /state\.editingDirty = true;/);
 });
+
+test('favorite models are picked in a full-size browser instead of a squeezed native select', () => {
+  assert.match(appSource, /function openFavoriteModelPicker\(\{ title, description = '', mode = 'chat', multiple = false, existing = \[\], currentModelId = '', limit = Infinity, onConfirm \}\)/);
+  // Adding opens the browser in multi-select mode and keeps already-added models disabled.
+  assert.match(appSource, /multiple: true,\s+existing: group\.items\.map\(/);
+  assert.match(appSource, /limit: 20 - group\.items\.length/);
+  // Each row shows the full model ID as a button that opens the browser.
+  assert.match(appSource, /model\.className = 'favorite-model-button'/);
+  assert.doesNotMatch(appSource, /const model = document\.createElement\('select'\); model\.setAttribute\('aria-label', '模型'\)/);
+  // Replacing a model also adopts the mode chosen in the browser.
+  assert.match(appSource, /updateFavoriteModel\(item, pick\.modelId\);\s+item\.mode = pick\.mode;/);
+});
