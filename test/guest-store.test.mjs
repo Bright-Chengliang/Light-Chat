@@ -32,6 +32,9 @@ test('guest endpoints must be plain public http(s) URLs by default', async () =>
   await assert.rejects(normalizeGuestEndpoint('https://user:pass@api.example.com/v1', { resolveDns: false }), /内嵌凭据/);
   assert.equal(await normalizeGuestEndpoint('', { resolveDns: false }), '');
   assert.equal(await normalizeGuestEndpoint('https://api.example.com/v1/', { resolveDns: false }), 'https://api.example.com/v1');
+  assert.equal(await normalizeGuestEndpoint('203.0.113.10:3020', { resolveDns: false }), 'http://203.0.113.10:3020');
+  assert.equal(await normalizeGuestEndpoint('api.example.com:8080/v1/', { resolveDns: false }), 'http://api.example.com:8080/v1');
+  assert.equal(await normalizeGuestEndpoint('https://api.example.com/v1', { resolveDns: false }), 'https://api.example.com/v1');
   assert.equal(await normalizeGuestEndpoint('http://127.0.0.1:3002/v1', { allowPrivate: true, resolveDns: false }), 'http://127.0.0.1:3002/v1');
 });
 

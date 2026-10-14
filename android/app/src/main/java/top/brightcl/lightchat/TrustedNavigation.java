@@ -17,6 +17,9 @@ final class TrustedNavigation {
         if (rawUrl == null) return null;
         String candidate = rawUrl.trim();
         if (candidate.isEmpty()) return null;
+        if (!hasExplicitScheme(candidate)) {
+            candidate = "http://" + candidate;
+        }
         try {
             URI uri = new URI(candidate);
             String scheme = uri.getScheme();
@@ -42,6 +45,22 @@ final class TrustedNavigation {
         } catch (URISyntaxException error) {
             return null;
         }
+    }
+
+    private static boolean hasExplicitScheme(String value) {
+        int separator = value.indexOf("://");
+        if (separator <= 0) return false;
+        char first = value.charAt(0);
+        if (!((first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z'))) return false;
+        for (int i = 1; i < separator; i++) {
+            char ch = value.charAt(i);
+            boolean allowed = (ch >= 'a' && ch <= 'z')
+                    || (ch >= 'A' && ch <= 'Z')
+                    || (ch >= '0' && ch <= '9')
+                    || ch == '+' || ch == '-' || ch == '.';
+            if (!allowed) return false;
+        }
+        return true;
     }
 
     static boolean isTrusted(String rawUrl, String trustedOriginOrHost) {

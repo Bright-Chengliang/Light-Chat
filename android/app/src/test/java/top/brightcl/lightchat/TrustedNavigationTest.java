@@ -41,6 +41,11 @@ public final class TrustedNavigationTest {
         assertEquals("http://localhost:3000/chat/", TrustedNavigation.normalizeServiceUrl("http://localhost:3000/chat"));
         assertEquals("https://example.com:8443/", TrustedNavigation.normalizeServiceUrl("https://example.com:8443"));
 
+        assertEquals("http://203.0.113.10:3020/", TrustedNavigation.normalizeServiceUrl("203.0.113.10:3020"));
+        assertEquals("http://192.168.1.100:3000/", TrustedNavigation.normalizeServiceUrl("192.168.1.100:3000"));
+        assertEquals("http://localhost:3000/chat/", TrustedNavigation.normalizeServiceUrl("localhost:3000/chat"));
+        assertEquals("https://example.com/", TrustedNavigation.normalizeServiceUrl("HTTPS://example.com"));
+
         assertNull(TrustedNavigation.normalizeServiceUrl("ftp://example.com/"));
         assertNull(TrustedNavigation.normalizeServiceUrl("https://user@example.com/"));
         assertNull(TrustedNavigation.normalizeServiceUrl("https://example.com/?next=evil"));

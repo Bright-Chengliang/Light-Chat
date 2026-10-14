@@ -515,6 +515,16 @@ async function jsonRequest(url, options = {}) {
   return payload;
 }
 
+function completeEndpointScheme(raw) {
+  const value = String(raw ?? '').trim();
+  if (!value) return '';
+  return /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value) ? value : `http://${value}`;
+}
+
+function normalizeGuestEndpointInput(raw) {
+  return completeEndpointScheme(raw).replace(/\/+$/, '');
+}
+
 function loadGuestLocalConfig() {
   try {
     const value = JSON.parse(localStorage.getItem(GUEST_LOCAL_CONFIG_KEY) || '{}');
@@ -528,7 +538,7 @@ function loadGuestLocalConfig() {
 
 function saveGuestLocalConfig({ endpoint, apiKey, allowedModels }) {
   const value = {
-    endpoint: String(endpoint || '').trim().replace(/\/+$/, ''),
+    endpoint: normalizeGuestEndpointInput(endpoint),
     apiKey: String(apiKey || '').trim().slice(0, 512),
     allowedModels: [...new Set((Array.isArray(allowedModels) ? allowedModels : []).filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim()))].slice(0, 200),
   };
@@ -541,7 +551,7 @@ function saveGuestLocalConfig({ endpoint, apiKey, allowedModels }) {
 function guestDirectConfig(override = {}) {
   const local = loadGuestLocalConfig();
   return {
-    endpoint: String(override.endpoint ?? local.endpoint ?? '').trim().replace(/\/+$/, ''),
+    endpoint: normalizeGuestEndpointInput(override.endpoint ?? local.endpoint ?? ''),
     apiKey: String(override.apiKey ?? state.guestApiKey ?? local.apiKey ?? '').trim(),
     allowedModels: Array.isArray(override.allowedModels) ? override.allowedModels : (state.guestSettings.allowedModels || local.allowedModels),
   };
@@ -4993,9 +5003,26 @@ function clearGuestApiKey() {
   elements.guestApiKey.focus();
 }
 
+function applyGuestEndpointCompletion() {
+  if (!elements.guestEndpoint) return { value: '', changed: false };
+  const raw = elements.guestEndpoint.value;
+  const value = normalizeGuestEndpointInput(raw);
+  const changed = Boolean(value) && value !== raw.trim();
+  if (changed) {
+    elements.guestEndpoint.value = value;
+    try { elements.guestEndpoint.setSelectionRange(value.length, value.length); } catch { /* ignore */ }
+  }
+  return { value, changed };
+}
+
+function guestEndpointCompletionNotice(completion) {
+  return completion.changed ? `已自动补全端点为 ${completion.value}；` : '';
+}
+
 async function fetchGuestModels() {
   if (state.userRole !== 'guest') return;
-  const endpoint = elements.guestEndpoint.value.trim();
+  const completion = applyGuestEndpointCompletion();
+  const endpoint = completion.value;
   if (!endpoint) {
     elements.guestApiStatus.textContent = '请先填写 API 服务端点';
     elements.guestApiStatus.className = 'error';
@@ -5025,7 +5052,7 @@ async function fetchGuestModels() {
     updateSelectionUi();
     renderFavorites();
     renderGuestModelSelect();
-    elements.guestApiStatus.textContent = `已获取 ${state.guestCatalog.length} 个可用模型，可在下拉选择当前模型`;
+    elements.guestApiStatus.textContent = `${guestEndpointCompletionNotice(completion)}已获取 ${state.guestCatalog.length} 个可用模型，可在下拉选择当前模型`;
     elements.guestApiStatus.className = 'success';
   } catch (error) {
     elements.guestApiStatus.textContent = error.message || '获取模型失败';
@@ -5044,7 +5071,8 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
     elements.guestApiStatus.className = '';
   }
   try {
-    const endpoint = elements.guestEndpoint.value.trim();
+    const completion = applyGuestEndpointCompletion();
+    const endpoint = completion.value;
     const apiKey = pendingGuestKeyClear ? '' : (elements.guestApiKey.value.trim() || state.guestApiKey);
     if (!endpoint && !apiKey && !pendingGuestKeyClear) {
       const saved = saveGuestLocalConfig({ endpoint: '', apiKey: '', allowedModels: [] });
@@ -5087,7 +5115,7 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
     updateSelectionUi();
     renderFavorites();
     renderGuestModelSelect();
-    const message = `已保存并加载 ${state.models.length} 个模型`;
+    const message = `${guestEndpointCompletionNotice(completion)}已保存并加载 ${state.models.length} 个模型`;
     if (showStatus) {
       elements.guestApiStatus.textContent = message;
       elements.guestApiStatus.className = 'success';
@@ -8675,6 +8703,13 @@ function bindEvents() {
     } finally { elements.refreshModels.disabled = false; }
   });
   elements.fetchGuestModels.addEventListener('click', () => { void fetchGuestModels(); });
+  elements.guestEndpoint?.addEventListener('blur', () => {
+    const completion = applyGuestEndpointCompletion();
+    if (completion.changed) {
+      elements.guestApiStatus.textContent = `已自动补全端点为 ${completion.value}`;
+      elements.guestApiStatus.className = 'success';
+    }
+  });
   elements.guestClearApiKeyButton.addEventListener('click', clearGuestApiKey);
   elements.guestApiKey.addEventListener('input', () => { pendingGuestKeyClear = false; });
   elements.guestAvailableModels.addEventListener('change', () => {

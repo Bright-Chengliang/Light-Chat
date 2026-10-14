@@ -114,6 +114,9 @@ public final class MainActivity extends Activity {
         networkSettingsButton.setOnClickListener(view -> openNetworkSettings());
         changeServiceUrlButton.setOnClickListener(view -> showServiceConfig(null));
         findViewById(R.id.saveServiceUrlButton).setOnClickListener(view -> saveServiceUrl());
+        serviceUrlInput.setOnFocusChangeListener((view, hasFocus) -> {
+            if (!hasFocus) completeServiceUrlInput();
+        });
         if (cancelServiceConfigButton != null) {
             cancelServiceConfigButton.setOnClickListener(view -> cancelServiceConfig());
         }
@@ -337,7 +340,20 @@ public final class MainActivity extends Activity {
         webView.loadUrl(serviceUrl);
     }
 
+    private boolean completeServiceUrlInput() {
+        String raw = serviceUrlInput.getText().toString();
+        String trimmed = raw.trim();
+        if (trimmed.isEmpty()) return false;
+        String normalized = TrustedNavigation.normalizeServiceUrl(trimmed);
+        if (normalized == null || normalized.equals(raw)) return false;
+        serviceUrlInput.setText(normalized);
+        serviceUrlInput.setSelection(normalized.length());
+        Toast.makeText(this, getString(R.string.service_url_completed_prefix) + normalized, Toast.LENGTH_SHORT).show();
+        return true;
+    }
+
     private void saveServiceUrl() {
+        completeServiceUrlInput();
         applyAndSwitchServiceUrl(serviceUrlInput.getText().toString());
     }
 
