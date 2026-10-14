@@ -673,7 +673,7 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 .sidebar-backdrop { display: none; }
 
 /* Dialogs */
-.app-dialog { width: min(94vw, 650px); max-height: min(90dvh, 820px); padding: 0; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 20px; box-shadow: var(--shadow); }
+.app-dialog { width: min(94vw, 650px); max-height: min(90dvh, 820px); padding: 0; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
 .app-dialog::backdrop { background: rgba(37,35,31,.32); backdrop-filter: blur(3px); }
 .dialog-shell { max-height: min(90dvh, 820px); padding: 24px; display: flex; flex-direction: column; overflow: hidden; }
 .wide-dialog { width: 100%; }
@@ -746,8 +746,12 @@ body.message-navigation-active .message-actions-floating:not(.navigation-pinned)
 .conversation-title-model-setting select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(166,75,55,.1); outline: 0; }
 .settings-status { margin: 0 0 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; color: var(--text-soft); background: var(--surface-soft); border-radius: 10px; font-size: .65rem; }
 .settings-status button { margin-left: auto; color: var(--accent); background: transparent; font-size: .63rem; }
-.app-dialog.settings-dialog { width: min(94vw, 940px); max-width: min(94vw, 940px); max-height: min(94dvh, 1040px); }
-.settings-dialog .dialog-shell { max-height: min(94dvh, 1040px); overflow-y: auto; scrollbar-width: thin; }
+.app-dialog.settings-dialog { width: min(94vw, 940px); max-width: min(94vw, 940px); max-height: min(94dvh, 1040px); overflow: hidden; }
+.settings-dialog .dialog-shell { height: 100%; max-height: min(94dvh, 1040px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(43, 41, 36, .26) transparent; }
+.settings-dialog .dialog-shell::-webkit-scrollbar { width: 8px; }
+.settings-dialog .dialog-shell::-webkit-scrollbar-track { background: transparent; margin: 16px 0; margin-block: 16px; }
+.settings-dialog .dialog-shell::-webkit-scrollbar-thumb { background: rgba(43, 41, 36, .26); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+.settings-dialog .dialog-shell::-webkit-scrollbar-thumb:hover { background: rgba(43, 41, 36, .42); border: 2px solid transparent; background-clip: padding-box; }
 .settings-subheading { margin: 18px 0 8px; color: var(--text-soft); font-size: .66rem; font-weight: 760; }
 .settings-hint { margin: -2px 0 9px; color: var(--text-faint); font-size: .72rem; line-height: 1.5; }
 /* The settings dialog already scrolls as a whole; a nested shrinkable scroll
