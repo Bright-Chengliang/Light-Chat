@@ -21,6 +21,7 @@ light-chat*.log
 __pycache__/
 .DS_Store
 Thumbs.db
+.vscode/
 android/.gradle/
 android/.idea/
 android/local.properties
