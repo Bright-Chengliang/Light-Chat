@@ -246,6 +246,26 @@
         </div>
         <label class="guest-models-field"><span>当前模型</span><select id="guestAvailableModels" aria-label="当前模型"></select></label>
       </section>
+      <section class="guest-connection-settings custom-connection-settings" id="customConnectionSettings" hidden aria-label="自定义模型端点">
+        <div class="guest-connection-heading"><strong>自定义模型端点</strong><small>添加多个 OpenAI 兼容端点，导入的模型与内置模型同时可用；配置和 API 密钥仅保存在当前浏览器，请求由浏览器直接发送到端点（要求端点允许跨域）。</small></div>
+        <div class="custom-connection-list" id="customConnectionList"></div>
+        <div class="custom-connection-editor" id="customConnectionEditor" hidden>
+          <label class="guest-endpoint-field"><span>名称</span><input id="customConnectionNameInput" type="text" maxlength="24" autocomplete="off" placeholder="例如：本地中转 / Gemini-Web"></label>
+          <label class="guest-endpoint-field"><span>API 服务端点</span><input id="customConnectionEndpointInput" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1"></label>
+          <div class="guest-api-key-field"><span class="guest-field-label">API 密钥</span><div class="guest-field-input-row"><input id="customConnectionApiKeyInput" type="password" autocomplete="off" placeholder="可选，留空表示无鉴权"><button class="guest-clear-key-button" id="customConnectionClearKeyButton" type="button" hidden>清除密钥</button></div></div>
+          <div class="guest-connection-actions">
+            <button class="secondary-button" id="customConnectionFetchModelsButton" type="button">获取模型</button>
+            <button class="secondary-button" id="customConnectionSaveButton" type="button">保存端点</button>
+            <button class="secondary-button" id="customConnectionCancelButton" type="button">取消</button>
+            <span id="customConnectionStatus" role="status"></span>
+          </div>
+          <div class="guest-models-field" id="customConnectionModelsField" hidden>
+            <span class="guest-field-label" id="customConnectionModelsHint">勾选要导入的模型</span>
+            <div class="custom-connection-models-list" id="customConnectionModelsList"></div>
+          </div>
+        </div>
+        <div class="custom-connection-actions"><button class="secondary-button" id="customConnectionAddButton" type="button">＋ 添加端点</button></div>
+      </section>
       <section class="native-app-endpoint-settings" id="nativeAppEndpointSettings" hidden aria-label="客户端接入端点">
         <div class="guest-connection-heading"><strong>App 接入端点</strong><small id="nativeAppEndpointCurrentText">当前连接至：-</small></div>
         <div class="native-app-endpoint-actions">

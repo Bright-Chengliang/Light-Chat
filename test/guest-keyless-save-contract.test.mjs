@@ -11,7 +11,7 @@ test('guest direct connection can be saved without an API key', () => {
 });
 
 test('guest fetch omits the Authorization header when no API key is configured', () => {
-  assert.match(appSource, /if \(settings\.apiKey\) headers\.set\('Authorization', `Bearer \$\{settings\.apiKey\}`\)/);
+  assert.match(appSource, /if \(apiKey\) headers\.set\('Authorization', `Bearer \$\{apiKey\}`\)/);
 });
 
 test('guest save still requires an endpoint before touching the network', () => {

@@ -19,7 +19,7 @@ test('Gemini Flash uses the multimodal chat route only when references exist, wh
   assert.match(appSource, /return attachments\.length > 0 \|\| historicalReferenceImageIds\(earlierMessages\)\.length > 0/);
   assert.match(appSource, /const useImageChat = requestSelection\.mode === 'image' && requiresMultimodalImageChat\(requestModel, attachments, conversation\.messages\)/);
   assert.match(appSource, /const useImageChat = requiresMultimodalImageChat\(requestModel, userMessage\.attachments \|\| \[\], earlierMessages\)/);
-  assert.match(appSource, /const messages = chatSubmissionMessages\(submitted\)/);
+  assert.match(appSource, /messages: await chatSubmissionMessages\(submittedMessages, \{ modelId, roleId: conversation\.roleId \}\)/);
   assert.match(appSource, /attachmentIds: message\.role === 'user' \? \(message\.attachments \|\| \[\]\)\.map\(\(item\) => item\.id\) : \[\]/);
   assert.match(appSource, /imageSize: useImageChat \? \(messageDraft\.imageSize \|\| requestModel\?\.imageOptions\?\.defaultSize\) : undefined/);
   assert.match(clientSource, /extra_body: geminiFlashImageExtraBody\(model, imageSize\)/);

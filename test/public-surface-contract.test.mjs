@@ -30,11 +30,11 @@ test('the learning workspace is an administrator-only same-origin entry point', 
 test('guest mode keeps credentials local and sends model requests directly to the configured endpoint', () => {
   assert.match(publicSource, /GUEST_LOCAL_CONFIG_KEY/);
   assert.match(publicSource, /localStorage\.setItem\(GUEST_LOCAL_CONFIG_KEY/);
-  assert.match(publicSource, /headers\.set\('Authorization', `Bearer \$\{settings\.apiKey\}`\)/);
+  assert.match(publicSource, /if \(apiKey\) headers\.set\('Authorization', `Bearer \$\{apiKey\}`\)/);
   assert.match(publicSource, /function guestDirectFetch\(path, options = \{\}, config = \{\}\)/);
   assert.match(publicSource, /if \(state\.userRole === 'guest'\) \{\s*const directPayload/);
   assert.match(publicSource, /guestDirectFetch\('\/models'/);
-  assert.match(publicSource, /guestDirectFetch\('\/responses'/);
+  assert.match(publicSource, /fetchDirect\('\/responses'/);
   assert.match(publicSource, /游客请求由当前浏览器直接发送/);
 });
 
@@ -580,7 +580,7 @@ test('quick translation provides a protected two-panel workspace with local hist
   assert.match(publicSource, /maxTokens: 64000/);
   assert.match(publicSource, /stream: true/);
   assert.match(publicSource, /function consumeTranslationStream\(response\)/);
-  assert.match(publicSource, /当前模型：\$\{modelId\}/);
+  assert.match(publicSource, /当前模型：\$\{modelDisplayName\(modelId\) \|\| modelId\}/);
   assert.match(publicSource, /light-chat-translation-model/);
   assert.match(publicSource, /function setTranslationModel\(modelId/);
   assert.match(publicSource, /state\.modelDialogTarget === 'translator'/);

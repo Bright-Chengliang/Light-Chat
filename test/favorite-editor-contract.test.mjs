@@ -15,14 +15,14 @@ test('favorite editor reveals and focuses the newly appended Android row', () =>
   assert.match(appSource, /function focusFavoriteEditorRow\(/);
   assert.match(appSource, /row\.scrollIntoView\(\{ block, inline: 'nearest', behavior: 'auto' \}\)/);
   assert.match(appSource, /renderGroupsEditor\(\{ focusFavorite: \{ groupId: group\.id, itemIndex \}, focusBlock: 'end' \}\)/);
-  assert.match(appSource, /label: candidate\.modelId/);
+  assert.match(appSource, /label: modelDisplayName\(candidate\.modelId\) \|\| candidate\.modelId/);
   assert.match(appSource, /已添加 \$\{candidate\.modelId\}，保存设置后生效/);
 });
 
 test('default favorite display name follows model id without overwriting custom labels', () => {
   assert.match(appSource, /function updateFavoriteModel\(item, modelId\)/);
   assert.match(appSource, /const usesDefaultLabel = !item\.label \|\| item\.label === previousModelId/);
-  assert.match(appSource, /if \(usesDefaultLabel\) item\.label = modelId/);
+  assert.match(appSource, /if \(usesDefaultLabel\) item\.label = modelDisplayName\(modelId\) \|\| modelId/);
   assert.match(appSource, /label\.placeholder = item\.modelId \|\| item\.model \|\| '显示名称（默认模型 ID）'/);
 });
 
@@ -37,7 +37,7 @@ test('model catalog is refreshed before favorites are offered or saved', () => {
 });
 
 test('unavailable favorites stay visible, are named on save, and block silent drops', () => {
-  assert.match(appSource, /（不可用）/);
+  assert.match(appSource, /parseCustomModelId\(currentModelId\) \? '端点未配置' : '不可用'/);
   assert.match(appSource, /favorite-row-stale/);
   assert.match(appSource, /function highlightFavoriteRows\(details = \{\}\)/);
   assert.match(appSource, /function collectDroppedFavorites\(requestedGroups, sanitizedGroups\)/);
