@@ -12,8 +12,10 @@ const BOOTSTRAP_USERNAME = process.env.CHAT_BOOTSTRAP_USERNAME;
 const BOOTSTRAP_PASSWORD = process.env.CHAT_BOOTSTRAP_PASSWORD;
 const SESSION_SECRET = process.env.CHAT_SESSION_SECRET;
 const TRUST_PROXY = process.env.CHAT_TRUST_PROXY === 'true';
-const ALLOWED_HOSTS = (process.env.CHAT_ALLOWED_HOSTS || '')
-  .split(',')
+const localHostsFile = resolve(ROOT_DIR, '.local', 'allowed-hosts');
+const hasLocalHosts = existsSync(localHostsFile);
+const ALLOWED_HOSTS = (process.env.CHAT_ALLOWED_HOSTS || (hasLocalHosts ? readFileSync(localHostsFile, 'utf8') : ''))
+  .split(/[\s,]+/)
   .map((value) => value.trim())
   .filter(Boolean);
 const DATA_DIR = process.env.CHAT_DATA_DIR ? resolve(process.env.CHAT_DATA_DIR) : undefined;
