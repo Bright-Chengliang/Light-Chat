@@ -5089,7 +5089,7 @@ async function saveGuestApiSettings({ showStatus = true } = {}) {
       setDialogStatus(elements.settingsStatus, '游客 API 密钥已从本机浏览器清除', 'success');
       return saved;
     }
-    if (!apiKey) throw new Error('请先填写 API 密钥');
+    // 允许留空 API 密钥：直连端点无需鉴权、或密钥由本机代理注入时都属于合法配置
     const catalog = await loadGuestDirectModels({ endpoint, apiKey, allowedModels: [] });
     const saved = saveGuestLocalConfig({ endpoint, apiKey, allowedModels: catalog.map((model) => model.id) });
     state.guestCatalog = catalog;
